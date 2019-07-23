@@ -16,8 +16,8 @@ namespace whfc {
 			inline bool isSourceReachable(const Node u) const { return SR[u]; }
 			inline bool isTarget(const Node u) const { return T[u]; }
 			inline bool isTargetReachable(const Node u) const { return TR[u]; }
-			inline void reach(const Node u, const NodeWeight w) { SR.set(u); Base::reach(u, w); }
-			inline void settle(const Node u, const NodeWeight w) { S.set(u); Base::settle(u, w); }
+			inline void reach(const Node u) { SR.set(u); Base::reach(u); }
+			inline void settle(const Node u) { S.set(u); Base::settle(u); }
 
 
 			void flipViewDirection() {

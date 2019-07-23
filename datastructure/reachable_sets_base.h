@@ -1,16 +1,17 @@
 #pragma once
 
 #include "../definitions.h"
+#include "flow_hypergraph.h"
 
 namespace whfc {
 	class ReachableNodesBase {
 	public:
-		inline void reach(const Node u, const NodeWeight w) {
-			sourceReachableWeight+= w; sourceReachableSize++;
+		inline void reach(const Node u) {
+			sourceReachableWeight+= hg.nodeWeight(u); sourceReachableSize++;
 		}
 
-		inline void settle(const Node u, const NodeWeight w) {
-			sourceWeight += w; sourceSize++;
+		inline void settle(const Node u) {
+			sourceWeight += hg.nodeWeight(u); sourceSize++;
 		}
 
 		void resetSourceReachableToSource() {
@@ -25,6 +26,7 @@ namespace whfc {
 			std::swap(sourceSize, targetSize);
 		}
 	protected:
+		const FlowHypergraph& hg;
 		NodeWeight sourceReachableWeight = NodeWeight(0), sourceWeight = NodeWeight(0), targetReachableWeight = NodeWeight(0), targetWeight = NodeWeight(0);
 		NodeIndex sourceReachableSize = NodeIndex(0), sourceSize = NodeIndex(0), targetReachableSize = NodeIndex(0), targetSize = NodeIndex(0);
 	};
