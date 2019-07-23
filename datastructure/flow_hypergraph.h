@@ -128,6 +128,14 @@ namespace whfc {
 		PinRange pinsInRange(const PinIndexRange pir) { return PinRange(beginPins() + pir.begin(), beginPins() + pir.end()); }
 		PinRange pinsSendingFlowInto(const Hyperedge e) { return pinsInRange(pins_sending_flow[e]); }
 		PinRange pinsReceivingFlowFrom(const Hyperedge e) { return pinsInRange(pins_receiving_flow[e]); }
+		PinRange pinsNotSendingFlowInto(const Hyperedge e) {
+			if (forwardView()) {
+				return pinsInRange(PinIndexRange(pins_sending_flow[e].end(), endIndexPins(e)));
+			}
+			else {
+				return pinsInRange(PinIndexRange(beginIndexPins(e), pins_sending_flow[e].begin()));
+			}
+		}
 
 		inline bool forwardView() const { return sends_multiplier == 1; }
 		void flipViewDirection() { std::swap(pins_sending_flow, pins_receiving_flow); std::swap(sends_multiplier, receives_multiplier); }
@@ -143,7 +151,8 @@ namespace whfc {
 		//flow sent from u = getPin(inc_u.pin_iter).pin into e = inc_u.e
 		inline Flow flowSent(const InHe& inc_u) const { return flowSent(inc_u.flow); }
 		inline Flow absoluteFlowSent(const InHe& inc_u) const { return std::max(0, flowSent(inc_u)); }
-		//inline Flow flowSent(const Pin& pin) const { return flowSent(getInHe(pin)); }
+		inline Flow flowSent(const Pin& pin) const { return flowSent(getInHe(pin)); }
+		inline Flow absoluteFlowSent(const Pin& pin) const { return std::max(0, flowSent(pin)); }
 
 		inline Flow flowReceived(const Flow f) const { return f * receives_multiplier; }
 		//flow that u = getPin(inc_u.pin_iter).pin receives from e = inc_u.e
@@ -165,8 +174,8 @@ namespace whfc {
 			AssertMsg(_flow > 0, "Routing <= 0 flow.");
 			AssertMsg(_flow <= residualCapacity(inc_u, inc_v), "Routing more flow than residual capacity");
 			AssertMsg(flow(e) <= capacity(e), "Routing more flow than capacity");
-			AssertMsg(std::abs(inc_u.flow) <= capacity(e), "Pin capacity violated (u)");
-			AssertMsg(std::abs(inc_v.flow) <= capacity(e), "Pin capacity violated (v)");
+			AssertMsg(std::abs(inc_u.flow) <= capacity(e), "Pin capacity already violated (u)");
+			AssertMsg(std::abs(inc_v.flow) <= capacity(e), "Pin capacity already violated (v)");
 
 			hyperedges[e].flow += (_flow - absoluteFlowReceived(inc_u) - absoluteFlowSent(inc_v));
 			const Flow prevFlowU = inc_u.flow;
