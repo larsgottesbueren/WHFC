@@ -61,8 +61,8 @@ namespace whfc {
 		void settleNode(const Node u) {
 			assert(canBeSettled(u));
 			if (!n.isSourceReachable(u))
-				n.reach(u, flow_hg.nodeWeight(u));
-			n.settle(u, flow_hg.nodeWeight(u));
+				n.reach(u);
+			n.settle(u);
 			for (const auto& he_inc : flow_hg.hyperedgesOf(u)) {
 				const Hyperedge e = he_inc.e;
 				if (!hasSourcePin(e)) {
