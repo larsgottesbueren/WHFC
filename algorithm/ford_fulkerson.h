@@ -29,8 +29,40 @@ namespace whfc {
 		std::vector<InHeIndex> parent;
 
 
+		template<bool capacity_scaling>
 		Flow exhaustFlow(CutterState<Type>& cs) {
-			return -1;
+			Flow flow = 0;
+
+			if constexpr (always_set_parent) {
+				if (cs.augmentingPathAvailable) {
+					for (Node s : cs.sourcePiercingNodes) {
+						if (cs.n.isTargetReachable(s)) {
+							cs.flipViewDirection();
+							flow += augmentFromTarget(cs.n, parent[s]);
+							cs.flipViewDirection();
+							break;	//no VD label propagation --> only one path
+						}
+					}
+				}
+			}
+
+			Flow diff = -1;
+			if constexpr (capacity_scaling) {
+				Flow scaling_capacity = 1 << 24; //TODO choose sensibly
+				std::cout << "bla" << std::endl;
+				while (scaling_capacity > 4) { //TODO choose sensibly
+					while (diff != 0) {
+						diff = growWithScaling(cs, scaling_capacity);
+					}
+					scaling_capacity /= 2;
+					diff = -1;
+				}
+			}
+			while (diff != 0) {
+				diff = growWithoutScaling<true>(cs);
+				flow += diff;
+			}
+			return flow;
 		}
 
 		Flow augmentFromTarget(ReachableNodes& n, const InHeIndex inc_target_index) {
@@ -102,27 +134,6 @@ namespace whfc {
 			growWithoutScaling<false>(cs);
 		}
 
-		Flow exhaustFlowWithoutScaling(CutterState<Type>& cs) {
-			Flow flow = 0;
-
-			if (always_set_parent) {
-				for (Node s : cs.sourcePiercingNodes) {
-					if (cs.n.isTargetReachable(s)) {
-						cs.flipViewDirection();
-						flow += augmentFromTarget(cs.n, parent[s]);
-						cs.flipViewDirection();
-						break;	//no VD label propagation --> only one path
-					}
-				}
-			}
-
-			Flow diff = -1;
-			while (diff != 0) {
-				diff = growWithoutScaling<true>(cs);
-				flow += diff;
-			}
-			return flow;
-		}
 
 		Flow growWithScaling(CutterState<Type>& cs, Flow ScalingCapacity) {
 			AssertMsg(ScalingCapacity > 1, "Don't call this method with ScalingCapacity <= 1. Use growWithoutScaling instead.");
