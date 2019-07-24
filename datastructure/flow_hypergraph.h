@@ -34,7 +34,7 @@ namespace whfc {
 		using PinIndexRange = mutable_index_range<PinIndex>;
 		using InHeRange = mutable_range<std::vector<InHe>>;
 		using InHeIterator = InHeRange::iterator;
-		using HyperedgeIndexRange = mutable_index_range<HyperedgeIndex>;
+		using InHeIndexRange = mutable_index_range<InHeIndex>;
 
 
 
@@ -118,7 +118,7 @@ namespace whfc {
 		inline InHeIterator beginHyperedges(const Node u) { return incident_hyperedges.begin() + nodes[u].first_out; }
 		inline InHeIterator endHyperedges(const Node u) { return incident_hyperedges.begin() + nodes[u+1].first_out; }
 		InHeRange hyperedgesOf(const Node u) { return InHeRange(beginHyperedges(u), endHyperedges(u)); }
-		InHeRange hyperedgesInRange(const HyperedgeIndexRange hir) { return InHeRange(beginHyperedges() + hir.begin(), beginHyperedges() + hir.end()); }
+		InHeRange hyperedgesInRange(const InHeIndexRange hir) { return InHeRange(beginHyperedges() + hir.begin(), beginHyperedges() + hir.end()); }
 
 		inline PinIterator beginPins() { return pins.begin(); }
 		inline PinIterator endPins() { return pins.end(); }
