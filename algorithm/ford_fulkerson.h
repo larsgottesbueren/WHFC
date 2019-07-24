@@ -190,6 +190,7 @@ namespace whfc {
 
 	class TrueDepthFirstFordFulkerson {
 	public:
+		using Type = TrueDepthFirstFordFulkerson;
 		using ReachableNodes = BitsetReachableNodes;
 		using ReachableHyperedges = BitsetReachableHyperedges;
 		//using ReachableNodes = TimestampReachableNodes;
@@ -200,18 +201,21 @@ namespace whfc {
 
 		FlowHypergraph& hg;
 
-		struct NodeStackElement {
-			Node u;
-			InHeIndex it;
+		Flow growWithoutScaling(CutterState<Type>& cs) {
+			for (Node s : cs.sourcePiercingNodes) {
+				const InHeIndex e_it = hg.beginIndexHyperedges(s);
+				const PinIndex pin_it = hg.getInHe(e_it).pin_iter;
+				stack.push( { e_it, pin_it } );
+			}
+			return 0;
+		}
+
+		struct StackElement {
+			InHeIndex e_it;
+			PinIndex pin_it;
 		};
 
-		struct HyperedgeStackElement {
-			Hyperedge e;
-			PinIndex it;
-		};
-
-		FixedCapacityStack<NodeStackElement> nodeStack;
-		FixedCapacityStack<HyperedgeStackElement> hyperedgeStack;
+		FixedCapacityStack<StackElement> stack;
 
 
 	};
