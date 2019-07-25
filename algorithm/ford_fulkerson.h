@@ -53,6 +53,7 @@ namespace whfc {
 				while (scalingCapacity > 4) { //TODO choose sensibly
 					while (diff != 0) {
 						diff = growWithScaling(cs, scalingCapacity);
+						flow += diff;
 					}
 					scalingCapacity /= 2;
 					diff = -1;
@@ -130,6 +131,10 @@ namespace whfc {
 			return 0;
 		}
 
+
+		/*
+		 * Note: capacity scaling is implemented separately from search without capacity scaling, as capacity scaling requires more memory accesses than plain search
+		 */
 		Flow growWithScaling(CutterState<Type>& cs, Flow ScalingCapacity) {
 			AssertMsg(ScalingCapacity > 1, "Don't call this method with ScalingCapacity <= 1. Use growWithoutScaling instead.");
 			cs.clearForSearch();
@@ -166,7 +171,7 @@ namespace whfc {
 							if (residualCapacity >= ScalingCapacity) {
 								const Node v = pv.pin;
 								if (n.isTarget(v))
-									return augmentFromTarget(n, pv.he_inc_iter);	//TODO try doing single pass by just augmenting by ScalingCapacity
+									return augmentFromTarget(n, pv.he_inc_iter);	//TODO try doing single pass by just augmenting by ScalingCapacity if augmentFromTarget shows up during profiling
 								if (!n.isSourceReachable(v)) {		//don't do VD label propagation
 									n.reach(v);
 									nodes_to_scan.push(v);

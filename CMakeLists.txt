@@ -8,4 +8,8 @@ set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -mtune=native -march
 set(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -lm")
 #set(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address -fno-omit-frame-pointer")
 
-add_executable(WHFC logger.h definitions.h random.cpp main.cpp)
+add_executable(WHFC
+        logger.h
+        definitions.h
+        #random.cpp
+        main.cpp)

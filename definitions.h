@@ -77,10 +77,17 @@ namespace whfc {
 
 }
 
+/*
+
 namespace Random {
 	uint32_t getSeed();
 	void setSeed(uint32_t seed);
 	std::mt19937& getRNG();
+
+	bool coinToss() {
+		std::uniform_int_distribution<int> dist(0,1);
+		return static_cast<bool>(dist(getRNG()));
+	}
 
 	template<typename T> T randomNumber(T a = 0, T b=std::numeric_limits<T>::max())
 	{
@@ -106,3 +113,5 @@ namespace Random {
 	}
 
 }
+
+*/

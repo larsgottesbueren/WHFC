@@ -25,10 +25,13 @@ namespace whfc {
 			std::swap(sourceReachableSize, targetReachableSize);
 			std::swap(sourceSize, targetSize);
 		}
-	protected:
-		const FlowHypergraph& hg;
+
 		NodeWeight sourceReachableWeight = NodeWeight(0), sourceWeight = NodeWeight(0), targetReachableWeight = NodeWeight(0), targetWeight = NodeWeight(0);
 		NodeIndex sourceReachableSize = NodeIndex(0), sourceSize = NodeIndex(0), targetReachableSize = NodeIndex(0), targetSize = NodeIndex(0);
+
+	protected:
+		const FlowHypergraph& hg;
+
 	};
 
 

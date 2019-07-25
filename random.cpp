@@ -1,5 +1,7 @@
 #include "definitions.h"
 
+/*
+
 namespace Random {
 	static uint32_t seed;
 	static std::mt19937 RNG;
@@ -11,4 +13,7 @@ namespace Random {
 	uint32_t getSeed() { return seed; }
 	std::mt19937& getRNG() { return RNG; }
 
+	//TODO get rid of this by making static class
 }
+
+*/
