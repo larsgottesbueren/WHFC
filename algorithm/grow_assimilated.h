@@ -26,7 +26,7 @@ public:
 		ReachableNodes& n = cs.n;
 		ReachableHyperedges& h = cs.h;
 		nodes_to_scan.clear();
-		FlowHypergraph& hg = cs.flow_hg;
+		FlowHypergraph& hg = cs.hg;
 
 		for (Node s : cs.sourcePiercingNodes) {
 			nodes_to_scan.push(s);
@@ -44,14 +44,18 @@ public:
 					const bool scanAllPins = !hg.isSaturated(e) || hg.flowReceived(he_inc) > 0;
 					if (scanAllPins)
 						h.settleAllPins(e);
-					else if (h.areFlowSendingPinsSources(e))
-						continue;
-					else
+					else {
+						if (cs.shouldBeAddedToCut(e))
+							cs.addToCut(e);
+						if (h.areFlowSendingPinsSources(e))
+							continue;
 						h.settleFlowSendingPins(e);
+					}
 
 					for (const Pin& pv : scanAllPins ? hg.pinsOf(e) : hg.pinsSendingFlowInto(e)) {
 						const Node v = pv.pin;
-						AssertMsg(!n.isTargetReachable(v), "Scanned node " + std::to_string(v) + " is reachable from target-side");
+						AssertMsg(!n.isTargetReachable(v), "Settled node " + std::to_string(v) + " is reachable from target-side");
+						AssertMsg(n.isSourceReachable(v), "Settled node " + std::to_string(v) + " is not reachable from source-side");
 						if (!n.isSource(v)) {
 							cs.settleNode(v);
 							nodes_to_scan.push(v);
