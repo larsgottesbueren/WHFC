@@ -47,6 +47,7 @@ namespace whfc {
 	static constexpr PartitionBlock invalidBlock = invalidNode;
 
 	using HopDistance = uint32_t;
+	static constexpr HopDistance maxHopDistance = std::numeric_limits<uint32_t>::max();
 
 	struct STPair {
 		std::vector<Node> s,t;
@@ -76,42 +77,3 @@ namespace whfc {
 	};
 
 }
-
-/*
-
-namespace Random {
-	uint32_t getSeed();
-	void setSeed(uint32_t seed);
-	std::mt19937& getRNG();
-
-	bool coinToss() {
-		std::uniform_int_distribution<int> dist(0,1);
-		return static_cast<bool>(dist(getRNG()));
-	}
-
-	template<typename T> T randomNumber(T a = 0, T b=std::numeric_limits<T>::max())
-	{
-		std::uniform_int_distribution<T> dist(a,b);
-		return dist(getRNG());
-	}
-
-	template<typename T> std::vector<T> randomSequence(std::size_t n, T a = 0, T b=std::numeric_limits<T>::max())
-	{
-		std::vector<T> res;
-		std::uniform_int_distribution<T> dist(a,b);
-		for (std::size_t i = 0; i < n; i++) res.push_back(dist(getRNG()));
-		return res;
-	}
-
-	template<typename T> const T& sampleOne(const std::vector<T>& seq) {
-		return seq[ randomNumber<std::size_t>(0, seq.size()-1) ]; }
-
-	template<typename T> std::pair<T,T> sampleTwoDisjoint(std::vector<T>& seq) {
-		std::vector<T> sample_out(2);
-		std::sample(seq.begin(), seq.end(), sample_out.begin(), 2, std::mt19937{randomNumber<std::size_t>()});
-		return std::make_pair(sample_out[0], sample_out[1]);
-	}
-
-}
-
-*/

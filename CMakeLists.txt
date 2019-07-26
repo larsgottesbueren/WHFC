@@ -11,5 +11,4 @@ set(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -lm")
 add_executable(WHFC
         logger.h
         definitions.h
-        #random.cpp
         main.cpp)
