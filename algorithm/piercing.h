@@ -54,7 +54,6 @@ namespace whfc {
 			return avoidAugmentingPaths ? does_it : false;
 		}
 
-
 		FlowHypergraph& hg;
 	};
 }

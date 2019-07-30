@@ -13,9 +13,9 @@ namespace whfc {
 	public:
 		using Pin = FlowHypergraph::Pin;
 
-		int viewDirection = 0;
+		int viewDirection = 0;	//TODO wrap viewDirection in class?
 		FlowHypergraph& hg;
-		Flow cutSize = 0;
+		Flow flowValue = 0;
 
 		using ReachableNodes = BitsetReachableNodes;
 		using ReachableHyperedges = BitsetReachableHyperedges;
@@ -24,7 +24,8 @@ namespace whfc {
 		ReachableNodes n;
 		ReachableHyperedges h;
 		std::vector<Node> sourcePiercingNodes, targetPiercingNodes;
-		bool augmentingPathAvailable = true;
+		bool augmentingPathAvailableFromPiercing = true;
+		bool hasCut = false;
 		HyperedgeCut cut;
 		NodeBorder borderNodes;
 		IsolatedNodes isolatedNodes;
@@ -93,7 +94,7 @@ namespace whfc {
 		}
 
 		void clearForSearch() {
-			if (augmentingPathAvailable) {
+			if (augmentingPathAvailableFromPiercing) {
 				n.resetSourceReachableToSource();
 				h.resetSourceReachableToSource();
 			}

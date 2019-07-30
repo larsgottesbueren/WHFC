@@ -43,9 +43,6 @@ namespace whfc {
 	using HyperedgeIncidenceIndex = TaggedInteger<8, uint32_t, std::numeric_limits<uint32_t>::max(), 0>;
 	using InHeIndex = HyperedgeIncidenceIndex;
 
-	using PartitionBlock = uint32_t;
-	static constexpr PartitionBlock invalidBlock = invalidNode;
-
 	using HopDistance = uint32_t;
 	static constexpr HopDistance maxHopDistance = std::numeric_limits<uint32_t>::max();
 
