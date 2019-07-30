@@ -7,7 +7,7 @@
 namespace whfc {
 
 	//template<class ScanList>
-	template<bool alwaysSetParent = true>
+	template<bool capacityScaling, bool alwaysSetParent = true>
 	class FordFulkerson /* : public FlowAlgorithm */ {
 	public:
 		using Type = FordFulkerson;
@@ -23,36 +23,40 @@ namespace whfc {
 		using FlowHypergraph::InHe;
 
 		FlowHypergraph& hg;
-
 		ScanList nodes_to_scan;
-
 		std::vector<InHeIndex> parent;
 
+		static constexpr Flow InitialScalingCapacity = 1 << 24;//TODO choose sensibly
+		static constexpr Flow ScalingCutOff = 4; //TODO choose sensibly
+		Flow scalingCapacity = InitialScalingCapacity;
 
-		template<bool capacityScaling>
-		Flow exhaustFlow(CutterState<Type>& cs) {
+
+		//TODO find appropriate name: freeGains, freeFlow, recycleDatastructure
+		Flow takeFreebie(CutterState<Type>& cs) {
 			Flow flow = 0;
-
 			if constexpr (alwaysSetParent) {
-				if (cs.augmentingPathAvailable) {
+				if (cs.augmentingPathAvailableFromPiercing) {
 					for (Node s : cs.sourcePiercingNodes) {
 						if (cs.n.isTargetReachable(s)) {
 							cs.flipViewDirection();
-							flow += augmentFromTarget(cs.n, parent[s]);
+							flow = augmentFromTarget(cs.n, parent[s]);
 							cs.flipViewDirection();
 							break;	//no VD label propagation --> only one path
 						}
 					}
 				}
 			}
+			return flow;
+		}
 
+		Flow exhaustFlow(CutterState<Type>& cs) {
+			Flow flow = 0;
+			flow += takeFreebie(cs);
 			Flow diff = -1;
 			if constexpr (capacityScaling) {
-				Flow scalingCapacity = 1 << 24; //TODO choose sensibly
-				std::cout << "bla" << std::endl;
-				while (scalingCapacity > 4) { //TODO choose sensibly
+				while (scalingCapacity > ScalingCutOff) {
 					while (diff != 0) {
-						diff = growWithScaling(cs, scalingCapacity);
+						diff = growWithScaling(cs);
 						flow += diff;
 					}
 					scalingCapacity /= 2;
@@ -63,7 +67,21 @@ namespace whfc {
 				diff = growWithoutScaling<true>(cs);
 				flow += diff;
 			}
+			scalingCapacity = InitialScalingCapacity;
 			return flow;
+		}
+
+		Flow growFlowOrSourceReachable(CutterState<Type>& cs) {
+			if constexpr (capacityScaling) {
+				while (scalingCapacity > ScalingCutOff) {
+					Flow flow = growWithScaling(cs);
+					if (flow != 0)
+						return flow;
+					else
+						scalingCapacity /= 2;
+				}
+			}
+			return growWithoutScaling<true>(cs);
 		}
 
 		Flow augmentFromTarget(ReachableNodes& n, const InHeIndex inc_target_index) {
@@ -133,10 +151,11 @@ namespace whfc {
 
 
 		/*
-		 * Note: capacity scaling is implemented separately from search without capacity scaling, as capacity scaling requires more memory accesses than plain search
+		 * Note: capacity scaling is implemented separately from search without capacity scaling, as capacity scaling pruning requires more memory accesses than plain search
+		 *
 		 */
-		Flow growWithScaling(CutterState<Type>& cs, Flow ScalingCapacity) {
-			AssertMsg(ScalingCapacity > 1, "Don't call this method with ScalingCapacity <= 1. Use growWithoutScaling instead.");
+		Flow growWithScaling(CutterState<Type>& cs) {
+			AssertMsg(scalingCapacity > 1, "Don't call this method with ScalingCapacity <= 1. Use growWithoutScaling instead.");
 			cs.clearForSearch();
 			ReachableNodes& n = cs.n;
 			ReachableHyperedges& h = cs.h;
@@ -152,7 +171,7 @@ namespace whfc {
 					if (!h.areFlowSendingPinsSourceReachable(e)) {
 						h.reachFlowSendingPins(e);//TODO check whether it is correct to always mark these
 						for (const Pin& pv : hg.pinsSendingFlowInto(e)) {
-							if (residualCapacity + hg.absoluteFlowSent(pv) >= ScalingCapacity) {//residual = flow received by u + residual(e) + flow sent by v
+							if (residualCapacity + hg.absoluteFlowSent(pv) >= scalingCapacity) {//residual = flow received by u + residual(e) + flow sent by v
 								const Node v = pv.pin;
 								if (n.isTarget(v))
 									return augmentFromTarget(n, pv.he_inc_iter);
@@ -165,18 +184,16 @@ namespace whfc {
 						}
 					}
 
-					if (!h.areAllPinsSourceReachable(e) && (!hg.isSaturated(e) || hg.flowReceived(inc_u) > 0)) {
+					if (residualCapacity >= scalingCapacity && !h.areAllPinsSourceReachable(e) && (!hg.isSaturated(e) || hg.flowReceived(inc_u) > 0)) {
 						h.reachAllPins(e);
 						for (const Pin& pv : hg.pinsNotSendingFlowInto(e)) {
-							if (residualCapacity >= ScalingCapacity) {
-								const Node v = pv.pin;
-								if (n.isTarget(v))
-									return augmentFromTarget(n, pv.he_inc_iter);	//TODO try doing single pass by just augmenting by ScalingCapacity if augmentFromTarget shows up during profiling
-								if (!n.isSourceReachable(v)) {		//don't do VD label propagation
-									n.reach(v);
-									nodes_to_scan.push(v);
-									parent[v] = pv.he_inc_iter;
-								}
+							const Node v = pv.pin;
+							if (n.isTarget(v))
+								return augmentFromTarget(n, pv.he_inc_iter);	//TODO try doing single pass by just augmenting by ScalingCapacity if augmentFromTarget shows up during profiling
+							if (!n.isSourceReachable(v)) {		//don't do VD label propagation
+								n.reach(v);
+								nodes_to_scan.push(v);
+								parent[v] = pv.he_inc_iter;
 							}
 						}
 					}
