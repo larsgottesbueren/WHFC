@@ -29,6 +29,38 @@ namespace whfc {
 		HyperedgeCut cut;
 		NodeBorder borderNodes;
 		IsolatedNodes isolatedNodes;
+		NodeWeight maxBlockWeight;
+
+
+		bool isBalanced() const {
+			const NodeWeight 	sw = n.sourceReachableWeight,
+								tw = n.targetReachableWeight,
+								total = hg.totalNodeWeight(),
+								iso = isolatedNodes.weight;
+
+			//Beware: the isolated nodes are now weighted. Therefore the subset sum problem is no longer simple :(
+			//but at least the instances are tiny
+			return (sw <= maxBlockWeight && total - sw - iso <= maxBlockWeight) || (tw <= maxBlockWeight && total - tw - iso <= maxBlockWeight);
+		}
+
+		//what is this good for again?
+		int moreBalancedCutSide() const {
+			const NodeWeight
+					sw = n.sourceReachableWeight,
+					tw = n.targetReachableWeight,
+					total = hg.totalNodeWeight(),
+					iso = isolatedNodes.weight;
+
+			//TODO incorporate iso
+			const NodeWeight s_diff = std::max(maxBlockWeight - (total - sw), maxBlockWeight - sw);
+			const NodeWeight t_diff = std::max(maxBlockWeight - (total - tw), maxBlockWeight - tw);
+			return s_diff <= t_diff ? currentViewDirection() : oppositeViewDirection();
+		}
+
+
+
+		//TODO write functions to get the largest possible balanced node weight of a side, or maxBlockWeight+1 if that's not possible
+
 
 		inline bool isIsolated(const Node u) const { return !n.isSource(u) && !n.isTarget(u) && isolatedNodes.isCandidate(u); }
 		inline bool canBeSettled(const Node u) const { return !n.isSource(u) && !n.isTarget(u) && !isIsolated(u); }
@@ -52,25 +84,14 @@ namespace whfc {
 				n.reach(u);
 			n.settle(u);
 
+			isolatedNodes.settleNode(u);
+
 			for (const auto& he_inc : hg.hyperedgesOf(u)) {
 				const Hyperedge e = he_inc.e;
 				if (!hasSourcePin(e)) {
 					cut.hasSettledSourcePins.set(e);
 					if (hasTargetPin(e)) {	//e just became mixed
-						for (const Pin& px : hg.pinsOf(e)) {
-							const Node p = px.pin;
-							isolatedNodes.mixedIncidentHyperedges[p]++;
-							/*
-							 * Previously, we identified candidates, via mixedIncidentHyperedges[p] == hg.degree(p), and later accepted them as isolated, only if they were not settled.
-							 * This was particularly necessary for piercing hyperedges.
-							 * However, it is suboptimal since the later settled candidates could just as well be moved between the blocks without modifying the cut.
-							 * Immediately isolating them can yield better final cuts and is substantially less code.
-							 * TODO this does not seem quite done yet.
-							 * However, we have to move the ones that were marked reachable out of that set. Also make sure that it is IMPOSSIBLE to actually ever reach an isolated node.
-							 */
-							if (isIsolated(p))
-								isolatedNodes.add(p);
-						}
+						isolatedNodes.accommodateNewlyMixedHyperedge(e, isIsolated);
 					}
 				}
 			}

@@ -46,6 +46,9 @@ namespace whfc {
 	using HopDistance = uint32_t;
 	static constexpr HopDistance maxHopDistance = std::numeric_limits<uint32_t>::max();
 
+	using Index = uint32_t;
+	static constexpr Index invalidIndex = std::numeric_limits<uint32_t>::max();
+
 	struct STPair {
 		std::vector<Node> s,t;
 	};
