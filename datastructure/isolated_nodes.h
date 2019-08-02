@@ -3,6 +3,9 @@
 #include "../definitions.h"
 #include "flow_hypergraph.h"
 
+//#include <tlx/container.hpp>
+//one optimization for speeding up the balance constraint check might require sorted sums
+
 namespace whfc {
 	class IsolatedNodes {
 	private:
@@ -19,6 +22,8 @@ namespace whfc {
 		NodeWeight maxSubsetSumWeight = NodeWeight(0);
 		std::vector<Node> DPTable;
 		std::vector<NodeWeight> sums;
+
+		std::vector<Node> nodesNotInTheDPTable;
 
 	public:
 		explicit IsolatedNodes(FlowHypergraph& hg) :
@@ -37,25 +42,36 @@ namespace whfc {
 
 		void add(const Node u) {
 			nodes.push_back(u);
-			const NodeWeight wu = hg.nodeWeight(u);
-			weight += wu;
-			if (wu == 0)
-				return;
+			nodesNotInTheDPTable.push_back(u);
+			weight += hg.nodeWeight(u);
+		}
 
+		bool isDPTableUpToDate() const {
+			return nodesNotInTheDPTable.empty();
+		}
+
+		//TODO Represent entire ranges -- that can be summed -- more efficiently. (not less memory, I want to traverse them faster)
+
+		void updateDPTable() {
 			if (weight + 1 > DPTable.size())
 				DPTable.resize(std::min((size_t)2*(weight+1), (size_t)maxSubsetSumWeight + 1), invalidNode);
 
-			for (size_t i = 0, it_end = sums.size(); i < it_end; ++i) {
-				const NodeWeight now = sums[i] + wu;
-				if (!isSummable(now)) {
-					DPTable[now] = u;
-					sums.push_back(now);
+			for (const Node u : nodesNotInTheDPTable) {
+				const NodeWeight wu = hg.nodeWeight(u);
+				for (size_t i = 0, it_end = sums.size(); i < it_end; ++i) {
+					const NodeWeight now = sums[i] + wu;
+					if (!isSummable(now)) {
+						DPTable[now] = u;
+						sums.push_back(now);
+					}
 				}
 			}
+			nodesNotInTheDPTable.clear();
 		}
 
 		std::vector<Node> extractSubset(NodeWeight sum) {
 			AssertMsg(sum == 0 || isSummable(sum), "Trying to extract subset for not achieved subset sum");
+			AssertMsg(isDPTableUpToDate(), "There are still nodes that are not included in the DP table. Make sure to call updateDPTable() before calling this method.");
 			std::vector<Node> result;
 			while (sum > 0) {
 				const Node u = DPTable[sum];

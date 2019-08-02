@@ -31,43 +31,12 @@ namespace whfc {
 		IsolatedNodes isolatedNodes;
 		NodeWeight maxBlockWeight;
 
-
-		bool isBalanced() const {
-			const NodeWeight 	sw = n.sourceReachableWeight,
-								tw = n.targetReachableWeight,
-								total = hg.totalNodeWeight(),
-								iso = isolatedNodes.weight;
-
-			//Beware: the isolated nodes are now weighted. Therefore the subset sum problem is no longer simple :(
-			//but at least the instances are tiny
-			return (sw <= maxBlockWeight && total - sw - iso <= maxBlockWeight) || (tw <= maxBlockWeight && total - tw - iso <= maxBlockWeight);
-		}
-
-		//what is this good for again?
-		int moreBalancedCutSide() const {
-			const NodeWeight
-					sw = n.sourceReachableWeight,
-					tw = n.targetReachableWeight,
-					total = hg.totalNodeWeight(),
-					iso = isolatedNodes.weight;
-
-			if (sw > maxBlockWeight || tw > maxBlockWeight)
-				return false;
-
-
-			//TODO incorporate iso
-			const NodeWeight s_diff = std::max(maxBlockWeight - (total - sw), maxBlockWeight - sw);
-			const NodeWeight t_diff = std::max(maxBlockWeight - (total - tw), maxBlockWeight - tw);
-			return s_diff <= t_diff ? currentViewDirection() : oppositeViewDirection();
-		}
-
-
-
-		//TODO write functions to get the largest possible balanced node weight of a side, or maxBlockWeight+1 if that's not possible
-
-
 		inline bool isIsolated(const Node u) const { return !n.isSource(u) && !n.isTarget(u) && isolatedNodes.isCandidate(u); }
 		inline bool canBeSettled(const Node u) const { return !n.isSource(u) && !n.isTarget(u) && !isIsolated(u); }
+
+		inline NodeWeight unclaimedNodeWeight() const {
+			return hg.totalNodeWeight() - n.sourceReachableWeight - n.targetReachableWeight - isolatedNodes.weight;
+		}
 
 		inline bool hasSourcePin(const Hyperedge e) const { return cut.hasSettledSourcePins[e]; }
 		inline bool hasTargetPin(const Hyperedge e) const { return cut.hasSettledTargetPins[e]; }
@@ -133,6 +102,68 @@ namespace whfc {
 			//not necessary at the moment
 			//cut.deleteNonCutHyperedges(h);
 		}
+
+
+		//Due to isolated nodes, this function is SUPER involved. If you're reimplementing this in a different context, I suggest you just settle isolated nodes.
+		//This function contains a lot of premature optimization. I have no clue how bad (or rather not) things would get without these little optimizations.
+		bool isBalanced() {
+
+			const NodeWeight
+					sw = n.sourceReachableWeight,
+					tw = n.targetReachableWeight,
+					uw = unclaimedNodeWeight(),
+					total = hg.totalNodeWeight(),
+					iso = isolatedNodes.weight,
+					suw = sw + uw,
+					tuw = tw + uw;
+
+			{	//quick checks to determine early that balance is not possible
+				//even though checking for balance is SubsetSum, once we are roughly in the realm of balance, it is likely that a solution exists
+				//in order to save running time, we therefore want to make sure to invoke SubsetSum as rarely as possible
+
+				if (sw > maxBlockWeight || tw > maxBlockWeight)					//this is good at late and early stages
+					return false;
+
+				if (sw + uw > maxBlockWeight && tw + uw > maxBlockWeight)		//this is good at early stages
+					return false;
+				//find some more!
+			}
+
+			{	//quick checks to determine whether balance is possible without invoking SubsetSum, i.e. don't split the isolated nodes.
+				//this should be possible often enough.
+				bool balanced = false;
+				balanced |= sw + uw + iso <= maxBlockWeight;
+				balanced |= tw + uw + iso <= maxBlockWeight;
+				balanced |= sw + uw <= maxBlockWeight && tw + iso <= maxBlockWeight;
+				balanced |= tw + uw <= maxBlockWeight && sw + iso <= maxBlockWeight;
+				if (balanced)
+					return true;
+
+
+				//TODO figure out some ideas for when there are very homogenous node weights, in particular for the fine levels of the ML hierarchy.
+			}
+
+			{	//reuse cached values from the SubsetSum invokation.
+				//requires that either no new isolated node was added
+				//other possibilities are: store the smallest subset-sum since last update/query
+
+			}
+
+			if (tw + uw > maxBlockWeight) {
+				//then sw must take uw
+
+			}
+
+			isolatedNodes.updateDPTable();
+
+
+			//TODO incorporate iso
+			const NodeWeight s_diff = std::max(maxBlockWeight - (total - sw), maxBlockWeight - sw);
+			const NodeWeight t_diff = std::max(maxBlockWeight - (total - tw), maxBlockWeight - tw);
+			return false;
+		}
+
+		//TODO write functions to get the largest possible balanced node weight of a side, or maxBlockWeight+1 if that's not possible
 
 	};
 
