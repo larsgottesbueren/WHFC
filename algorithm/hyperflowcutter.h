@@ -27,7 +27,7 @@ namespace whfc {
 			cs.filterBorder();
 
 			//For now, we only consider single piercing nodes
-			const Node piercingNode = piercer.findPiercingNode(cs.n, cs.borderNodes);
+			const Node piercingNode = piercer.findPiercingNode(cs.n, cs.borderNodes, cs.maxBlockWeight);
 			cs.augmentingPathAvailableFromPiercing = cs.n.isTargetReachable(piercingNode);
 			cs.sourcePiercingNodes.clear();
 			cs.sourcePiercingNodes.push_back(piercingNode);

@@ -17,12 +17,14 @@ namespace whfc {
 		bool distancesFromCutAvailable() const { return useDistancesFromCut && distanceFromCut.size() == hg.numNodes(); }
 
 		template<class ReachableNodes>
-		const Node findPiercingNode(ReachableNodes& n, NodeBorder& border) {
+		const Node findPiercingNode(ReachableNodes& n, const NodeBorder& border, const NodeWeight maxBlockWeight) {
 			Score maxScore;
 			for (const Node u : border.sourceSideBorder) {
-				const Score score_u(doesNodeAvoidAugmentingPath(!n.isTargetReachable(u)), getHopDistanceFromCut(u), Random::randomNumber(), u);
-				if (maxScore < score_u)
-					maxScore = score_u;
+				if (n.sourceWeight + hg.nodeWeight(u) <= maxBlockWeight) {
+					const Score score_u(doesNodeAvoidAugmentingPath(!n.isTargetReachable(u)), getHopDistanceFromCut(u), Random::randomNumber(), u);
+					if (maxScore < score_u)
+						maxScore = score_u;
+				}
 			}
 			return maxScore.candidate;
 		}
