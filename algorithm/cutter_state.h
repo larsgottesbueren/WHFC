@@ -51,6 +51,10 @@ namespace whfc {
 					total = hg.totalNodeWeight(),
 					iso = isolatedNodes.weight;
 
+			if (sw > maxBlockWeight || tw > maxBlockWeight)
+				return false;
+
+
 			//TODO incorporate iso
 			const NodeWeight s_diff = std::max(maxBlockWeight - (total - sw), maxBlockWeight - sw);
 			const NodeWeight t_diff = std::max(maxBlockWeight - (total - tw), maxBlockWeight - tw);
