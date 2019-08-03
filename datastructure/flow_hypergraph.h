@@ -86,6 +86,11 @@ namespace whfc {
 			}
 		}
 
+		//TODO write constructor that is most suitable for network extraction in KaHyPar. For example when reading from hMetis format, we could immediately write hyperedges[X].first_out. but we don't
+
+
+		bool hasNodeWeights() const { return std::any_of(nodes.begin(), nodes.end(), [](const NodeData& u) { return u.weight > 1; }); }
+		bool hasHyperedgeWeights() const { return std::any_of(hyperedges.begin(), hyperedges.end(), [](const HyperedgeData& e) { return e.capacity > 1; }); }
 		inline NodeIndex numNodes() const { return NodeIndex::fromOtherValueType(nodes.size()); }
 		inline HyperedgeIndex numHyperedges() const { return HyperedgeIndex::fromOtherValueType(hyperedges.size()); }
 		inline PinIndex numPins() const { return PinIndex::fromOtherValueType(pins.size()); }
