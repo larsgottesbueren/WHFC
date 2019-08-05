@@ -109,11 +109,11 @@ namespace whfc {
 		bool isBalanced() {
 
 			const NodeWeight
-					sw = n.sourceReachableWeight,
-					tw = n.targetReachableWeight,
-					uw = unclaimedNodeWeight(),
+					sw = n.sourceReachableWeight,		//cannot be split
+					tw = n.targetReachableWeight,		//cannot be split
+					uw = unclaimedNodeWeight(),			//cannot be split (in current stages. if we integrate PCKP style MBMC this would change)
 					total = hg.totalNodeWeight(),
-					iso = isolatedNodes.weight,
+					iso = isolatedNodes.weight,			//can be split
 					suw = sw + uw,
 					tuw = tw + uw;
 
