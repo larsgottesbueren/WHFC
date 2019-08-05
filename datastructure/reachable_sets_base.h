@@ -6,6 +6,7 @@
 namespace whfc {
 	class ReachableNodesBase {
 	public:
+		explicit ReachableNodesBase(const FlowHypergraph& _hg) : hg(_hg) { }
 		inline void reach(const Node u) {
 			sourceReachableWeight+= hg.nodeWeight(u); sourceReachableSize++;
 		}

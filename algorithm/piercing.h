@@ -9,6 +9,8 @@
 namespace whfc {
 	class Piercer {
 	public:
+		explicit Piercer(FlowHypergraph& _hg) : hg(_hg) { }
+
 		bool useDistancesFromCut = false;
 		bool avoidAugmentingPaths = true;
 		std::vector<HopDistance> distanceFromCut;
