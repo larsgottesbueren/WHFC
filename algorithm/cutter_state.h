@@ -106,12 +106,13 @@ namespace whfc {
 
 		//Due to isolated nodes, this function is SUPER involved. If you're reimplementing this in a different context, I suggest you just settle isolated nodes.
 		//This function contains a lot of premature optimization. I have no clue how bad (or rather not) things would get without these little optimizations.
+		//Same goes for the SubsetSum solver in datastrucutre/isolated_nodes.h
 		bool isBalanced() {
 
 			const NodeWeight
 					sw = n.sourceReachableWeight,		//cannot be split
 					tw = n.targetReachableWeight,		//cannot be split
-					uw = unclaimedNodeWeight(),			//cannot be split (in current stages. if we integrate PCKP style MBMC this would change)
+					uw = unclaimedNodeWeight(),			//cannot be split (in current stages. if we integrate proper PCKP heuristics for MBMC this would change)
 					total = hg.totalNodeWeight(),
 					iso = isolatedNodes.weight,			//can be split
 					suw = sw + uw,

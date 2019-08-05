@@ -2,6 +2,7 @@
 
 #include "../definitions.h"
 #include "flow_hypergraph.h"
+#include "../util/gcd.h"
 
 //#include <tlx/container.hpp>
 //one optimization for speeding up the balance constraint check might require sorted sumRanges
@@ -22,6 +23,8 @@ namespace whfc {
 		//	1) try scaling the weights of all nodes in the flow network --> more locality in the DP table
 		//	2) just assign the nodes ad-hoc, after growAssimilated. shouldn't be too bad. works well enough with AAP
 		NodeWeight maxSubsetSumWeight = NodeWeight(0);
+		NodeWeight weightScaling = NodeWeight(1);
+
 
 		struct TableEntry {
 			Node node;
@@ -139,6 +142,13 @@ namespace whfc {
 		{
 			sumRanges.emplace_back(NodeWeight(0), NodeWeight(0));
 			DPTable[0].sumsIndex = 0;
+
+			std::vector<NodeWeight> weights;
+			for (Node u : hg.nodeIDs())
+				weights.push_back(hg.nodeWeight(u));
+			weightScaling = GreatestCommonDivisor::compute(weights);
+			//TODO scale everything exposed to the outside with this factor
+			//also maxSubsetSumWeight etc.
 		}
 
 		bool isSummable(const NodeWeight w) const {
