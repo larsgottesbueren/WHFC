@@ -21,4 +21,12 @@ namespace Util {
 			return value < o.value;
 		}
 	};
+
+
+	template<typename T> std::pair<T,T> minmax(T a, T b) {
+		return a < b ? std::make_pair(a,b) : std::make_pair(b,a);
+	}
+
+	template<typename T>
+	void min_to(T& a, T& b) { a = std::min(a,b); }
 }

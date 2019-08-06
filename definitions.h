@@ -17,14 +17,6 @@ int1 ceil_div(int1 numerator, int2 denominator) {
 	return numerator/denominator + (numerator % denominator == 0 ? 0 : 1);
 }
 
-namespace aux {
-	template<typename T> std::pair<T,T> minmax(T a, T b) {
-		return a < b ? std::make_pair(a,b) : std::make_pair(b,a);
-	}
-
-	template<typename T>
-	void min_to(T& a, T& b) { a = std::min(a,b); }
-}
 
 namespace whfc {
 							//every tagged integer takes as first template argument an integer tag, which is unique to its type
