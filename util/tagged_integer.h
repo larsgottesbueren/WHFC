@@ -116,6 +116,8 @@ public:
         return Type(internalValue - other.internalValue);
     }
 
+
+
     /*
     //not reference, so we can write TaggedInteger(4) - 1
     inline Type operator-(const ValueType other) const noexcept {
@@ -133,6 +135,12 @@ public:
         AssertMsg(isValid(), "Cannot divide an Invalid value.");
         AssertMsg(other.isValid(), "Cannot divide something by an Invalid value.");
         return Type(internalValue / other.internalValue);
+    }
+
+    inline Type operator%(const Type& other) const noexcept{
+    	AssertMsg(isValid(), "Cannot divide an Invalid value");
+    	AssertMsg(other.isValid(), "Cannot divide by an Invalid value");
+    	return Type(internalValue % other.internalValue);
     }
 
     inline Type& operator++() noexcept {
