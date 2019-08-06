@@ -103,13 +103,6 @@ namespace whfc {
 		void runUntilBalancedAndReportMostBalanced() {
 			runUntilBalanced();
 			//TODO implement this Pareto point as a sequence of events describing at which step a node joined what side. further which side is the smaller in which step.
-
-
-			//really figure out the exact details, including IsolatedNodes. This is really overoptimizing stuff in places that won't really matter.
-			//But I couldn't bear doing them in a stupid way.
-			//can we do something smarter than repeatedly solving SubsetSum ?
-
-			//an alternative to all this madness is, simply taking the first guy you get and then run most-balanced-minimum-cut, or
 		}
 
 	};
