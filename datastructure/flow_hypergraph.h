@@ -168,9 +168,6 @@ namespace whfc {
 		inline Flow residualCapacity(const InHe& inc_u, InHe& inc_v) const {
 			return absoluteFlowReceived(inc_u) + absoluteFlowSent(inc_v) + residualCapacity(inc_u.e);
 		}
-		//inline Flow residualCapacityIfFromNodeDoesNotReceiveFlow(const Flow residualE, const Pin& v) const { return std::max(0, flowSent(v)) + residualE; }
-		//inline Flow residualCapacityIfFromNodeReceivesFlow(const Flow flowUReceives, const Flow residualE, const Pin& v) const { return std::max(0, flowSent(v)) + flowUReceives + residualE; }
-		//need this for scaling
 
 
 		void routeFlow(InHe& inc_u, InHe& inc_v, const Flow _flow) {
