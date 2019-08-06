@@ -8,7 +8,7 @@ namespace whfc {
 	template<typename T, bool trackElements>
 	class Border {
 	public:
-		explicit Border(size_t nT) : addedToSourceSideBorder(nT), addedToTargetSideBorder(nT) { }
+		explicit Border(const size_t nT) : addedToSourceSideBorder(nT), addedToTargetSideBorder(nT) { }
 
 		void flipViewDirection() {
 			std::swap(sourceSideBorder, targetSideBorder);
@@ -52,7 +52,7 @@ namespace whfc {
 	class HyperedgeCut : public Border<Hyperedge, false> {
 	public:
 		using Base = Border<Hyperedge, false>;
-		explicit HyperedgeCut(size_t nHyperedges) : Base(nHyperedges) { }
+		explicit HyperedgeCut(const size_t nHyperedges) : Base(nHyperedges) { }
 		BitVector hasSettledSourcePins, hasSettledTargetPins;	//set in CutterState::settleNode
 		size_t sourceMixed = 0, targetMixed = 0;	//equal if both cut-fronts were built. but they aren't.
 

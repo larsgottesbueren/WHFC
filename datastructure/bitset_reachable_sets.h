@@ -11,6 +11,15 @@ namespace whfc {
 			using Base = ReachableNodesBase;
 			using Type = BitsetReachableNodes;
 
+			explicit BitsetReachableNodes(const FlowHypergraph& hg) : Base(hg),
+															 S(static_cast<size_t>(hg.numNodes())),		//GOD. Why did I bother with tagged integers?
+															 SR(static_cast<size_t>(hg.numNodes())),
+															 T(static_cast<size_t>(hg.numNodes())),
+															 TR(static_cast<size_t>(hg.numNodes()))
+			{
+
+			}
+
 			inline size_t capacity() const { return S.size(); }
 			inline bool isSource(const Node u) const { return S[u]; }
 			inline bool isSourceReachable(const Node u) const { return SR[u]; }
@@ -48,6 +57,19 @@ namespace whfc {
 		class BitsetReachableHyperedges {
 		public:
 			using Type = BitsetReachableHyperedges;
+
+			BitsetReachableHyperedges(const size_t nHE) :
+					IN_SETTLED_S(nHE),
+					OUT_SETTLED_S(nHE),
+					IN_REACHED_S(nHE),
+					OUT_REACHED_S(nHE),
+					IN_SETTLED_T(nHE),
+					OUT_SETTLED_T(nHE),
+					IN_REACHED_T(nHE),
+					OUT_REACHED_T(nHE)
+			{
+
+			}
 
 			inline size_t capacity() const { return IN_SETTLED_S.capacity(); }
 			inline bool areAllPinsSources(const Hyperedge e) const { return OUT_SETTLED_S[e]; }

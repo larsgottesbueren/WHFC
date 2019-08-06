@@ -28,8 +28,20 @@ namespace whfc {
 		bool hasCut = false;
 		HyperedgeCut cut;
 		NodeBorder borderNodes;
-		IsolatedNodes isolatedNodes;
 		NodeWeight maxBlockWeight;
+		IsolatedNodes isolatedNodes;
+
+		CutterState(FlowHypergraph& _hg, NodeWeight _maxBlockWeight) :
+				hg(_hg),
+				n(_hg),
+				h(static_cast<size_t>(_hg.numHyperedges())),
+				cut(static_cast<size_t>(_hg.numHyperedges())),
+				borderNodes(static_cast<size_t>(_hg.numNodes())),
+				maxBlockWeight(_maxBlockWeight),
+				isolatedNodes(hg, _maxBlockWeight)
+		{
+
+		}
 
 		inline bool isIsolated(const Node u) const { return !n.isSource(u) && !n.isTarget(u) && isolatedNodes.isCandidate(u); }
 		inline bool canBeSettled(const Node u) const { return !n.isSource(u) && !n.isTarget(u) && !isIsolated(u); }
@@ -139,9 +151,6 @@ namespace whfc {
 				balanced |= tw + uw <= maxBlockWeight && sw + iso <= maxBlockWeight;
 				if (balanced)
 					return true;
-
-
-				//TODO figure out some ideas for when there are very homogenous node weights, in particular for the fine levels of the ML hierarchy.
 			}
 
 			{	//reuse cached values from the SubsetSum invokation.
@@ -156,7 +165,6 @@ namespace whfc {
 			}
 
 			isolatedNodes.updateDPTable();
-
 
 			//TODO incorporate iso
 			const NodeWeight s_diff = std::max(maxBlockWeight - (total - sw), maxBlockWeight - sw);
