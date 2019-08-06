@@ -2,7 +2,8 @@
 
 #include "cutter_state.h"
 #include "../datastructure/stack.h"
-#include "../datastructure/timestamp_reachable_sets.h"
+#include "../datastructure/bitset_reachable_sets.h"
+//#include "../datastructure/timestamp_reachable_sets.h"
 
 namespace whfc {
 
@@ -19,8 +20,8 @@ namespace whfc {
 		//using ReachableHyperedges = TimestampReachableHyperedges;
 
 
-		using FlowHypergraph::Pin;
-		using FlowHypergraph::InHe;
+		using Pin = FlowHypergraph::Pin;
+		using InHe = FlowHypergraph::InHe;
 
 		FlowHypergraph& hg;
 		ScanList nodes_to_scan;
@@ -218,17 +219,19 @@ namespace whfc {
 		//using ReachableNodes = TimestampReachableNodes;
 		//using ReachableHyperedges = TimestampReachableHyperedges;
 
-		using FlowHypergraph::Pin;
-		using FlowHypergraph::InHe;
+		using Pin = FlowHypergraph::Pin;
+		using InHe = FlowHypergraph::InHe;
 
 		FlowHypergraph& hg;
 
 		Flow growWithoutScaling(CutterState<Type>& cs) {
+			/*
 			for (Node s : cs.sourcePiercingNodes) {
 				const InHeIndex e_it = hg.beginIndexHyperedges(s);
 				const PinIndex pin_it = hg.getInHe(e_it).pin_iter;
 				stack.push( { e_it, pin_it } );
 			}
+			 */
 			return 0;
 		}
 
