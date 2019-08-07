@@ -10,9 +10,7 @@ set(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -lm")
 
 add_subdirectory(extern/tlx)
 
-add_executable(WHFC
-        logger.h
-        definitions.h
-        main.cpp)
-
+add_executable(WHFC main.cpp)
 target_link_libraries(WHFC tlx)
+
+add_executable(TESTS run_tests.cpp)

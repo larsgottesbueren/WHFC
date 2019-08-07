@@ -46,6 +46,14 @@ namespace whfc {
 		inline bool isIsolated(const Node u) const { return !n.isSource(u) && !n.isTarget(u) && isolatedNodes.isCandidate(u); }
 		inline bool canBeSettled(const Node u) const { return !n.isSource(u) && !n.isTarget(u) && !isIsolated(u); }
 
+		inline bool canAdvance() const {
+			return unclaimedNodeWeight() > 0;
+		}
+
+		inline bool isInfeasible() const {
+			return n.sourceWeight +
+		}
+
 		inline NodeWeight unclaimedNodeWeight() const {
 			return hg.totalNodeWeight() - n.sourceReachableWeight - n.targetReachableWeight - isolatedNodes.weight;
 		}

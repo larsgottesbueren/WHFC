@@ -25,9 +25,14 @@ namespace whfc {
 		void pierce() {
 			cs.filterCut();
 			cs.filterBorder();
-
+			AssertMsg(cs.canAdvance(), "No unclaimed nodes available. But piercing called");
 			//For now, we only consider single piercing nodes
 			const Node piercingNode = piercer.findPiercingNode(cs.n, cs.borderNodes, cs.maxBlockWeight);
+			if (piercingNode == invalidNode) {
+				//This can occur in rare cases. But we're treating it as an error for now.
+				//TODO Implement an appropriate error handling that is faster than the previous one.
+				throw std::runtime_error("No piercing node available.");
+			}
 			cs.augmentingPathAvailableFromPiercing = cs.n.isTargetReachable(piercingNode);
 			cs.sourcePiercingNodes.clear();
 			cs.sourcePiercingNodes.push_back(piercingNode);
@@ -67,7 +72,7 @@ namespace whfc {
 			//we want to report all of these aap cuts. therefore the surrounding caller has to perform the bundling
 			//could do an example implementation with a report callback here.
 
-			bool pierceInThisIteration = cs.hasCut;
+			const bool pierceInThisIteration = cs.hasCut;
 			if (pierceInThisIteration) {
 				pierce();
 			}
@@ -109,7 +114,7 @@ namespace whfc {
 
 
 	class MultiCutter {
-
+		//implement interleaving and parallelization here.
 	};
 
 }

@@ -1,8 +1,15 @@
-//
-// Created by gottesbueren on 8/6/19.
-//
+#pragma once
 
-#ifndef WHFC_CREATE_DUMMY_HYPERGRAPHS_H
-#define WHFC_CREATE_DUMMY_HYPERGRAPHS_H
+#include "../datastructure/flow_hypergraph.h"
 
-#endif //WHFC_CREATE_DUMMY_HYPERGRAPHS_H
+namespace Test {
+	class CreateDummyHypergraphs {
+	public:
+		static whfc::FlowHypergraph noHyperedgesGivenNodeWeights(std::vector<whfc::NodeWeight>& nodeWeights) {
+			std::vector<whfc::HyperedgeWeight> heWeights;
+			std::vector<whfc::PinIndex> heSizes;
+			std::vector<whfc::Node> pins;
+			return whfc::FlowHypergraph(nodeWeights, heWeights, heSizes, pins);
+		}
+	};
+}

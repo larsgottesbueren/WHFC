@@ -16,6 +16,14 @@ namespace whfc {
 		std::vector<Node> nodes;
 		std::vector<HyperedgeIndex> mixedIncidentHyperedges;
 
+		struct SummableRange {
+			NodeWeight from, to;
+			SummableRange(NodeWeight _from, NodeWeight _to) : from(_from), to(_to) { }
+			bool inRange(const NodeWeight w) const { return from <= w && w <= to; }
+			bool operator<(const SummableRange& o) const { return std::tie(from, to) < std::tie(o.from, o.to); }
+			bool operator==(const SummableRange& o) const { return from == o.from && to == o.to; }
+			bool operator!=(const SummableRange& o) const { return !operator==(o); }
+		};
 
 	private:
 
@@ -41,11 +49,6 @@ namespace whfc {
 
 		std::vector<TableEntry> DPTable;
 
-		struct SummableRange {
-			NodeWeight from, to;
-			SummableRange(NodeWeight _from, NodeWeight _to) : from(_from), to(_to) { }
-			bool inRange(const NodeWeight w) const { return from <= w && w <= to; }
-		};
 		std::vector<SummableRange> sumRanges;
 		std::vector<SummableRange> nextSumRanges;
 		bool newSumAvailable = true;
@@ -67,7 +70,7 @@ namespace whfc {
 				AssertMsg(wu > 0, "Node has zero weight");
 
 				for (const SummableRange& sr : sumRanges) {
-					for (NodeWeight new_sum = sr.from + wu; new_sum <= std::min(sr.to + wu, maxSubsetSumWeight); ++new_sum) {
+					for (NodeWeight new_sum = sr.from + wu, _end = std::min(sr.to + wu, maxSubsetSumWeight); new_sum <= _end; ++new_sum) {
 						if (!isSummable(new_sum)) {
 							newSumAvailable = true;
 							DPTable[new_sum].node = u;
@@ -149,6 +152,10 @@ namespace whfc {
 			weightScaling = GreatestCommonDivisor::compute(weights);
 			//TODO scale everything exposed to the outside with this factor
 			//also maxSubsetSumWeight etc.
+		}
+
+		const std::vector<SummableRange>& getSumRanges() const {
+			return sumRanges;
 		}
 
 		bool isSummable(const NodeWeight w) const {

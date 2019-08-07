@@ -1,4 +1,3 @@
-//
-// Created by gottesbueren on 8/6/19.
-//
-
+int main(int argc, char* argv[]) {
+	return 0;
+}

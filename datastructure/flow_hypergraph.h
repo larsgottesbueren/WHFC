@@ -292,5 +292,40 @@ namespace whfc {
 					|| 	(!sends && receives && !no_flow)
 					|| 	(!sends && !receives && no_flow);
 		}
+
+	public:
+
+		void printNodes(std::ostream& out) {
+			out << "---Nodes---\n";
+			for (const Node u : nodeIDs()) {
+				out << u << " deg = " << degree(u) << " w= " << nodeWeight(u) << " inc_hes = [";
+				for (const InHe e : hyperedgesOf(u))
+					out << e.e << " ";
+				out << "]" << "\n";
+			}
+			out << std::flush;
+		}
+
+		void printHyperedges(std::ostream& out) {
+			out << "---Hyperedges---\n";
+			for (const Hyperedge e: hyperedgeIDs()) {
+				out << e << " pincount = " << pinCount(e) << " w= " << capacity(e) << " pins = [";
+				for (const Pin u : pinsOf(e))
+					out << u.pin << " ";
+				out << "]" << "\n";
+			}
+			out << std::flush;
+		}
+
+		void printHypergraph(std::ostream& out) {
+			printNodes(out);
+			printHyperedges(out);
+		}
+
+		friend std::ostream& operator<<(std::ostream& out, FlowHypergraph& hg) noexcept {
+			hg.printHypergraph(out);
+			return out;
+		}
+
 	};
 }
