@@ -1,8 +1,11 @@
-//
-// Created by gottesbueren on 8/7/19.
-//
+#pragma once
 
-#ifndef WHFC_FLOW_HYPERGRAPH_TESTS_H
-#define WHFC_FLOW_HYPERGRAPH_TESTS_H
+namespace Test {
 
-#endif //WHFC_FLOW_HYPERGRAPH_TESTS_H
+	class FlowHypergraphTests {
+	public:
+		void run() {
+
+		}
+	};
+}
