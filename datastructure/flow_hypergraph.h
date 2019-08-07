@@ -205,7 +205,7 @@ namespace whfc {
 		std::vector<Pin> pins;
 		std::vector<InHe> incident_hyperedges;
 
-		//TODO get rid of the range and just store one index, if this turns out to be cache inefficient later on
+		//NOTE get rid of the range and just store one index, if this turns out to be cache inefficient later on
 		std::vector<PinIndexRange> pins_sending_flow;	//indexed by hyperedge id. gives range of pin ids/iterators sending flow to that hyperedge. grows right if forwardView = true
 		std::vector<PinIndexRange> pins_receiving_flow;	//indexed by hyperedge id. gives range of pin ids/iterators receiving flow from that hyperedge. grows left if forwardView = true
 
