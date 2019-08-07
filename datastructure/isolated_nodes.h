@@ -28,10 +28,11 @@ namespace whfc {
 	private:
 
 		//If the subset sum approach gets too slow, there are two alternatives:
-		//	1) try scaling the weights of all nodes in the flow network --> more locality in the DP table
+		//	1) try scaling the weights of all nodes in the flow network --> more locality in the DP table. if GCD(weights) > 1 then using ranges for balance checking doesn't help at all
+				//as the ranges with rescaled weights would consist of single elements
+				//we would need to implement two versions depending on GCD(weights) { == 1, > 1 }
 		//	2) just assign the nodes ad-hoc, after growAssimilated. shouldn't be too bad. works well enough with AAP
 		NodeWeight maxSubsetSumWeight = NodeWeight(0);
-		NodeWeight weightScaling = NodeWeight(1);
 
 
 		struct TableEntry {
@@ -144,13 +145,6 @@ namespace whfc {
 		{
 			sumRanges.emplace_back(NodeWeight(0), NodeWeight(0));
 			DPTable[0].sumsIndex = 0;
-
-			std::vector<NodeWeight> weights;
-			for (Node u : hg.nodeIDs())
-				weights.push_back(hg.nodeWeight(u));
-			weightScaling = GreatestCommonDivisor::compute(weights);
-			//TODO scale everything exposed to the outside with this factor
-			//also maxSubsetSumWeight etc.
 		}
 
 		const std::vector<SummableRange>& getSumRanges() const {
