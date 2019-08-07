@@ -158,7 +158,7 @@ namespace whfc {
 		}
 
 		bool isSummable(const NodeWeight w) const {
-			assert(w < DPTable.size());
+			Assert(w < DPTable.size());
 			return DPTable[w].summable();
 		}
 

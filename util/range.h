@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <boost/range/adaptor/reversed.hpp>
 #include <boost/range/numeric.hpp>
+#include "custom_asserts.h"
 
 class IteratorChecks {
 public:
@@ -36,8 +37,8 @@ struct mutable_range {
 	inline iterator end() const { return __end; }
 	inline bool empty() const { return begin() == end(); }
 	inline std::size_t size() const { return static_cast<size_t>(std::distance(__begin, __end)); }
-	inline reference front() { assert(!empty()); return *begin(); }
-	inline reference back() { assert(!empty()); return *(end() - 1); }
+	inline reference front() { Assert(!empty()); return *begin(); }
+	inline reference back() { Assert(!empty()); return *(end() - 1); }
 	inline reference at(iterator it) { return *it; }
 	inline reference operator[](const std::size_t n) { return *(begin() + n); }
 	inline reference at(const std::size_t n) { return *(begin() + n); }

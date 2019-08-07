@@ -1,7 +1,6 @@
 #pragma once
 
 #include <vector>
-#include <cassert>
 #include "../util/range.h"
 
 template<typename T, typename queue_size_type=uint32_t>
@@ -18,7 +17,7 @@ public:
 	inline T pop() { return queue[qfront++]; }
 	inline T previousLayerPop() { return queue[layerfront++]; }
 	inline void finishNextLayer() { layerend = qend; }
-	inline void push(const T x) { assert(qend < queue.size()); queue[qend++] = x; }
+	inline void push(const T x) { Assert(qend < queue.size()); queue[qend++] = x; }
 	inline bool previousLayerEmpty() const { return layerfront == layerend; }
 	inline T capacity() const { return static_cast<T>(queue.size()); }
 	inline std::vector<T>& data() { return queue; }

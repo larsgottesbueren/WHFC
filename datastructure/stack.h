@@ -1,7 +1,7 @@
 #pragma once
 
 #include <vector>
-#include <cassert>
+#include "../util/custom_asserts.h"
 
 template<typename T, typename index_t = uint32_t>
 class FixedCapacityStack {
@@ -12,9 +12,9 @@ public:
 	explicit FixedCapacityStack(const index_t num_elements) : stack(num_elements), __size(0) {}
 	inline void clear() { __size = 0; }
 	inline bool empty() const { return __size == 0; }
-	inline T pop() { assert(!empty()); return stack[--__size]; }
-	inline T top() { assert(!empty()); return stack[__size - 1]; }
-	inline void push(const T& x) { assert(__size < stack.size()); stack[__size++] = x; }
+	inline T pop() { Assert(!empty()); return stack[--__size]; }
+	inline T top() { Assert(!empty()); return stack[__size - 1]; }
+	inline void push(const T& x) { Assert(__size < stack.size()); stack[__size++] = x; }
 	inline T elementAt(const index_t t) const { return stack[t]; }
 	inline index_t size() { return __size; }
 

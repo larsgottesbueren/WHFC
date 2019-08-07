@@ -64,7 +64,7 @@ namespace whfc {
 		inline bool shouldBeAddedToCut(const Hyperedge e) const { return !h.areAllPinsSourceReachable(e) && !cut.wasAdded(e) && hg.isSaturated(e); }	//the first condition is just an optimization, not really necessary
 
 		inline void addToCut(const Hyperedge e) {
-			assert(shouldBeAddedToCut(e));
+			Assert(shouldBeAddedToCut(e));
 			for (const Pin& px : hg.pinsOf(e))
 				if (canBeSettled(px.pin) && !borderNodes.wasAdded(px.pin))
 					borderNodes.add(px.pin);
@@ -72,7 +72,7 @@ namespace whfc {
 		}
 
 		void settleNode(const Node u) {
-			assert(canBeSettled(u));
+			Assert(canBeSettled(u));
 			if (!n.isSourceReachable(u))
 				n.reach(u);
 			n.settle(u);

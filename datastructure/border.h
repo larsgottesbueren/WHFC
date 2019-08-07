@@ -24,7 +24,7 @@ namespace whfc {
 		}
 
 		inline void add(T x) {
-			assert(!wasAdded(x));
+			Assert(!wasAdded(x));
 			addedToSourceSideBorder.set(x);
 			if constexpr (trackElements)
 				sourceSideBorder.push_back(x);

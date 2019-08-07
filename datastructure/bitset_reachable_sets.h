@@ -2,6 +2,7 @@
 
 #include "reachable_sets_base.h"
 #include "bitvector.h"
+
 namespace whfc {
 
 
@@ -41,13 +42,13 @@ namespace whfc {
 			}
 
 			void verifyDisjoint() const {
-				assert((SR & TR).none());
-				assert((S & T).none());
+				Assert((SR & TR).none());
+				Assert((S & T).none());
 			}
 
 			void verifySettledIsSubsetOfReachable() const {
-				assert(S.is_subset_of(SR));
-				assert(T.is_subset_of(TR));
+				Assert(S.is_subset_of(SR));
+				Assert(T.is_subset_of(TR));
 			}
 
 		protected:
@@ -74,13 +75,13 @@ namespace whfc {
 			inline size_t capacity() const { return IN_SETTLED_S.capacity(); }
 			inline bool areAllPinsSources(const Hyperedge e) const { return OUT_SETTLED_S[e]; }
 			inline bool areAllPinsSourceReachable(const Hyperedge e) const { return OUT_REACHED_S[e]; }
-			inline void settleAllPins(const Hyperedge e) { assert(!areAllPinsSources(e)); OUT_SETTLED_S.set(e); IN_SETTLED_S.set(e);}
-			inline void reachAllPins(const Hyperedge e) { assert(!areAllPinsSourceReachable(e)); OUT_REACHED_S.set(e); IN_REACHED_S.set(e);}
+			inline void settleAllPins(const Hyperedge e) { Assert(!areAllPinsSources(e)); OUT_SETTLED_S.set(e); IN_SETTLED_S.set(e);}
+			inline void reachAllPins(const Hyperedge e) { Assert(!areAllPinsSourceReachable(e)); OUT_REACHED_S.set(e); IN_REACHED_S.set(e);}
 
 			inline bool areFlowSendingPinsSources(const Hyperedge e) const { return IN_SETTLED_S[e]; }
 			inline bool areFlowSendingPinsSourceReachable(const Hyperedge e) const { return IN_REACHED_S[e]; }
-			inline void settleFlowSendingPins(const Hyperedge e) { assert(!areFlowSendingPinsSources(e)); IN_SETTLED_S.set(e); }
-			inline void reachFlowSendingPins(const Hyperedge e) { assert(!areFlowSendingPinsSourceReachable(e)); IN_REACHED_S.set(e); }
+			inline void settleFlowSendingPins(const Hyperedge e) { Assert(!areFlowSendingPinsSources(e)); IN_SETTLED_S.set(e); }
+			inline void reachFlowSendingPins(const Hyperedge e) { Assert(!areFlowSendingPinsSourceReachable(e)); IN_REACHED_S.set(e); }
 
 			void resetSourceReachableToSource() {
 				IN_REACHED_S = IN_SETTLED_S;
@@ -95,17 +96,17 @@ namespace whfc {
 			}
 
 			void verifyDisjoint() const {
-				assert((OUT_REACHED_S & OUT_REACHED_T).none());
-				assert((OUT_SETTLED_S & OUT_SETTLED_T).none());
-				assert((IN_REACHED_S & IN_REACHED_T).none());
-				assert((IN_SETTLED_S & IN_SETTLED_T).none());
+				Assert((OUT_REACHED_S & OUT_REACHED_T).none());
+				Assert((OUT_SETTLED_S & OUT_SETTLED_T).none());
+				Assert((IN_REACHED_S & IN_REACHED_T).none());
+				Assert((IN_SETTLED_S & IN_SETTLED_T).none());
 			}
 
 			void verifySettledIsSubsetOfReachable() const {
-				assert(OUT_SETTLED_S.is_subset_of(OUT_REACHED_S));
-				assert(IN_SETTLED_S.is_subset_of(IN_REACHED_S));
-				assert(OUT_SETTLED_T.is_subset_of(OUT_REACHED_T));
-				assert(IN_SETTLED_T.is_subset_of(IN_REACHED_T));
+				Assert(OUT_SETTLED_S.is_subset_of(OUT_REACHED_S));
+				Assert(IN_SETTLED_S.is_subset_of(IN_REACHED_S));
+				Assert(OUT_SETTLED_T.is_subset_of(OUT_REACHED_T));
+				Assert(IN_SETTLED_T.is_subset_of(IN_REACHED_T));
 			}
 
 			protected:

@@ -150,7 +150,7 @@ namespace whfc {
 		inline Flow flow(const Hyperedge e) const { return hyperedges[e].flow; }
 		inline Flow& flow(const Hyperedge e) { return hyperedges[e].flow; }
 		inline Flow residualCapacity(const Hyperedge e) const { return capacity(e) - flow(e); }
-		inline bool isSaturated(const Hyperedge e) const { assert(flow(e) <= capacity(e)); return flow(e) == capacity(e); }
+		inline bool isSaturated(const Hyperedge e) const { Assert(flow(e) <= capacity(e)); return flow(e) == capacity(e); }
 
 		inline Flow flowSent(const Flow f) const { return f * sends_multiplier; }
 		//flow sent from u = getPin(inc_u.pin_iter).pin into e = inc_u.e
