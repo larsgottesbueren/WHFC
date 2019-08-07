@@ -39,10 +39,8 @@ namespace whfc {
 			Index sumsIndex;
 			TableEntry() : node(invalidNode), sumsIndex(invalidIndex) { }
 			bool summable() const {
-#ifndef NDEBUG
-				if (sumsIndex != invalidIndex)						//sumsIndex = 0 is reserved for the first range.
-					AssertMsg(node != invalidNode || sumsIndex == 0, "Summable but no node");
-#endif
+						//sumsIndex = 0 is reserved for the first range.
+				AssertMsg(sumsIndex == invalidIndex || node != invalidNode || sumsIndex == 0, "Summable but no node");
 				return sumsIndex != invalidIndex;
 			}
 		};
