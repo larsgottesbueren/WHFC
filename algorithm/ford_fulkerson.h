@@ -27,13 +27,12 @@ namespace whfc {
 		ScanList nodes_to_scan;
 		std::vector<InHeIndex> parent;
 
-		static constexpr Flow InitialScalingCapacity = 1 << 24;//TODO choose sensibly
-		static constexpr Flow ScalingCutOff = 4; //TODO choose sensibly
+		static constexpr Flow InitialScalingCapacity = 1 << 24; //NOTE choose sensibly
+		static constexpr Flow ScalingCutOff = 4; //NOTE choose sensibly
 		Flow scalingCapacity = InitialScalingCapacity;
 
 
-		//TODO find appropriate name: freeGains, freeFlow, recycleDatastructure
-		Flow takeFreebie(CutterState<Type>& cs) {
+		Flow recycleDatastructuresFromGrowReachablePhase(CutterState <Type> &cs) {
 			Flow flow = 0;
 			if constexpr (alwaysSetParent) {
 				if (cs.augmentingPathAvailableFromPiercing) {
@@ -52,7 +51,7 @@ namespace whfc {
 
 		Flow exhaustFlow(CutterState<Type>& cs) {
 			Flow flow = 0;
-			flow += takeFreebie(cs);
+			flow += recycleDatastructuresFromGrowReachablePhase(cs);
 			Flow diff = -1;
 			if constexpr (capacityScaling) {
 				while (scalingCapacity > ScalingCutOff) {
@@ -190,7 +189,7 @@ namespace whfc {
 						for (const Pin& pv : hg.pinsNotSendingFlowInto(e)) {
 							const Node v = pv.pin;
 							if (n.isTarget(v))
-								return augmentFromTarget(n, pv.he_inc_iter);	//TODO try doing single pass by just augmenting by ScalingCapacity if augmentFromTarget shows up during profiling
+								return augmentFromTarget(n, pv.he_inc_iter);	//try doing single pass by just augmenting by ScalingCapacity if augmentFromTarget shows up during profiling
 							if (!n.isSourceReachable(v)) {		//don't do VD label propagation
 								n.reach(v);
 								nodes_to_scan.push(v);

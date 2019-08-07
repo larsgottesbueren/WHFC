@@ -57,9 +57,8 @@ namespace whfc {
 		}
 
 		//for cut-based interleaving
+		//This function could be implemented via advanceOneFlowIteration() But the interface to the flow algorithm is so much nicer that I want to keep both
 		void advanceUntilCut() {
-			//TODO verify stopping conditions in advance() functions.
-			//This function could be implemented via advanceOneFlowIteration() But the interface to the flow algorithm is so much nicer that I want to keep both
 			AssertMsg(cs.hasCut, "Advancing until cut, but hasCut flag not set");
 			pierce();
 			exhaustFlowAndGrow();
@@ -79,7 +78,7 @@ namespace whfc {
 
 			if (cs.augmentingPathAvailableFromPiercing) {
 				if (pierceInThisIteration)
-					cs.flowValue += flow_algo.takeFreebie(cs);	//the flow due to freebies does not matter when deciding whether we have a cut available
+					cs.flowValue += flow_algo.recycleDatastructuresFromGrowReachablePhase(cs);	//the flow due to recycled datastructures does not matter when deciding whether we have a cut available
 				Flow flow_diff = flow_algo.growFlowOrSourceReachable(cs);
 				cs.flowValue += flow_diff;
 				cs.hasCut = flow_diff == 0;
