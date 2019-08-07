@@ -1,0 +1,8 @@
+//
+// Created by gottesbueren on 8/6/19.
+//
+
+#ifndef WHFC_CREATE_DUMMY_HYPERGRAPHS_H
+#define WHFC_CREATE_DUMMY_HYPERGRAPHS_H
+
+#endif //WHFC_CREATE_DUMMY_HYPERGRAPHS_H
