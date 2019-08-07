@@ -62,7 +62,7 @@ namespace whfc {
 			for (const Node u : nodesNotInTheDPTable) {
 
 				if (newSumAvailable)
-					nextSumRanges = sumRanges;
+					nextSumRanges = sumRanges;		//find way to avoid copies. must be possible. this is so horrible.
 				AssertMsg(nextSumRanges == sumRanges, "nextSumRanges not up to date");
 				newSumAvailable = false;
 
@@ -169,7 +169,7 @@ namespace whfc {
 		void updateDPTable() {
 			if (weight + 1 > DPTable.size()) {
 				//at the moment we're allocating for @maxBlocKWeight elements in DPTable, so this branch is never executed. in the future we might care about saving some memory
-				//if memory actually becomes critical, we can also compress the DPTable by a two-level indexing approach, where ranges only consume one entry
+				//if memory actually becomes critical, we can also compress the DPTable by a two-level indexing approach, where ranges only consume one entry. compression called infrequently
 				DPTable.resize(std::min((size_t)2*(weight+1), (size_t)maxSubsetSumWeight + 1), TableEntry());
 			}
 			Internal_UpdateDPTableWithSumRanges();
@@ -178,8 +178,12 @@ namespace whfc {
 		}
 
 		std::vector<Node> extractSubset(NodeWeight sum) {
-			AssertMsg(sum == 0 || isSummable(sum), "Trying to extract subset for not achieved subset sum");
-			AssertMsg(isDPTableUpToDate(), "There are still nodes that are not included in the DP table. Make sure to call updateDPTable() before calling this method.");
+			AssertMsg(
+					isSummable(sum),
+					  std::string("Trying to extract subset for not achieved subset sum. ")
+					  + (isDPTableUpToDate() ? "Call updateDPTable() before calling this method. There are nodes that are not included in the table yet." : " ")
+			);
+
 			std::vector<Node> result;
 			while (sum > 0) {
 				const Node u = DPTable[sum].node;
@@ -189,23 +193,6 @@ namespace whfc {
 			return result;
 		}
 
-		template<typename PredicateIsIsolated>
-		void accommodateNewlyMixedHyperedge(const Hyperedge e, PredicateIsIsolated isIsolated) {
-			for (const auto& px : hg.pinsOf(e)) {
-				const Node p = px.pin;
-				mixedIncidentHyperedges[p]++;
-				/*
-				 * Previously, we identified candidates, via mixedIncidentHyperedges[p] == hg.degree(p), and later accepted them as isolated, only if they were not settled.
-				 * This was particularly necessary for piercing hyperedges.
-				 * However, it is suboptimal since the later settled candidates could just as well be moved between the blocks without modifying the cut.
-				 * Immediately isolating them can yield better final cuts and is substantially less code.
-				 * TODO this does not seem quite done yet. think about it and then come back.
-				 * However, we have to move the ones that were marked reachable out of that set. Also make sure that it is IMPOSSIBLE to actually ever reach an isolated node.
-				 */
-				if (isIsolated(p))
-					add(p);
-			}
-		}
 
 		bool isCandidate(const Node u) const {
 			return mixedIncidentHyperedges[u] == hg.degree(u);

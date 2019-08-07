@@ -35,9 +35,8 @@ namespace whfc {
 	private:
 
 		struct Score {
-			using IHD = Util::InvertComparison<HopDistance>;
 			bool avoidsAugmentingPaths = false;
-			IHD hopDistance = IHD(maxHopDistance);
+			Util::InvertComparison<HopDistance> hopDistance = Util::InvertComparison<HopDistance>(maxHopDistance);
 			uint32_t randomScore = 0;
 			Node candidate = invalidNode;
 

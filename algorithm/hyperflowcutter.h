@@ -13,7 +13,7 @@ namespace whfc {
 	public:
 		CutterState<FlowAlgorithm> cs;
 		FlowAlgorithm flow_algo;	// = SearchAlgorithm
-
+		Flow upperFlowBound;
 		Piercer piercer;
 
 		void initialize(Node s, Node t) {
@@ -25,7 +25,7 @@ namespace whfc {
 		void pierce() {
 			cs.filterCut();
 			cs.filterBorder();
-			AssertMsg(cs.canAdvance(), "No unclaimed nodes available. But piercing called");
+			AssertMsg(cs.unclaimedNodeWeight() > 0, "No unclaimed nodes available. But piercing called");
 			//For now, we only consider single piercing nodes
 			const Node piercingNode = piercer.findPiercingNode(cs.n, cs.borderNodes, cs.maxBlockWeight);
 			if (piercingNode == invalidNode) {
@@ -100,13 +100,15 @@ namespace whfc {
 		}
 
 		void runUntilBalanced() {
-			while (!cs.isBalanced())
+			while (!cs.isBalanced() && cs.flowValue < upperFlowBound)
 				advanceUntilCut();
 		}
 
 		void runUntilBalancedAndReportMostBalanced() {
 			runUntilBalanced();
-			//TODO implement this Pareto point as a sequence of events describing at which step a node joined what side. further which side is the smaller in which step.
+			if (cs.flowValue >= upperFlowBound)
+				return;
+			//either run until cut would have to be broken. or track most balanced and revert to that
 		}
 
 	};
