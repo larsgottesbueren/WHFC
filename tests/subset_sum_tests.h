@@ -31,12 +31,7 @@ namespace Test {
 		bool compareRanges(std::vector<SR> actual, std::vector<SR>& expected) {
 			std::sort(actual.begin(), actual.end());
 			std::sort(expected.begin(), expected.end());
-			if (actual.size() != expected.size())
-				return false;
-			for (size_t i = 0; i < actual.size(); ++i)
-				if (actual[i] != expected[i])
-					return false;
-			return true;
+			return actual == expected;
 		}
 
 
