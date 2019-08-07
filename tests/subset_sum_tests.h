@@ -66,6 +66,7 @@ namespace Test {
 			expected.set(2);
 			expected.set(5);
 			//items = [3,2] --> sums = [0,2,3,5]
+			//tests extend range on the left
 			iso.updateDPTable();
 			AssertMsg(convertDPTableIntoBitvector(iso, mbw) == expected, "Check");
 			expectedRanges = { SR(NW(0), NW(0)), SR(NW(2), NW(3)), SR(NW(5), NW(5)) };
@@ -74,6 +75,7 @@ namespace Test {
 			iso.add(whfc::Node(3));
 			iso.updateDPTable();
 			//items = [3,2,5] --> sums = [0,2,3,5,7,8,10]
+			//tests extend range on the right (7 will be summed before 8)
 			expected.set(7);
 			expected.set(8);
 			expected.set(10);
@@ -84,6 +86,7 @@ namespace Test {
 			iso.add(whfc::Node(0));
 			iso.updateDPTable();
 			//items = [2,2,3,5] --> sums = [0,2,3,4,5,7,8,9,10,12]
+			//tests range merging
 			expected.set(4);
 			expected.set(9);
 			expected.set(12);
