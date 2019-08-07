@@ -18,7 +18,7 @@ namespace whfc {
 
 		struct SummableRange {
 			NodeWeight from, to;
-			SummableRange(NodeWeight _from, NodeWeight _to) : from(_from), to(_to) { }
+			SummableRange(NodeWeight _from, NodeWeight _to) : from(_from), to(_to) { AssertMsg(_from != NodeWeight::Invalid() && _to != NodeWeight::Invalid(), "Invalid range"); }
 			bool inRange(const NodeWeight w) const { return from <= w && w <= to; }
 			bool operator<(const SummableRange& o) const { return std::tie(from, to) < std::tie(o.from, o.to); }
 			bool operator==(const SummableRange& o) const { return from == o.from && to == o.to; }
@@ -91,7 +91,7 @@ namespace whfc {
 								leftRange.to = rightRange.to;
 
 								//delete rightRange
-								SummableRange back = nextSumRanges.back();		//copy! immediate pop_back is safe
+								SummableRange back = nextSumRanges.back();		//make copy! thus immediate pop_back is safe
 								nextSumRanges.pop_back();
 								nextSumRanges[rightIndex] = back;
 
