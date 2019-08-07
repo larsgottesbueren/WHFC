@@ -62,6 +62,7 @@ namespace whfc {
 
 				if (newSumAvailable)
 					nextSumRanges = sumRanges;
+				AssertMsg(nextSumRanges == sumRanges, "nextSumRanges not up to date");
 				newSumAvailable = false;
 
 				const NodeWeight wu = hg.nodeWeight(u);
