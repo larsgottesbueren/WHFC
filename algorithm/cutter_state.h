@@ -201,16 +201,22 @@ namespace whfc {
 			//sides: (S + U, T) + <ISO> and (S, T + U) + <ISO>
 			for (const IsolatedNodes::SummableRange& sr : isolatedNodes.getSumRanges()) {
 				if (suwRem.isValid()) {
-					//(S + U, T) + <ISO>
+					//S+U not overloaded. Therefore, try (S + U, T) + <ISO>
 
-					if (suwRem <= sr.to) {
+					//allocate as much as possible to S+U, i.e. x = min(suwRem, sr.to), the rest, i.e. iso - x has to go to T
+					if (suwRem >= sr.from && tw + (iso - std::min(suwRem, sr.to)) <= maxBlockWeight)
+							return true;
+					//analogously, allocate as much as possible to T
+					if (tRem >= sr.from && suw + (iso - std::min(tRem, sr.to)) <= maxBlockWeight)
+						return true;
+				}
 
-					}
-
-					if (tRem <= sr.to) {
-
-					}
-
+				if (tuwRem.isValid()) {
+					//T+U not overloaded. Therefore, try (S, T + U) + <ISO>
+					if (tuwRem >= sr.from && sw + (iso - std::min(tuwRem, sr.to)) <= maxBlockWeight)
+						return true;
+					if (sRem >= sr.from && tuw + (iso - std::min(sRem, sr.to)) <= maxBlockWeight)
+						return true;
 				}
 			}
 
