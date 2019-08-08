@@ -200,32 +200,34 @@ namespace whfc {
 
 			//sides: (S + U, T) + <ISO> and (S, T + U) + <ISO>
 			for (const IsolatedNodes::SummableRange& sr : isolatedNodes.getSumRanges()) {
+				bool balanced = false;
 				if (suwRem.isValid()) {
 					//S+U not overloaded. Therefore, try (S + U, T) + <ISO>
 
 					//allocate as much as possible to S+U, i.e. x = min(suwRem, sr.to), the rest, i.e. iso - x has to go to T
-					if (suwRem >= sr.from && tw + (iso - std::min(suwRem, sr.to)) <= maxBlockWeight)
-							return true;
+					balanced |= suwRem >= sr.from && tw + (iso - std::min(suwRem, sr.to)) <= maxBlockWeight;
 					//analogously, allocate as much as possible to T
-					if (tRem >= sr.from && suw + (iso - std::min(tRem, sr.to)) <= maxBlockWeight)
-						return true;
+					balanced |= tRem >= sr.from && suw + (iso - std::min(tRem, sr.to)) <= maxBlockWeight;
 				}
 
 				if (tuwRem.isValid()) {
 					//T+U not overloaded. Therefore, try (S, T + U) + <ISO>
-					if (tuwRem >= sr.from && sw + (iso - std::min(tuwRem, sr.to)) <= maxBlockWeight)
-						return true;
-					if (sRem >= sr.from && tuw + (iso - std::min(sRem, sr.to)) <= maxBlockWeight)
-						return true;
+					balanced |= tuwRem >= sr.from && sw + (iso - std::min(tuwRem, sr.to)) <= maxBlockWeight;
+					balanced |= sRem >= sr.from && tuw + (iso - std::min(sRem, sr.to)) <= maxBlockWeight;
 				}
+
+				if (balanced)
+					return true;
 			}
 
 			return false;
 		}
 
+		//TODO extend isBalanced() to output the most balanced partition
 
-		//TODO should we cache result of isBalanced() to reuse it easily?
-		//TODO write functions to get the largest possible balanced node weight of a side, or maxBlockWeight+1 if that's not possible
+
+
+
 	};
 
 
