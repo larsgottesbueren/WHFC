@@ -2,11 +2,8 @@
 #include "tests/flow_hypergraph_tests.h"
 
 int main(int argc, char* argv[]) {
-	Test::SubsetSumTests sst;
-	sst.run();
-
-	Test::FlowHypergraphTests fht;
-	fht.run();
+	Test::SubsetSumTests().run();
+	Test::FlowHypergraphTests().run();
 
 	return 0;
 }
