@@ -24,7 +24,7 @@ public:
 	template<typename Func> inline void forAllEverContainedElements(Func f) { for (size_type i = 0; i < qend; i++) { f(queue[i]); } }
 	inline const_range<T> range(size_type __begin, size_type __end) { return { queue.begin() + __begin, queue.cbegin() + __end }; }
 	inline const_range<T> currentLayer() { return range(layerfront, qend); }
-	inline size_type numberOfPushedElements() const { return qend; }
+	inline size_type queueEnd() const { return qend; }
 
 	inline T elementAt(const size_type pos) const { return queue[pos]; }
 	inline void setTo(const size_type pos, T element) { queue[pos] = element; }
