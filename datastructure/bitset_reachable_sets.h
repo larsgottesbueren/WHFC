@@ -5,6 +5,7 @@
 
 namespace whfc {
 
+		//TODO Find way to wrap other ReachableSets with a BitsetReachableSet and compare
 
 
 		class BitsetReachableNodes : public ReachableNodesBase {
@@ -13,10 +14,10 @@ namespace whfc {
 			using Type = BitsetReachableNodes;
 
 			explicit BitsetReachableNodes(const FlowHypergraph& hg) : Base(hg),
-															 S(static_cast<size_t>(hg.numNodes())),		//GOD. Why did I bother with tagged integers?
-															 SR(static_cast<size_t>(hg.numNodes())),
-															 T(static_cast<size_t>(hg.numNodes())),
-															 TR(static_cast<size_t>(hg.numNodes()))
+															 S(hg.numNodes()),		//GOD. Why did I bother with tagged integers?
+															 SR(hg.numNodes()),
+															 T(hg.numNodes()),
+															 TR(hg.numNodes())
 			{
 
 			}

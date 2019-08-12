@@ -36,6 +36,11 @@ public:
 
 	std::vector<T> extract() { return std::move(queue); }
 
+	template<typename URNG>
+	void shuffleNextLayer(URNG&& urng) {
+		std::shuffle(queue.begin() + layerfront, queue.begin() + layerend, urng);
+	}
+
 	template<bool resize = true>
 	void inject(std::vector<T> external_queue, size_type num_elements) {
 		queue = std::move(external_queue);

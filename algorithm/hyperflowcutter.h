@@ -11,6 +11,7 @@ namespace whfc {
 	template<class FlowAlgorithm>
 	class HyperFlowCutter {
 	public:
+		FlowHypergraph& hg;
 		CutterState<FlowAlgorithm> cs;
 		FlowAlgorithm flow_algo;	// = SearchAlgorithm
 		Flow upperFlowBound;
@@ -22,22 +23,30 @@ namespace whfc {
 			exhaustFlowAndGrow();
 		}
 
-		void pierce() {
+		bool pierce() {
 			cs.filterCut();
 			cs.filterBorder();
-			AssertMsg(cs.unclaimedNodeWeight() > 0, "No unclaimed nodes available. But piercing called");
-			//For now, we only consider single piercing nodes
-			const Node piercingNode = piercer.findPiercingNode(cs.n, cs.borderNodes, cs.maxBlockWeight);
+			if (cs.unclaimedNodeWeight() == 0)
+				return false;
+
+			Node piercingNode = piercer.findPiercingNode(cs.n, cs.borderNodes, cs.maxBlockWeight);
+
 			if (piercingNode == invalidNode) {
-				//This can occur in rare cases. But we're treating it as an error for now.
-				//TODO Implement an appropriate error handling that is faster than the previous one.
-				throw std::runtime_error("No piercing node available.");
+				for (const Node u : hg.nodeIDs())	//Optimization options, if this occurs too often: Track unclaimed nodes in a list that gets filtered on demand.
+					if (cs.canBeSettled(u) && hg.nodeWeight(u) + cs.n.sourceWeight <= cs.maxBlockWeight) {
+						piercingNode = u;
+						break;
+					}
+				if (piercingNode == invalidNode)
+					return false;
 			}
+
 			cs.augmentingPathAvailableFromPiercing = cs.n.isTargetReachable(piercingNode);
 			cs.sourcePiercingNodes.clear();
 			cs.sourcePiercingNodes.push_back(piercingNode);
 			cs.settleNode(piercingNode);
 			cs.hasCut = false;
+			return true;
 		}
 
 		void exhaustFlowAndGrow() {

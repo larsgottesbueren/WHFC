@@ -14,7 +14,7 @@ namespace whfc {
 	public:
 		using Pin = FlowHypergraph::Pin;
 
-		int viewDirection = 0;	//TODO wrap viewDirection in class?
+		int viewDirection = 0;	//potential prettyfication: ViewDirection class
 		FlowHypergraph& hg;
 		Flow flowValue = 0;
 
@@ -35,9 +35,9 @@ namespace whfc {
 		CutterState(FlowHypergraph& _hg, NodeWeight _maxBlockWeight) :
 				hg(_hg),
 				n(_hg),
-				h(static_cast<size_t>(_hg.numHyperedges())),
-				cut(static_cast<size_t>(_hg.numHyperedges())),
-				borderNodes(static_cast<size_t>(_hg.numNodes())),
+				h(_hg.numHyperedges()),
+				cut(_hg.numHyperedges()),
+				borderNodes(_hg.numNodes()),
 				maxBlockWeight(_maxBlockWeight),
 				isolatedNodes(hg, _maxBlockWeight)
 		{
@@ -47,13 +47,22 @@ namespace whfc {
 		inline bool isIsolated(const Node u) const { return !n.isSource(u) && !n.isTarget(u) && isolatedNodes.isCandidate(u); }
 		inline bool canBeSettled(const Node u) const { return !n.isSource(u) && !n.isTarget(u) && !isIsolated(u); }
 
+		//Call VERY rarely. Only for extreme cases
 		inline bool isInfeasible() {
 			if (hg.totalNodeWeight() > 2 * maxBlockWeight)
 				return true;
-
 			LOG << "Starting expensive SubsetSum based feasibility check";
-			//TODO make IsolatedNodes reusable in a way that we can copy isolatedNodes and add the unclaimed nodes here.
-			return false;
+			IsolatedNodes subsetSumCopy = isolatedNodes;
+			for (const Node u : hg.nodeIDs())
+				if (canBeSettled(u))
+					subsetSumCopy.add(u);
+			subsetSumCopy.updateDPTable();
+
+			//this is unfortunately as good as it gets. removing one element from a given subset sum instance is just as hard as re-solving from scratch
+			std::swap(isolatedNodes, subsetSumCopy);
+			const bool res = !isBalanced();
+			std::swap(isolatedNodes, subsetSumCopy);
+			return res;
 		}
 
 		inline NodeWeight unclaimedNodeWeight() const { return hg.totalNodeWeight() - n.sourceReachableWeight - n.targetReachableWeight - isolatedNodes.weight; }

@@ -33,7 +33,6 @@ namespace whfc {
 		inline void remove(size_t i) {
 			if constexpr (trackElements) {
 				sourceSideBorder[i] = sourceSideBorder.back();
-				//std::swap(sourceSideBorder[i], sourceSideBorder.back());
 				sourceSideBorder.pop_back();
 			}
 		}
@@ -53,7 +52,7 @@ namespace whfc {
 	public:
 		using Base = Border<Hyperedge, false>;
 		explicit HyperedgeCut(const size_t nHyperedges) : Base(nHyperedges) { }
-		BitVector hasSettledSourcePins, hasSettledTargetPins;	//set in CutterState::settleNode
+		BitVector hasSettledSourcePins, hasSettledTargetPins;	//set in CutterState::settleNode //TODO check if hasSettledSourcePins == ReachableHyperedges::areFlowSendingPinsSources()
 		size_t sourceMixed = 0, targetMixed = 0;	//equal if both cut-fronts were built. but they aren't.
 
 		inline bool isHyperedgeMixed(const Hyperedge e) const {

@@ -38,9 +38,9 @@ namespace whfc {
 
 
 
-		inline auto nodeIDs() const { return boost::irange<Node>(Node(0), Node::fromOtherValueType(numNodes() - 1)); }
-		inline auto hyperedgeIDs() const { return boost::irange<Hyperedge>(Hyperedge(0), Hyperedge::fromOtherValueType(numHyperedges() - 1)); }
-		inline auto pinIndices() const { return boost::irange<PinIndex>(PinIndex(0), numPins()); }
+		inline auto nodeIDs() const { return boost::irange<Node>(Node(0), Node::fromOtherValueType(numNodes())); }
+		inline auto hyperedgeIDs() const { return boost::irange<Hyperedge>(Hyperedge(0), Hyperedge::fromOtherValueType(numHyperedges())); }
+		inline auto pinIndices() const { return boost::irange<PinIndex>(PinIndex(0), PinIndex::fromOtherValueType(numPins())); }
 
 		FlowHypergraph(std::vector<NodeWeight>& node_weights, std::vector<HyperedgeWeight>& hyperedge_weights, std::vector<PinIndex>& hyperedge_sizes, std::vector<Node>& _pins) :
 				nodes(node_weights.size() + 1),
@@ -79,7 +79,7 @@ namespace whfc {
 			for (NodeIndex u(numNodes()-1); u > 0; u--) { nodes[u].first_out = nodes[u-1].first_out; }	//reset temporarily destroyed first_out
 			nodes[0].first_out = HyperedgeIndex(0);
 			PinIndex x = PinIndex(0);
-			for (auto e : hyperedgeIDs()) {
+			for (Hyperedge e : hyperedgeIDs()) {
 				pins_sending_flow[e] = PinIndexRange(x, x);	//empty range starting at the first pin of e
 				x += pinCount(e);
 				pins_receiving_flow[e] = PinIndexRange(x, x);	//empty range starting at one past the last pin of e
@@ -91,9 +91,9 @@ namespace whfc {
 
 		bool hasNodeWeights() const { return std::any_of(nodes.begin(), nodes.end(), [](const NodeData& u) { return u.weight > 1; }); }
 		bool hasHyperedgeWeights() const { return std::any_of(hyperedges.begin(), hyperedges.end(), [](const HyperedgeData& e) { return e.capacity > 1; }); }
-		inline NodeIndex numNodes() const { return NodeIndex::fromOtherValueType(nodes.size()); }
-		inline HyperedgeIndex numHyperedges() const { return HyperedgeIndex::fromOtherValueType(hyperedges.size()); }
-		inline PinIndex numPins() const { return PinIndex::fromOtherValueType(pins.size()); }
+		inline size_t numNodes() const { return nodes.size() - 1 ; }
+		inline size_t numHyperedges() const { return hyperedges.size() - 1; }
+		inline size_t numPins() const { return pins.size(); }
 		inline PinIndex pinCount(const Hyperedge e) const { return hyperedges[e+1].first_out - hyperedges[e].first_out; }
 		inline HyperedgeIndex degree(const Node u) const { return nodes[u+1].first_out - nodes[u].first_out; }
 		inline NodeWeight totalNodeWeight() const { return total_node_weight; }

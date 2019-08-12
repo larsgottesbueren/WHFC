@@ -13,7 +13,7 @@ namespace whfc {
 		FlowHypergraph& hg;
 	public:
 		NodeWeight weight = NodeWeight(0);
-		std::vector<Node> nodes;
+		std::vector<Node> nodes;		//TODO figure out why we need this guy
 		std::vector<HyperedgeIndex> mixedIncidentHyperedges;
 
 		struct SummableRange {
@@ -199,7 +199,8 @@ namespace whfc {
 		}
 
 		void settleNode(const Node u) {
-			maxSubsetSumWeight -= hg.nodeWeight(u);
+			//maxSubsetSumWeight -= hg.nodeWeight(u);
+			//Let's not do that! We're not doing allocations at the moment anyways
 		}
 
 	};

@@ -152,7 +152,6 @@ namespace whfc {
 
 		/*
 		 * Note: capacity scaling is implemented separately from search without capacity scaling, as capacity scaling pruning requires more memory accesses than plain search
-		 *
 		 */
 		Flow growWithScaling(CutterState<Type>& cs) {
 			AssertMsg(scalingCapacity > 1, "Don't call this method with ScalingCapacity <= 1. Use growWithoutScaling instead.");
@@ -166,16 +165,20 @@ namespace whfc {
 				const Node u = nodes_to_scan.pop();
 				for (const InHe& inc_u : hg.hyperedgesOf(u)) {
 					const Hyperedge e = inc_u.e;
-					Flow residualCapacity = hg.absoluteFlowReceived(inc_u) + hg.residualCapacity(e);
+					//can push at most flow(e) back into flow-sending pin and at most residual(e) = capacity(e) - flow(e) further flow.
+					//other pins can receives at most residual(e) <= capacity(e). so checking capacity(e) < scalingCapacity is a good pruning rule
+					if (hg.capacity(e) < scalingCapacity)
+						continue;
 
+					Flow residualCapacity = hg.absoluteFlowReceived(inc_u) + hg.residualCapacity(e);
 					if (!h.areFlowSendingPinsSourceReachable(e)) {
-						h.reachFlowSendingPins(e);//TODO check whether it is correct to always mark these
+						h.reachFlowSendingPins(e);
 						for (const Pin& pv : hg.pinsSendingFlowInto(e)) {
 							if (residualCapacity + hg.absoluteFlowSent(pv) >= scalingCapacity) {//residual = flow received by u + residual(e) + flow sent by v
 								const Node v = pv.pin;
 								if (n.isTarget(v))
 									return augmentFromTarget(n, pv.he_inc_iter);
-								if (!n.isSourceReachable(v)) {		//don't do VD label propagation
+								if (!n.isSourceReachable(v)) {
 									n.reach(v);
 									nodes_to_scan.push(v);
 									parent[v] = pv.he_inc_iter;
@@ -190,7 +193,7 @@ namespace whfc {
 							const Node v = pv.pin;
 							if (n.isTarget(v))
 								return augmentFromTarget(n, pv.he_inc_iter);	//try doing single pass by just augmenting by ScalingCapacity if augmentFromTarget shows up during profiling
-							if (!n.isSourceReachable(v)) {		//don't do VD label propagation
+							if (!n.isSourceReachable(v)) {
 								n.reach(v);
 								nodes_to_scan.push(v);
 								parent[v] = pv.he_inc_iter;
