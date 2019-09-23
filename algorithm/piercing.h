@@ -15,9 +15,6 @@ namespace whfc {
 		bool avoidAugmentingPaths = true;
 		std::vector<HopDistance> distanceFromCut;
 
-
-		bool distancesFromCutAvailable() const { return useDistancesFromCut && distanceFromCut.size() == hg.numNodes(); }
-
 		template<class ReachableNodes>
 		const Node findPiercingNode(ReachableNodes& n, const NodeBorder& border, const NodeWeight maxBlockWeight) {
 			Score maxScore;
@@ -48,8 +45,10 @@ namespace whfc {
 			}
 		};
 
+		bool distancesFromCutAvailable() const { return useDistancesFromCut && distanceFromCut.size() == hg.numNodes(); }
 
 		HopDistance getHopDistanceFromCut(const Node x) {
+			//TODO multiply with -1 for nodes which were not on the current source side, in the original partition
 			return distancesFromCutAvailable() ? distanceFromCut[x] : 0;
 		}
 

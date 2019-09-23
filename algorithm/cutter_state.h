@@ -31,6 +31,7 @@ namespace whfc {
 		NodeBorder borderNodes;
 		NodeWeight maxBlockWeight;
 		IsolatedNodes isolatedNodes;
+		bool partitionWrittenToReachableNodeSet = false;
 
 		CutterState(FlowHypergraph& _hg, NodeWeight _maxBlockWeight) :
 				hg(_hg),
@@ -192,7 +193,6 @@ namespace whfc {
 			{	//reuse cached values from the previous SubsetSum invokation.
 				//requires that either no new isolated node was added
 				//other possibilities are: store the smallest subset-sum since last update/query
-
 			}
 
 			isolatedNodes.updateDPTable();
@@ -232,9 +232,33 @@ namespace whfc {
 			return false;
 		}
 
+		void outputMostBalancedPartition() {
+			AssertMsg(isolatedNodes.isDPTableUpToDate(), "DP Table not up to date");
+			AssertMsg(isBalanced(), "Not balanced yet");
+
+			partitionWrittenToReachableNodeSet = true;
+
+			const NodeWeight
+					sw = n.sourceReachableWeight,
+					tw = n.targetReachableWeight,
+					uw = unclaimedNodeWeight(),
+					total = hg.totalNodeWeight(),
+					iso = isolatedNodes.weight;
+
+			//determine which cut we take and which division.
+
+			//then assign nodes
+
+
+		}
+
 		//TODO extend isBalanced() to output the most balanced partition
 
-
+		NodeWeight maxBlockWeightDiff() {
+			if (!partitionWrittenToReachableNodeSet)
+				throw std::runtime_error("Partition wasn't written yet. Call outputMostBalancedPartition() first");
+			return maxBlockWeight - std::min(n.sourceWeight,n.targetWeight);
+		}
 
 
 	};
