@@ -4,6 +4,8 @@
 #include "bitvector.h"
 #include "../definitions.h"
 
+#include "../util/filter.h"
+
 namespace whfc {
 	template<typename T, bool trackElements>
 	class Border {
@@ -40,8 +42,7 @@ namespace whfc {
 		template<typename Predicate>
 		void filter(Predicate pred) {
 			if constexpr (trackElements) {
-				auto new_end = std::remove_if(sourceSideBorder.begin(), sourceSideBorder.end(), pred);
-				sourceSideBorder.erase(new_end, sourceSideBorder.end());
+				util::filter(sourceSideBorder, pred);
 			}
 		}
 	};

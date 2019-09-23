@@ -4,9 +4,6 @@
 #include "flow_hypergraph.h"
 #include "../util/gcd.h"
 
-//#include <tlx/container.hpp>
-//one optimization for speeding up the balance constraint check might require sorted sumRanges
-
 namespace whfc {
 	class IsolatedNodes {
 	private:
@@ -79,7 +76,6 @@ namespace whfc {
 							Index leftIndex = DPTable[left].sumsIndex, rightIndex = DPTable[right].sumsIndex;
 							bool hasLeft = DPTable[left].summable();
 							bool hasRight = DPTable[right].summable();	//new_sum + 1 is valid because of right-ward sentinel.
-							//If no sentinels. bool hasRight = new_sum + 1 <= maxSubsetSumWeight && DPTable[new_sum+1].summable();
 
 							if (hasLeft && hasRight) { //merge ranges. keep left range, and extend it to cover the right range
 								AssertMsg(nextSumRanges[DPTable[left].sumsIndex].to == left, "hasLeft && hasRight: left range does not extend to new_sum-1");
@@ -177,9 +173,8 @@ namespace whfc {
 			nodesNotInTheDPTable.clear();
 		}
 
-		std::vector<Node> extractSubset(NodeWeight sum) {
-			AssertMsg(
-					isSummable(sum),
+		std::vector<Node> extractSubset(NodeWeight sum) const {
+			AssertMsg(isSummable(sum),
 					  std::string("Trying to extract subset for not achieved subset sum. ")
 					  + (isDPTableUpToDate() ? "Call updateDPTable() before calling this method. There are nodes that are not included in the table yet." : " ")
 			);
@@ -191,6 +186,12 @@ namespace whfc {
 				sum -= hg.nodeWeight(u);
 			}
 			return result;
+		}
+
+		std::pair<std::vector<Node>, std::vector<Node>> extractBipartition(NodeWeight sum) const {
+			auto first = extractSubset(sum);
+			auto second = setDifference(nodes, first, hg.numNodes());
+			return std::make_pair(std::move(first), std::move(second));
 		}
 
 

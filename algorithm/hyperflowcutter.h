@@ -117,14 +117,14 @@ namespace whfc {
 			runUntilBalanced();
 			if (cs.flowValue >= upperFlowBound)
 				return;
-			//either run until cut would have to be broken. or track most balanced and revert to that
+			//either run until cut would have to be broken. or track most balanced (just as a partition) and revert to that
 		}
 
 	};
 
 
 	class MultiCutter {
-		//implement interleaving and parallelization here.
+		//implement interleaving and parallelization here, if desired.
 	};
 
 }

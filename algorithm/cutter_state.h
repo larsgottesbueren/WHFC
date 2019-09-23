@@ -5,6 +5,7 @@
 #include "../datastructure/flow_hypergraph.h"
 #include "../datastructure/isolated_nodes.h"
 #include "../datastructure/bitset_reachable_sets.h"
+#include "../util/math.h"
 
 namespace whfc {
 
@@ -31,7 +32,7 @@ namespace whfc {
 		NodeBorder borderNodes;
 		NodeWeight maxBlockWeight;
 		IsolatedNodes isolatedNodes;
-		bool partitionWrittenToReachableNodeSet = false;
+		bool partitionWrittenToNodeSet = false;
 
 		CutterState(FlowHypergraph& _hg, NodeWeight _maxBlockWeight) :
 				hg(_hg),
@@ -47,24 +48,6 @@ namespace whfc {
 
 		inline bool isIsolated(const Node u) const { return !n.isSource(u) && !n.isTarget(u) && isolatedNodes.isCandidate(u); }
 		inline bool canBeSettled(const Node u) const { return !n.isSource(u) && !n.isTarget(u) && !isIsolated(u); }
-
-		//Call VERY rarely. Only for extreme cases
-		inline bool isInfeasible() {
-			if (hg.totalNodeWeight() > 2 * maxBlockWeight)
-				return true;
-			LOG << "Starting expensive SubsetSum based feasibility check";
-			IsolatedNodes subsetSumCopy = isolatedNodes;
-			for (const Node u : hg.nodeIDs())
-				if (canBeSettled(u))
-					subsetSumCopy.add(u);
-			subsetSumCopy.updateDPTable();
-
-			//this is unfortunately as good as it gets. removing one element from a given subset sum instance is just as hard as re-solving from scratch
-			std::swap(isolatedNodes, subsetSumCopy);
-			const bool res = !isBalanced();
-			std::swap(isolatedNodes, subsetSumCopy);
-			return res;
-		}
 
 		inline NodeWeight unclaimedNodeWeight() const { return hg.totalNodeWeight() - n.sourceReachableWeight - n.targetReachableWeight - isolatedNodes.weight; }
 		inline bool hasSourcePin(const Hyperedge e) const { return cut.hasSettledSourcePins[e]; }
@@ -95,24 +78,13 @@ namespace whfc {
 						for (const auto& px : hg.pinsOf(e)) {
 							const Node p = px.pin;
 							isolatedNodes.mixedIncidentHyperedges[p]++;
-							/*
-							 * Previously, we identified candidates, via mixedIncidentHyperedges[p] == hg.degree(p), and later accepted them as isolated, only if they were not settled.
-							 * This was particularly necessary for piercing hyperedges.
-							 * However, it is suboptimal since the later settled candidates could just as well be moved between the blocks without modifying the cut.
-							 * Immediately isolating them can yield balance faster, requires substantially less code, and should be easier to understand.
-							 * TODO this does not seem quite done yet. think about it and then come back.
-							 * However, we have to move the ones that were marked reachable out of that set. Also make sure that it is IMPOSSIBLE to actually ever reach an isolated node.
-							 *
-							 * Doing this incurs another optimization problem. In which order should nodes be settled to create as many isolated nodes as possible?
-							 *
-							 * We also have to stop the growAssimilated code from settling these candidates.
-							 *
-							 * Additionally, the smaller side might change. This shouldn't matter much but is quite weird.
-							 *
-							 */
 							if (isIsolated(p)) {
-
 								isolatedNodes.add(p);
+
+								if (n.isSourceReachable(p))
+									n.unreachSource(p);
+								if (n.isTargetReachable(p))
+									n.unreachTarget(p);
 							}
 						}
 					}
@@ -145,7 +117,8 @@ namespace whfc {
 		}
 
 		void filterBorder() {
-			borderNodes.filter([&](const Node& x) { return !canBeSettled(x);} );
+			//borderNodes.filter([&](const Node& x) { return !canBeSettled(x);} );
+			borderNodes.filter(std::not_fn(canBeSettled));
 		}
 
 		void filterCut() {
@@ -154,11 +127,7 @@ namespace whfc {
 		}
 
 
-		//Due to isolated nodes, this function is SUPER involved. If you're reimplementing this in a different context, I suggest you just settle isolated nodes.
-		//This function contains a lot of premature optimization. I have no clue how bad (or rather not) things would get without these little optimizations.
-		//Same goes for the SubsetSum solver in datastructure/isolated_nodes.h
 		bool isBalanced() {
-
 			const NodeWeight
 					sw = n.sourceReachableWeight,		//cannot be split
 					tw = n.targetReachableWeight,		//cannot be split
@@ -166,21 +135,12 @@ namespace whfc {
 					total = hg.totalNodeWeight(),
 					iso = isolatedNodes.weight;			//can be split
 
-
-			{	//quick checks to determine early that balance is not possible
-				//even though checking for balance is SubsetSum, once we are roughly in the realm of balance, it is likely that a solution exists
-				//in order to save running time, we therefore want to make sure to invoke SubsetSum as rarely as possible
-
-				if (sw > maxBlockWeight || tw > maxBlockWeight)					//this is good at late and early stages
-					return false;
-
-				if (sw + uw > maxBlockWeight && tw + uw > maxBlockWeight)		//this is good at early stages
-					return false;
-				//find some more!
-			}
+			if (sw > maxBlockWeight || tw > maxBlockWeight)					//this is good at late and early stages
+				return false;
+			if (sw + uw > maxBlockWeight && tw + uw > maxBlockWeight)		//this is good at early stages
+				return false;
 
 			{	//quick checks to determine whether balance is possible without invoking SubsetSum, i.e. don't split the isolated nodes.
-				//this should be possible often enough.
 				bool balanced = false;
 				balanced |= sw + uw + iso <= maxBlockWeight;
 				balanced |= tw + uw + iso <= maxBlockWeight;
@@ -188,11 +148,6 @@ namespace whfc {
 				balanced |= tw + uw <= maxBlockWeight && sw + iso <= maxBlockWeight;
 				if (balanced)
 					return true;
-			}
-
-			{	//reuse cached values from the previous SubsetSum invokation.
-				//requires that either no new isolated node was added
-				//other possibilities are: store the smallest subset-sum since last update/query
 			}
 
 			isolatedNodes.updateDPTable();
@@ -204,8 +159,6 @@ namespace whfc {
 					tuw = tw + uw,
 					suwRem = suw <= maxBlockWeight ? maxBlockWeight - suw : NodeWeight::Invalid(),
 					tuwRem = tuw <= maxBlockWeight ? maxBlockWeight - tuw : NodeWeight::Invalid();
-
-			//instead of iterating over the ranges, we could do a segment query. that is hopefully overkill!
 
 			//sides: (S + U, T) + <ISO> and (S, T + U) + <ISO>
 			for (const IsolatedNodes::SummableRange& sr : isolatedNodes.getSumRanges()) {
@@ -232,36 +185,130 @@ namespace whfc {
 			return false;
 		}
 
+
+		/*
+		 * Settles all nodes to their respective sides in the output partition
+		 * maybe a different interface is better?
+		 */
 		void outputMostBalancedPartition() {
 			AssertMsg(isolatedNodes.isDPTableUpToDate(), "DP Table not up to date");
 			AssertMsg(isBalanced(), "Not balanced yet");
-
-			partitionWrittenToReachableNodeSet = true;
+			AssertMsg(!partitionWrittenToNodeSet, "Partition was already written");
 
 			const NodeWeight
 					sw = n.sourceReachableWeight,
 					tw = n.targetReachableWeight,
 					uw = unclaimedNodeWeight(),
 					total = hg.totalNodeWeight(),
-					iso = isolatedNodes.weight;
+					iso = isolatedNodes.weight,
+					suw = sw + uw,
+					tuw = tw + uw;
 
-			//determine which cut we take and which division.
+			bool assignUnclaimedToSource = true;
+			bool assignTrackedIsolatedWeightToSource = true;
+			NodeWeight trackedIsolatedWeight = NodeWeight::Invalid();
 
-			//then assign nodes
+			NodeWeight blockWeightDiff = NodeWeight::Invalid();
+
+			for (const IsolatedNodes::SummableRange& sr : isolatedNodes.getSumRanges()) {
+
+				{
+					auto a = isolatedWeightAssignmentToFirst(suw, tw, sr);
+					if (a.second < blockWeightDiff) {
+						assignUnclaimedToSource = true;
+						assignTrackedIsolatedWeightToSource = true;
+						trackedIsolatedWeight = a.first;
+					}
+				}
+
+				{
+					auto b = isolatedWeightAssignmentToFirst(tw, suw, sr);
+					if (b.second < blockWeightDiff) {
+						assignUnclaimedToSource = true;
+						assignTrackedIsolatedWeightToSource = false;
+						trackedIsolatedWeight = b.first;
+					}
+				}
+
+				{
+					auto c = isolatedWeightAssignmentToFirst(sw, tuw, sr);
+					if (c.second < blockWeightDiff) {
+						assignUnclaimedToSource = false;
+						assignTrackedIsolatedWeightToSource = true;
+						trackedIsolatedWeight = c.first;
+					}
+				}
+
+				{
+					auto d = isolatedWeightAssignmentToFirst(tuw, sw, sr);
+					if (d.second < blockWeightDiff) {
+						assignUnclaimedToSource = false;
+						assignTrackedIsolatedWeightToSource = false;
+						trackedIsolatedWeight = d.first;
+					}
+				}
+
+			}
+
+			NodeWeight s = assignUnclaimedToSource ? sw : suw + assignTrackedIsolatedWeightToSource ? trackedIsolatedWeight : iso - trackedIsolatedWeight;
+			NodeWeight t = assignUnclaimedToSource ? tuw : tw + assignTrackedIsolatedWeightToSource ? iso - trackedIsolatedWeight : trackedIsolatedWeight;
+			AssertMsg(s <= maxBlockWeight, "computed assignment violates max block weight on source side");
+			AssertMsg(t <= maxBlockWeight, "computed assignment violates max block weight on target side");
+			AssertMsg(isolatedNodes.isSummable(trackedIsolatedWeight), "isolated weight is not summable");
+
+			auto [sIso, tIso] = isolatedNodes.extractBipartition(trackedIsolatedWeight);		//commodity. could be handled otherwise.
+			if (!assignTrackedIsolatedWeightToSource)
+				std::swap(sIso, tIso);
 
 
+			//TODO figure out desired output
+
+
+			partitionWrittenToNodeSet = true;
 		}
 
-		//TODO extend isBalanced() to output the most balanced partition
+
+	private:
+
+
+		//side of a gets x, side of b gets isolatedNodes.weight - x
+		//result.first = x, result.second = block weight difference
+		inline std::pair<NodeWeight, NodeWeight> isolatedWeightAssignmentToFirst(const NodeWeight a, NodeWeight b, const IsolatedNodes::SummableRange& sr) const {
+			b += isolatedNodes.weight;
+			const NodeWeight x = (a < b) ? std::max(std::min((b-a)/2, sr.to), sr.from) : sr.from;
+			return std::make_pair(x, Math::absdiff(a + x, b - x));
+		}
+
+
 
 		NodeWeight maxBlockWeightDiff() {
-			if (!partitionWrittenToReachableNodeSet)
+			if (!partitionWrittenToNodeSet)
 				throw std::runtime_error("Partition wasn't written yet. Call outputMostBalancedPartition() first");
 			return maxBlockWeight - std::min(n.sourceWeight,n.targetWeight);
 		}
 
 
+		bool isInfeasible() {
+			//call rarely. only intended for debugging purposes
+
+			if (hg.totalNodeWeight() > 2 * maxBlockWeight)
+				return true;
+			LOG << "Starting expensive SubsetSum based feasibility check";
+			IsolatedNodes subsetSumCopy = isolatedNodes;
+			for (const Node u : hg.nodeIDs())
+				if (canBeSettled(u))
+					subsetSumCopy.add(u);
+			subsetSumCopy.updateDPTable();
+
+			//this is unfortunately as good as it gets. removing one element from a given subset sum instance is just as hard as re-solving from scratch
+			std::swap(isolatedNodes, subsetSumCopy);
+			const bool res = !isBalanced();
+			std::swap(isolatedNodes, subsetSumCopy);
+			return res;
+		}
+
 	};
+
 
 
 }

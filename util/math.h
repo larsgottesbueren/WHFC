@@ -4,7 +4,7 @@
 #include <numeric>
 #include <cmath>
 
-class Stats {
+class Math {
 public:
 	template<typename T>
 	static T percentile(double fraction, std::vector<T>& elements) {
@@ -18,5 +18,10 @@ public:
 	static double avg(std::vector<T>& elements) {
 		T sum = std::accumulate(elements.begin(), elements.end(), T());
 		return static_cast<double>(sum) / static_cast<double>(elements.size());
+	}
+
+	template<typename T>
+	static T absdiff(const T a, const T b) {
+		return a < b ? b - a : a - b;
 	}
 };

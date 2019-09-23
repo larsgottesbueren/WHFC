@@ -8,7 +8,15 @@ namespace whfc {
 	public:
 		explicit ReachableNodesBase(const FlowHypergraph& _hg) : hg(_hg) { }
 		inline void reach(const Node u) {
-			sourceReachableWeight+= hg.nodeWeight(u); sourceReachableSize++;
+			sourceReachableWeight += hg.nodeWeight(u); sourceReachableSize++;
+		}
+
+		inline void unreachSource(const Node u) {
+			sourceReachableWeight -= hg.nodeWeight(u); sourceReachableSize--;
+		}
+
+		inline void unreachTarget(const Node u) {
+			targetReachableWeight -= hg.nodeWeight(u); targetReachableSize--;
 		}
 
 		inline void settle(const Node u) {

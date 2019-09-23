@@ -55,8 +55,8 @@ public:
 					for (const Pin& pv : scanAllPins ? hg.pinsOf(e) : hg.pinsSendingFlowInto(e)) {
 						const Node v = pv.pin;
 						AssertMsg(!n.isTargetReachable(v), "Settled node " + std::to_string(v) + " is reachable from target-side");
-						AssertMsg(n.isSourceReachable(v), "Settled node " + std::to_string(v) + " is not reachable from source-side");
-						if (!n.isSource(v)) {
+						AssertMsg(n.isSourceReachable(v) || cs.isIsolated(v), "Settled node " + std::to_string(v) + " must be reachable from source side. It may be isolated, but in this case we don't settle it.");
+						if (!n.isSource(v) && !cs.isIsolated(v)) {
 							cs.settleNode(v);
 							nodes_to_scan.push(v);
 						}

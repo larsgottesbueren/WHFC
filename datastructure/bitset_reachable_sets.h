@@ -14,7 +14,7 @@ namespace whfc {
 			using Type = BitsetReachableNodes;
 
 			explicit BitsetReachableNodes(const FlowHypergraph& hg) : Base(hg),
-															 S(hg.numNodes()),		//GOD. Why did I bother with tagged integers?
+															 S(hg.numNodes()),
 															 SR(hg.numNodes()),
 															 T(hg.numNodes()),
 															 TR(hg.numNodes())
@@ -29,6 +29,9 @@ namespace whfc {
 			inline bool isTargetReachable(const Node u) const { return TR[u]; }
 			inline void reach(const Node u) { SR.set(u); Base::reach(u); }
 			inline void settle(const Node u) { S.set(u); Base::settle(u); }
+
+			inline void unreachSource(const Node u) { Assert(!isSourceReachable(u)); SR.reset(u); Base::unreachSource(u); }
+			inline void unreachTarget(const Node u) { Assert(!isTargetReachable(u)); SR.reset(u); Base::unreachTarget(u); }
 
 
 			void flipViewDirection() {

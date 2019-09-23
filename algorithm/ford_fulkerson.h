@@ -39,7 +39,7 @@ namespace whfc {
 					for (Node s : cs.sourcePiercingNodes) {
 						if (cs.n.isTargetReachable(s)) {
 							cs.flipViewDirection();
-							flow = augmentFromTarget(cs.n, parent[s]);
+							flow += augmentFromTarget(cs.n, parent[s]);
 							cs.flipViewDirection();
 							break;	//no VD label propagation --> only one path
 						}
@@ -96,7 +96,7 @@ namespace whfc {
 				inc_v_index = inc_u_index;
 				v = hg.getPin(hg.getInHe(inc_v_index)).pin;
 			}
-
+			AssertMsg(bottleneckCapacity > 0, "Bottleneck capacity not positive");
 			v = target;
 			inc_v_index = inc_target_index;
 			while (!n.isSource(v)) {
@@ -166,7 +166,7 @@ namespace whfc {
 				for (const InHe& inc_u : hg.hyperedgesOf(u)) {
 					const Hyperedge e = inc_u.e;
 					//can push at most flow(e) back into flow-sending pin and at most residual(e) = capacity(e) - flow(e) further flow.
-					//other pins can receives at most residual(e) <= capacity(e). so checking capacity(e) < scalingCapacity is a good pruning rule
+					//other pins can receive at most residual(e) <= capacity(e). so checking capacity(e) < scalingCapacity is a good pruning rule
 					if (hg.capacity(e) < scalingCapacity)
 						continue;
 
@@ -192,7 +192,7 @@ namespace whfc {
 						for (const Pin& pv : hg.pinsNotSendingFlowInto(e)) {
 							const Node v = pv.pin;
 							if (n.isTarget(v))
-								return augmentFromTarget(n, pv.he_inc_iter);	//try doing single pass by just augmenting by ScalingCapacity if augmentFromTarget shows up during profiling
+								return augmentFromTarget(n, pv.he_inc_iter);
 							if (!n.isSourceReachable(v)) {
 								n.reach(v);
 								nodes_to_scan.push(v);

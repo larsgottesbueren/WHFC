@@ -18,7 +18,7 @@ namespace whfc {
 				case Option::Random : return Random::coinToss();
 				case Option::First : return false;
 				case Option::Last : return true;
-				default : throw std::runtime_error("You idiot apparently forgot to include an option in the switch statement.");
+				default : throw std::runtime_error("You apparently forgot to include an option in the switch statement.");
 			}
 		}
 
