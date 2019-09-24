@@ -9,6 +9,7 @@ inline void ensure(const bool assumption) noexcept {
 }
 
 //#define Assert(assumption) assert(assumption)
-#define AssertMsg(assumption, msg) assert((assumption) || (std::cout << "\n\033[31mASSERTION FAILED: " << msg << "\033[0m\nFile: " << __FILE__ << "\nLine: " << __LINE__ << "\n" << std::flush && false))
-#define Assert(assumption) assert((assumption) || (std::cout << "\n\033[31mASSERTION FAILED: " << "\033[0m\nFile: " << __FILE__ << "\nLine: " << __LINE__ << "\n" << std::flush && false))
+//These don't seem necessary anymore, since we not get appropriate line numbers and filenames
+#define AssertMsg(assumption, msg) assert(( (void)(msg), (assumption) ))
+#define Assert(assumption) assert((assumption))
 

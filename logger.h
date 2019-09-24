@@ -1,6 +1,3 @@
-//
-// Created by gottesbueren on 5/9/18.
-//
 #pragma once
 
 #include <iomanip>

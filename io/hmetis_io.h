@@ -2,21 +2,21 @@
 
 #include <fstream>
 #include "../datastructure/flow_hypergraph.h"
+#include "../logger.h"
 
 namespace whfc {
 	class HMetisIO {
-		inline void mgetline(std::ifstream& f, std::string& line) {
+		static constexpr bool debug = true;
+	private:
+		inline static void mgetline(std::ifstream& f, std::string& line) {
 			std::getline(f, line);
 			while (line[0] == '%') {
 				std::getline(f,line);
 			}
 		}
-
-		using FlowHypergraph::HyperedgeData;
-		using FlowHypergraph::InHe;
-		using FlowHypergraph::NodeData;
-		using FlowHypergraph::Pin;
-
+		
+	public:
+		
 		enum class HGType : uint8_t {
 			Unweighted = 0,
 			EdgeWeights = 1,
@@ -24,13 +24,13 @@ namespace whfc {
 			EdgeAndNodeWeights = 11,
 		};
 
-		FlowHypergraph readFlowHypergraph(std::string& filename) {
+		static FlowHypergraph readFlowHypergraph(std::string& filename) {
 
 			std::vector<NodeWeight> nodeWeights;
 			std::vector<HyperedgeWeight> hyperedgeWeights;
 			std::vector<Node> pins;
 			std::vector<PinIndex> hyperedgeSizes;
-			size_t num_hes, numNodes;
+			size_t numHEs, numNodes;
 			HGType hg_type = HGType::Unweighted;
 
 			std::ifstream f(filename);
@@ -42,20 +42,20 @@ namespace whfc {
 				//read header
 				mgetline(f,line);
 				std::istringstream iss(line);
-				iss >> num_hes >> numNodes;
-				uint8_t type;
+				iss >> numHEs >> numNodes;
+				uint8_t type = 0;
 				if (iss >> type)
 					hg_type = static_cast<HGType>(type);
 			}
 
 			bool hasHyperedgeWeights = hg_type == HGType::EdgeAndNodeWeights || hg_type == HGType ::EdgeWeights;
 			if (!hasHyperedgeWeights)
-				hyperedgeWeights.resize(num_hes, HyperedgeWeight(1));
+				hyperedgeWeights.resize(numHEs, HyperedgeWeight(1));
 			bool hasNodeWeights = hg_type == HGType::EdgeAndNodeWeights || hg_type == HGType::NodeWeights;
 			if (!hasNodeWeights)
 				nodeWeights.resize(numNodes, NodeWeight(1));
-
-			for (size_t e = 0; e < num_hes; ++e) {
+			
+			for (size_t e = 0; e < numHEs; ++e) {
 				mgetline(f, line);
 				std::istringstream iss(line);
 				uint32_t pin;
@@ -95,11 +95,11 @@ namespace whfc {
 			}
 
 			f.close();
-
+			
 			return FlowHypergraph(nodeWeights, hyperedgeWeights, hyperedgeSizes, pins);
 		}
 
-		void writeFlowHypergraph(FlowHypergraph& hg, std::string& filename) {
+		static void writeFlowHypergraph(FlowHypergraph& hg, std::string& filename) {
 			if (filename.empty())
 				throw std::runtime_error("No filename for Flow Hypergraph specified");
 			std::ofstream f(filename);
@@ -111,22 +111,27 @@ namespace whfc {
 
 			{
 				//write header
-				f << hg.numHyperedges() << " " << hg.numNodes() << " ";
+				f << hg.numHyperedges() << " " << hg.numNodes();
 				if (hasNodeWeights)
 					if (hasHyperedgeWeights)
-						f << static_cast<uint8_t>(HGType::EdgeAndNodeWeights);
+						f << " " << static_cast<uint8_t>(HGType::EdgeAndNodeWeights);
 					else
-						f << static_cast<uint8_t>(HGType::NodeWeights);
+						f << " " << static_cast<uint8_t>(HGType::NodeWeights);
 				else if (hasHyperedgeWeights)
-					f << static_cast<uint8_t>(HGType::EdgeWeights);
+					f << " " << static_cast<uint8_t>(HGType::EdgeWeights);
 				f << "\n";
 			}
 
 			for (Hyperedge e : hg.hyperedgeIDs()) {
+				auto pinsOfE = hg.pinsOf(e);
+				if (pinsOfE.empty())
+					throw std::runtime_error("Hypergraph has hyperedge with zero pins");
 				if (hasHyperedgeWeights)
-					f << hg.capacity(e) << " ";
-				for (const FlowHypergraph::Pin& p : hg.pinsOf(e))
-					f << (p.pin + 1) << " ";		//yes... hMetis insists on 1-based IDs -.-
+					f << hg.capacity(e);
+				
+				f << (pinsOfE.begin()->pin + 1); pinsOfE.advance_begin();	//special case first pin since we have |e|-1 white spaces
+				for (const FlowHypergraph::Pin& p : pinsOfE)
+					f << " " << (p.pin + 1);		//yes... hMetis insists on 1-based IDs -.-
 				f << "\n";
 			}
 

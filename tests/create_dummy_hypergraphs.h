@@ -2,6 +2,7 @@
 
 #include "../datastructure/flow_hypergraph.h"
 
+namespace whfc {
 namespace Test {
 	class CreateDummyHypergraphs {
 	public:
@@ -12,4 +13,5 @@ namespace Test {
 			return whfc::FlowHypergraph(nodeWeights, heWeights, heSizes, pins);
 		}
 	};
+}
 }

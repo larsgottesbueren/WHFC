@@ -55,17 +55,20 @@ namespace whfc {
 				total_hyperedge_weight(boost::accumulate(hyperedge_weights, HyperedgeWeight(0)))
 
 		{
-			std::size_t i = 0;
+			size_t i = 0;
 			for (const Node p : _pins) {
 				pins[i++].pin = p;					//copy pins
 				nodes[p + 1].first_out++;			//bucket sizes
 			}
-			HyperedgeIndex running_hyperedge_index(0); i = 0;
+			
+			HyperedgeIndex running_hyperedge_index(0);
+			i = 0;
 			for (NodeData& u : nodes) {
 				u.first_out += running_hyperedge_index;			//prefix sum
-				running_hyperedge_index += u.first_out;			//prefix sum
+				running_hyperedge_index = u.first_out;			//prefix sum
 				u.weight = node_weights[i++];					//copy node weights
 			}
+			
 			for (Hyperedge e : hyperedgeIDs()) {
 				hyperedges[e].capacity = hyperedge_weights[e];
 				hyperedges[e+1].first_out = hyperedges[e].first_out + hyperedge_sizes[e];		//prefix sum
@@ -78,13 +81,18 @@ namespace whfc {
 					p.he_inc_iter = ind_he;					//set iterator for incident hyperedge -> its position in incident_hyperedges of the node
 				}
 			}
-			for (NodeIndex u(numNodes()-1); u > 0; u--) { nodes[u].first_out = nodes[u-1].first_out; }	//reset temporarily destroyed first_out
+			
+			for (NodeIndex u(numNodes()-1); u > 0; u--)
+				nodes[u].first_out = nodes[u-1].first_out;	//reset temporarily destroyed first_out
 			nodes[0].first_out = HyperedgeIndex(0);
+			
 			PinIndex x = PinIndex(0);
+			pins_sending_flow.reserve(numHyperedges());
+			pins_receiving_flow.reserve(numHyperedges());
 			for (Hyperedge e : hyperedgeIDs()) {
-				pins_sending_flow[e] = PinIndexRange(x, x);	//empty range starting at the first pin of e
+				pins_sending_flow.emplace_back(x,x);	//empty range starting at the first pin of e
 				x += pinCount(e);
-				pins_receiving_flow[e] = PinIndexRange(x, x);	//empty range starting at one past the last pin of e
+				pins_receiving_flow.emplace_back(x, x);	//empty range starting at one past the last pin of e
 			}
 		}
 

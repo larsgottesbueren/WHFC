@@ -2,7 +2,7 @@
 
 #include "../definitions.h"
 #include "flow_hypergraph.h"
-#include "../util/gcd.h"
+#include "../datastructure/bitvector.h"
 
 namespace whfc {
 	class IsolatedNodes {
@@ -67,9 +67,8 @@ namespace whfc {
 				const NodeWeight wu = hg.nodeWeight(u);
 				AssertMsg(wu > 0, "Node has zero weight");
 
-				for (const SummableRange &sr : sumRanges) {
-					for (NodeWeight new_sum = sr.from + wu, _end = std::min(sr.to + wu, maxSubsetSumWeight);
-						 new_sum <= _end; ++new_sum) {
+				for (const SummableRange& sr : sumRanges) {
+					for (NodeWeight new_sum = sr.from + wu, _end = std::min(sr.to + wu, maxSubsetSumWeight); new_sum <= _end; ++new_sum) {
 						if (!isSummable(new_sum)) {
 							newSumAvailable = true;
 							DPTable[new_sum].node = u;
@@ -79,15 +78,13 @@ namespace whfc {
 							bool hasLeft = DPTable[left].summable();
 							bool hasRight = DPTable[right].summable();    //new_sum + 1 is valid because of right-ward sentinel.
 
-							if (hasLeft &&
-								hasRight) { //merge ranges. keep left range, and extend it to cover the right range
-								AssertMsg(nextSumRanges[DPTable[left].sumsIndex].to == left,
-										  "hasLeft && hasRight: left range does not extend to new_sum-1");
-								AssertMsg(nextSumRanges[DPTable[right].sumsIndex].from == right,
-										  "hasLeft && hasRight: right range does not start at new_sum+1");
+							if (hasLeft && hasRight) {
+								//merge ranges. keep left range, and extend it to cover the right range
+								AssertMsg(nextSumRanges[DPTable[left].sumsIndex].to == left, "hasLeft && hasRight: left range does not extend to new_sum-1");
+								AssertMsg(nextSumRanges[DPTable[right].sumsIndex].from == right, "hasLeft && hasRight: right range does not start at new_sum+1");
 								DPTable[new_sum].sumsIndex = leftIndex; //bridging cell. the index is stale, but we're setting it anyway to mark it as summable
 
-								SummableRange &leftRange = nextSumRanges[leftIndex], rightRange = nextSumRanges[rightIndex];
+								SummableRange& leftRange = nextSumRanges[leftIndex], rightRange = nextSumRanges[rightIndex];
 
 								//extend leftRange to cover rightRange
 								DPTable[rightRange.to].sumsIndex = leftIndex;
@@ -101,19 +98,20 @@ namespace whfc {
 								//update sumsIndex of the range that was swapped to rightIndex
 								DPTable[back.from].sumsIndex = rightIndex;
 								DPTable[back.to].sumsIndex = rightIndex;
-							} else if (hasLeft) {
+							}
+							else if (hasLeft) {
 								//extend left range's .to by +1
-								AssertMsg(nextSumRanges[DPTable[left].sumsIndex].to == left,
-										  "hasLeft: left range does not extend to new_sum-1");
+								AssertMsg(nextSumRanges[DPTable[left].sumsIndex].to == left, "hasLeft: left range does not extend to new_sum-1");
 								nextSumRanges[DPTable[left].sumsIndex].to = new_sum;
 								DPTable[new_sum].sumsIndex = leftIndex;
-							} else if (hasRight) {
+							}
+							else if (hasRight) {
 								//extend right range's .from by -1
-								AssertMsg(nextSumRanges[DPTable[right].sumsIndex].from == right,
-										  "hasRight: right range does not start at new_sum+1");
+								AssertMsg(nextSumRanges[DPTable[right].sumsIndex].from == right, "hasRight: right range does not start at new_sum+1");
 								nextSumRanges[DPTable[right].sumsIndex].from = new_sum;
 								DPTable[new_sum].sumsIndex = rightIndex;
-							} else {
+							}
+							else {
 								//start new range
 								DPTable[new_sum].sumsIndex = static_cast<Index>(nextSumRanges.size());
 								nextSumRanges.emplace_back(new_sum, new_sum);

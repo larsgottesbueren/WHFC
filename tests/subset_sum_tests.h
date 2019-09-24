@@ -3,6 +3,7 @@
 #include "../datastructure/isolated_nodes.h"
 #include "../datastructure/bitvector.h"
 
+namespace whfc {
 namespace Test {
 
 	class SubsetSumTests {
@@ -56,7 +57,7 @@ namespace Test {
 			AssertMsg(convertDPTableIntoBitvector(iso, mbw) == expected, "Check");
 			std::vector<SR> expectedRanges = { SR(NW(0), NW(0)), SR(NW(3),NW(3)) };
 			AssertMsg(compareRanges(iso.getSumRanges(), expectedRanges), "Two ranges, second one should be 3 only");
-
+			
 			iso.add(whfc::Node(1));
 			expected.set(2);
 			expected.set(5);
@@ -66,15 +67,15 @@ namespace Test {
 			AssertMsg(convertDPTableIntoBitvector(iso, mbw) == expected, "Check");
 			expectedRanges = { SR(NW(0), NW(0)), SR(NW(2), NW(3)), SR(NW(5), NW(5)) };
 			AssertMsg(compareRanges(iso.getSumRanges(), expectedRanges), "Should be 3 ranges. [0], [2,3], [5]");
-
-			iso.add(whfc::Node(3));
+			
+			iso.add(whfc::Node(5));
 			iso.updateDPTable();
 			//items = [3,2,5] --> sums = [0,2,3,5,7,8,10]
 			//tests extend range on the right (7 will be summed before 8)
 			expected.set(7);
 			expected.set(8);
 			expected.set(10);
-			AssertMsg(convertDPTableIntoBitvector(iso, mbw) == expected, "Check");
+			Assert(convertDPTableIntoBitvector(iso, mbw) == expected);
 			expectedRanges = { SR(NW(0), NW(0)), SR(NW(2), NW(3)), SR(NW(5), NW(5)), SR(NW(7), NW(8)), SR(NW(10), NW(10)) };
 			AssertMsg(compareRanges(iso.getSumRanges(), expectedRanges), "Should be 5 ranges. [0], [2,3], [5], [7,8], [10]");
 
@@ -86,9 +87,10 @@ namespace Test {
 			expected.set(9);
 			expected.set(12);
 			AssertMsg(convertDPTableIntoBitvector(iso, mbw) == expected, "Check");
-			expectedRanges = { SR(NW(0), NW(0)), SR(NW(2), NW(10)), SR(NW(12), NW(12)) };
-			AssertMsg(compareRanges(iso.getSumRanges(), expectedRanges), "Should be 3 ranges. [0], [2,10], [12]");
+			expectedRanges = { SR(NW(0), NW(0)), SR(NW(2), NW(5)), SR(NW(7), NW(10)),  SR(NW(12), NW(12)) };
+			AssertMsg(compareRanges(iso.getSumRanges(), expectedRanges), "Should be 4 ranges. [0], [2,5], [7-10], [12]");
 		};
 
 	};
+}
 }
