@@ -63,7 +63,7 @@ namespace whfc {
 		public:
 			using Type = BitsetReachableHyperedges;
 
-			BitsetReachableHyperedges(const size_t nHE) :
+			explicit BitsetReachableHyperedges(const size_t nHE) :
 					IN_SETTLED_S(nHE),
 					OUT_SETTLED_S(nHE),
 					IN_REACHED_S(nHE),

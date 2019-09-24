@@ -42,6 +42,8 @@ namespace whfc {
 		inline auto hyperedgeIDs() const { return boost::irange<Hyperedge>(Hyperedge(0), Hyperedge::fromOtherValueType(numHyperedges())); }
 		inline auto pinIndices() const { return boost::irange<PinIndex>(PinIndex(0), PinIndex::fromOtherValueType(numPins())); }
 
+		FlowHypergraph() : nodes(1), hyperedges(1) { }
+
 		FlowHypergraph(std::vector<NodeWeight>& node_weights, std::vector<HyperedgeWeight>& hyperedge_weights, std::vector<PinIndex>& hyperedge_sizes, std::vector<Node>& _pins) :
 				nodes(node_weights.size() + 1),
 				hyperedges(hyperedge_weights.size() + 1),
@@ -87,7 +89,6 @@ namespace whfc {
 		}
 
 		//TODO write constructor that is most suitable for network extraction in KaHyPar. For example when reading from hMetis format, we could immediately write hyperedges[X].first_out. but we don't
-
 
 		bool hasNodeWeights() const { return std::any_of(nodes.begin(), nodes.begin() + numNodes(), [](const NodeData& u) { return u.weight > 1; }); }
 		bool hasHyperedgeWeights() const { return std::any_of(hyperedges.begin(), hyperedges.begin() + numHyperedges(), [](const HyperedgeData& e) { return e.capacity > 1; }); }

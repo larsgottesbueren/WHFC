@@ -17,7 +17,6 @@ namespace whfc {
 			std::swap(addedToSourceSideBorder, addedToTargetSideBorder);
 		}
 
-		//bool trackElements = true;
 		BitVector addedToSourceSideBorder, addedToTargetSideBorder;
 		std::vector<T> sourceSideBorder, targetSideBorder;
 

@@ -27,6 +27,8 @@ namespace whfc {
 		ScanList nodes_to_scan;
 		std::vector<InHeIndex> parent;
 
+		explicit FordFulkerson(FlowHypergraph& hg) : hg(hg), nodes_to_scan(hg.numNodes()), parent(hg.numNodes(), InHeIndex::Invalid()) { }
+
 		static constexpr Flow InitialScalingCapacity = 1 << 24; //NOTE choose sensibly
 		static constexpr Flow ScalingCutOff = 4; //NOTE choose sensibly
 		Flow scalingCapacity = InitialScalingCapacity;
@@ -209,6 +211,9 @@ namespace whfc {
 			growWithoutScaling<false>(cs);
 		}
 	};
+
+	using ScalingFordFulkerson = FordFulkerson<true>;
+	using BasicFordFulkerson = FordFulkerson<false>;
 
 	//using PseudoDepthFirstFordFulkerson = FordFulkerson<FixedCapacityStack>;
 	//using EdmondsKarp = FordFulkerson<LayeredQueue>;

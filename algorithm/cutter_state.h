@@ -68,7 +68,7 @@ namespace whfc {
 				n.reach(u);
 			n.settle(u);
 
-			isolatedNodes.settleNode(u);
+			//isolatedNodes.settleNode(u);		only do this, if we ever decide to eject entries in IsolatedNodes, which would require resolving from scratch
 
 			for (const auto& he_inc : hg.hyperedgesOf(u)) {
 				const Hyperedge e = he_inc.e;

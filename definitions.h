@@ -68,4 +68,8 @@ namespace whfc {
 		}
 	};
 
+	class Context {		//
+		NodeWeight maxBlockWeight;
+	};
+
 }

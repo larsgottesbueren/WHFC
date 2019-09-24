@@ -17,6 +17,8 @@ namespace whfc {
 		Flow upperFlowBound;
 		Piercer piercer;
 
+		HyperFlowCutter(FlowHypergraph& hg, NodeWeight maxBlockWeight) : hg(hg), cs(hg, maxBlockWeight), flow_algo(hg), upperFlowBound(0), piercer(hg) { }
+
 		void initialize(Node s, Node t) {
 			cs.sourcePiercingNodes = {s};
 			cs.targetPiercingNodes = {t};

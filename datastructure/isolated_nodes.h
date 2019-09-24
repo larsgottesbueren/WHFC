@@ -131,7 +131,7 @@ namespace whfc {
 		//When a newly computed sum equals an already computed sum, we can jump to the left end of the range, get the corresponding index into sumRanges,
 		//thus the entire range, and prune sums that have been previously computed
 		void updateDPTableWithSumRangesAndRangePruning() {
-			//Implement me.
+			//Implement me if the other approach is too slow.
 		}
 
 	public:
@@ -201,11 +201,6 @@ namespace whfc {
 
 		bool isCandidate(const Node u) const {
 			return mixedIncidentHyperedges[u] == hg.degree(u);
-		}
-
-		void settleNode(const Node u) {
-			//maxSubsetSumWeight -= hg.nodeWeight(u);
-			//Let's not do that! We're not doing allocations at the moment anyways
 		}
 
 	};

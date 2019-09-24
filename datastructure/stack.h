@@ -10,6 +10,7 @@ private:
 	index_t __size;
 public:
 	explicit FixedCapacityStack(const index_t num_elements) : stack(num_elements), __size(0) {}
+	explicit FixedCapacityStack(const size_t num_elements) : FixedCapacityStack(static_cast<index_t>(num_elements)) { }
 	inline void clear() { __size = 0; }
 	inline bool empty() const { return __size == 0; }
 	inline T pop() { Assert(!empty()); return stack[--__size]; }
