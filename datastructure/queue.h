@@ -13,7 +13,8 @@ public:
 	size_type layerfront, layerend, qfront, qend;
 	explicit LayeredQueue(const size_type num_elements) : queue(num_elements), layerfront(0), layerend(0), qfront(0), qend(0) {}
 	//Note. Use reinitialize() if you want to keep entries in the underlying vector intact, and ensure these won't be pushed again
-	inline void reinitialize(size_type x = queueEnd()) { layerfront = x; layerend = x; qfront = x; qend = x; }
+	inline void reinitialize(size_type x) { layerfront = x; layerend = x; qfront = x; qend = x; }
+	inline void reinitialize() { reinitialize(queueEnd()); }
 	inline void clear() { reinitialize(0); }
 	inline bool empty() const { return qfront == qend; }
 	inline bool currentLayerEmpty() const { return qfront == layerend; }
@@ -50,9 +51,11 @@ public:
 	std::vector<T> extract() { return std::move(queue); }
 
 	template<typename URBG>
-	void shuffleQueue(URBG &&urbg, size_type a = qfront, size_type b = qend) {
+	void shuffleQueue(URBG &&urbg, size_type a, size_type b) {
 		std::shuffle(queue.begin() + a, queue.begin() + b, urbg);
 	}
+
+	template<typename URBG> void shuffleQueue(URBG&& urbg) { shuffleQueue(urbg, qfront, qend); }
 
 	template<typename URBG>
 	void shuffleCurrentLayer(URBG &&urbg) {

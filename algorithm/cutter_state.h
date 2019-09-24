@@ -117,8 +117,7 @@ namespace whfc {
 		}
 
 		void filterBorder() {
-			//borderNodes.filter([&](const Node& x) { return !canBeSettled(x);} );
-			borderNodes.filter(std::not_fn(canBeSettled));
+			borderNodes.filter([&](const Node& x) { return !canBeSettled(x);} );
 		}
 
 		void filterCut() {
@@ -132,7 +131,6 @@ namespace whfc {
 					sw = n.sourceReachableWeight,		//cannot be split
 					tw = n.targetReachableWeight,		//cannot be split
 					uw = unclaimedNodeWeight(),			//cannot be split (in current stages. if we integrate proper PCKP heuristics for MBMC this would change)
-					total = hg.totalNodeWeight(),
 					iso = isolatedNodes.weight;			//can be split
 
 			if (sw > maxBlockWeight || tw > maxBlockWeight)					//this is good at late and early stages
@@ -199,7 +197,6 @@ namespace whfc {
 					sw = n.sourceReachableWeight,
 					tw = n.targetReachableWeight,
 					uw = unclaimedNodeWeight(),
-					total = hg.totalNodeWeight(),
 					iso = isolatedNodes.weight,
 					suw = sw + uw,
 					tuw = tw + uw;
@@ -250,8 +247,8 @@ namespace whfc {
 
 			}
 
-			NodeWeight s = assignUnclaimedToSource ? sw : suw + assignTrackedIsolatedWeightToSource ? trackedIsolatedWeight : iso - trackedIsolatedWeight;
-			NodeWeight t = assignUnclaimedToSource ? tuw : tw + assignTrackedIsolatedWeightToSource ? iso - trackedIsolatedWeight : trackedIsolatedWeight;
+			NodeWeight s = (assignUnclaimedToSource ? sw : suw) + (assignTrackedIsolatedWeightToSource ? trackedIsolatedWeight : iso - trackedIsolatedWeight);
+			NodeWeight t = (assignUnclaimedToSource ? tuw : tw) + (assignTrackedIsolatedWeightToSource ? iso - trackedIsolatedWeight : trackedIsolatedWeight);
 			AssertMsg(s <= maxBlockWeight, "computed assignment violates max block weight on source side");
 			AssertMsg(t <= maxBlockWeight, "computed assignment violates max block weight on target side");
 			AssertMsg(isolatedNodes.isSummable(trackedIsolatedWeight), "isolated weight is not summable");
@@ -275,7 +272,7 @@ namespace whfc {
 		//result.first = x, result.second = block weight difference
 		inline std::pair<NodeWeight, NodeWeight> isolatedWeightAssignmentToFirst(const NodeWeight a, NodeWeight b, const IsolatedNodes::SummableRange& sr) const {
 			b += isolatedNodes.weight;
-			const NodeWeight x = (a < b) ? std::max(std::min((b-a)/2, sr.to), sr.from) : sr.from;
+			const NodeWeight x = (a < b) ? std::max(std::min(NodeWeight((b-a)/2), sr.to), sr.from) : sr.from;
 			return std::make_pair(x, Math::absdiff(a + x, b - x));
 		}
 
@@ -287,7 +284,7 @@ namespace whfc {
 			return maxBlockWeight - std::min(n.sourceWeight,n.targetWeight);
 		}
 
-
+/*
 		bool isInfeasible() {
 			//call rarely. only intended for debugging purposes
 
@@ -305,8 +302,8 @@ namespace whfc {
 			const bool res = !isBalanced();
 			std::swap(isolatedNodes, subsetSumCopy);
 			return res;
-		}
-
+	}
+*/
 	};
 
 

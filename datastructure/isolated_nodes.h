@@ -10,7 +10,7 @@ namespace whfc {
 		FlowHypergraph& hg;
 	public:
 		NodeWeight weight = NodeWeight(0);
-		std::vector<Node> nodes;		//TODO figure out why we need this guy
+		std::vector<Node> nodes;
 		std::vector<HyperedgeIndex> mixedIncidentHyperedges;
 
 		struct SummableRange {
@@ -55,19 +55,21 @@ namespace whfc {
 		//This variant assumes that DPTable[sumRanges[i].from] == DPTable[sumRanges[i].to] == i
 		//Pointers in between are considered stale.
 		//Updating DP Table entries requires computing all sums available with node u.
-		void Internal_UpdateDPTableWithSumRanges() {
+
+		void updateDPTableWithSumRanges() {
 			for (const Node u : nodesNotInTheDPTable) {
 
 				if (newSumAvailable)
-					nextSumRanges = sumRanges;		//find way to avoid copies. must be possible. this is so horrible.
+					nextSumRanges = sumRanges;        //find way to avoid copies. must be possible. this is so horrible.
 				AssertMsg(nextSumRanges == sumRanges, "nextSumRanges not up to date");
 				newSumAvailable = false;
 
 				const NodeWeight wu = hg.nodeWeight(u);
 				AssertMsg(wu > 0, "Node has zero weight");
 
-				for (const SummableRange& sr : sumRanges) {
-					for (NodeWeight new_sum = sr.from + wu, _end = std::min(sr.to + wu, maxSubsetSumWeight); new_sum <= _end; ++new_sum) {
+				for (const SummableRange &sr : sumRanges) {
+					for (NodeWeight new_sum = sr.from + wu, _end = std::min(sr.to + wu, maxSubsetSumWeight);
+						 new_sum <= _end; ++new_sum) {
 						if (!isSummable(new_sum)) {
 							newSumAvailable = true;
 							DPTable[new_sum].node = u;
@@ -75,41 +77,43 @@ namespace whfc {
 							NodeWeight left(new_sum - 1), right(new_sum + 1);
 							Index leftIndex = DPTable[left].sumsIndex, rightIndex = DPTable[right].sumsIndex;
 							bool hasLeft = DPTable[left].summable();
-							bool hasRight = DPTable[right].summable();	//new_sum + 1 is valid because of right-ward sentinel.
+							bool hasRight = DPTable[right].summable();    //new_sum + 1 is valid because of right-ward sentinel.
 
-							if (hasLeft && hasRight) { //merge ranges. keep left range, and extend it to cover the right range
-								AssertMsg(nextSumRanges[DPTable[left].sumsIndex].to == left, "hasLeft && hasRight: left range does not extend to new_sum-1");
-								AssertMsg(nextSumRanges[DPTable[right].sumsIndex].from == right, "hasLeft && hasRight: right range does not start at new_sum+1");
+							if (hasLeft &&
+								hasRight) { //merge ranges. keep left range, and extend it to cover the right range
+								AssertMsg(nextSumRanges[DPTable[left].sumsIndex].to == left,
+										  "hasLeft && hasRight: left range does not extend to new_sum-1");
+								AssertMsg(nextSumRanges[DPTable[right].sumsIndex].from == right,
+										  "hasLeft && hasRight: right range does not start at new_sum+1");
 								DPTable[new_sum].sumsIndex = leftIndex; //bridging cell. the index is stale, but we're setting it anyway to mark it as summable
 
-								SummableRange& leftRange = nextSumRanges[leftIndex], rightRange = nextSumRanges[rightIndex];
+								SummableRange &leftRange = nextSumRanges[leftIndex], rightRange = nextSumRanges[rightIndex];
 
 								//extend leftRange to cover rightRange
 								DPTable[rightRange.to].sumsIndex = leftIndex;
 								leftRange.to = rightRange.to;
 
 								//delete rightRange
-								SummableRange back = nextSumRanges.back();		//make copy! thus immediate pop_back is safe
+								SummableRange back = nextSumRanges.back();        //make copy! thus immediate pop_back is safe
 								nextSumRanges.pop_back();
 								nextSumRanges[rightIndex] = back;
 
 								//update sumsIndex of the range that was swapped to rightIndex
 								DPTable[back.from].sumsIndex = rightIndex;
 								DPTable[back.to].sumsIndex = rightIndex;
-							}
-							else if (hasLeft) {
+							} else if (hasLeft) {
 								//extend left range's .to by +1
-								AssertMsg(nextSumRanges[DPTable[left].sumsIndex].to == left, "hasLeft: left range does not extend to new_sum-1");
+								AssertMsg(nextSumRanges[DPTable[left].sumsIndex].to == left,
+										  "hasLeft: left range does not extend to new_sum-1");
 								nextSumRanges[DPTable[left].sumsIndex].to = new_sum;
 								DPTable[new_sum].sumsIndex = leftIndex;
-							}
-							else if (hasRight) {
+							} else if (hasRight) {
 								//extend right range's .from by -1
-								AssertMsg(nextSumRanges[DPTable[right].sumsIndex].from == right, "hasRight: right range does not start at new_sum+1");
+								AssertMsg(nextSumRanges[DPTable[right].sumsIndex].from == right,
+										  "hasRight: right range does not start at new_sum+1");
 								nextSumRanges[DPTable[right].sumsIndex].from = new_sum;
 								DPTable[new_sum].sumsIndex = rightIndex;
-							}
-							else {
+							} else {
 								//start new range
 								DPTable[new_sum].sumsIndex = static_cast<Index>(nextSumRanges.size());
 								nextSumRanges.emplace_back(new_sum, new_sum);
@@ -126,7 +130,7 @@ namespace whfc {
 		//Pointers in between point to -- potentially former -- left ends (sr.from) of the range sr. Using path compression we can keep "hop distance" to sr.from "short"
 		//When a newly computed sum equals an already computed sum, we can jump to the left end of the range, get the corresponding index into sumRanges,
 		//thus the entire range, and prune sums that have been previously computed
-		void Internal_UpdateDPTableWithSumRangesAndRangePruning() {
+		void updateDPTableWithSumRangesAndRangePruning() {
 			//Implement me.
 		}
 
@@ -168,7 +172,7 @@ namespace whfc {
 				//if memory actually becomes critical, we can also compress the DPTable by a two-level indexing approach, where ranges only consume one entry. compression called infrequently
 				DPTable.resize(std::min((size_t)2*(weight+1), (size_t)maxSubsetSumWeight + 1), TableEntry());
 			}
-			Internal_UpdateDPTableWithSumRanges();
+			updateDPTableWithSumRanges();
 			//Internal_UpdateDPTableWithSumRangesAndRangePruning();		NOT IMPLEMENTED YET. Note sure if faster or necessary
 			nodesNotInTheDPTable.clear();
 		}

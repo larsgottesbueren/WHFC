@@ -13,7 +13,7 @@ namespace Function {
 	struct RandomAccessCallableWrapper {
 		const RandomAccessObject& rao;
 		RandomAccessCallableWrapper(const RandomAccessObject& rao) : rao(rao) { }
-		const auto& operator()(const size_t idx) const {
+		const auto operator()(const size_t idx) const {
 			return rao[idx];
 		}
 	};
