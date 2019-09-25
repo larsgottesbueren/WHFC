@@ -21,7 +21,13 @@ namespace whfc {
 
 		void initialize(Node s, Node t) {
 			cs.sourcePiercingNodes = {s};
+			cs.settleNode(s);
 			cs.targetPiercingNodes = {t};
+			
+			cs.flipViewDirection();
+			cs.settleNode(t);
+			cs.flipViewDirection();
+			
 			exhaustFlowAndGrow();
 		}
 

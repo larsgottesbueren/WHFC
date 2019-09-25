@@ -1,6 +1,8 @@
 #pragma once
 
-#include "hypergraph.h"
+#include "../definitions.h"
+#include <boost/dynamic_bitset.hpp>
+#include <boost/range/irange.hpp>
 
 namespace whfc {
 
@@ -10,6 +12,7 @@ namespace whfc {
 		struct Pin {
 			Node pin = invalidNode;
 			InHeIndex he_inc_iter;
+			bool operator==(const Pin& o) const { return o.pin == pin && o.he_inc_iter == he_inc_iter; }
 		};
 
 		struct InHe {	//Hyperedge Incidence
@@ -25,7 +28,7 @@ namespace whfc {
 		};
 
 		struct NodeData {
-			HyperedgeIndex first_out = HyperedgeIndex(0);
+			InHeIndex first_out = InHeIndex(0);
 			NodeWeight weight = NodeWeight(0);
 		};
 
@@ -61,7 +64,7 @@ namespace whfc {
 				nodes[p + 1].first_out++;			//bucket sizes
 			}
 			
-			HyperedgeIndex running_hyperedge_index(0);
+			InHeIndex running_hyperedge_index(0);
 			i = 0;
 			for (NodeData& u : nodes) {
 				u.first_out += running_hyperedge_index;			//prefix sum
@@ -74,7 +77,7 @@ namespace whfc {
 				hyperedges[e+1].first_out = hyperedges[e].first_out + hyperedge_sizes[e];		//prefix sum
 				for (auto pin_it = beginIndexPins(e); pin_it != endIndexPins(e); pin_it++) {
 					Pin& p = pins[pin_it];
-					InHeIndex ind_he = InHeIndex::fromOtherValueType(nodes[p.pin].first_out++);							//destroy first_out temporarily and reset later
+					InHeIndex ind_he = nodes[p.pin].first_out++;							//destroy first_out temporarily and reset later
 					InHe& inc_he = incident_hyperedges[ind_he];
 					inc_he.e = e;
 					inc_he.pin_iter = pin_it;				//set iterator for pin -> its position in the pins of the hyperedge
@@ -84,7 +87,7 @@ namespace whfc {
 			
 			for (NodeIndex u(numNodes()-1); u > 0; u--)
 				nodes[u].first_out = nodes[u-1].first_out;	//reset temporarily destroyed first_out
-			nodes[0].first_out = HyperedgeIndex(0);
+			nodes[0].first_out = InHeIndex(0);
 			
 			PinIndex x = PinIndex(0);
 			pins_sending_flow.reserve(numHyperedges());
@@ -96,23 +99,23 @@ namespace whfc {
 			}
 		}
 
-		//TODO write constructor that is most suitable for network extraction in KaHyPar. For example when reading from hMetis format, we could immediately write hyperedges[X].first_out. but we don't
-
 		bool hasNodeWeights() const { return std::any_of(nodes.begin(), nodes.begin() + numNodes(), [](const NodeData& u) { return u.weight > 1; }); }
 		bool hasHyperedgeWeights() const { return std::any_of(hyperedges.begin(), hyperedges.begin() + numHyperedges(), [](const HyperedgeData& e) { return e.capacity > 1; }); }
 		inline size_t numNodes() const { return nodes.size() - 1 ; }
 		inline size_t numHyperedges() const { return hyperedges.size() - 1; }
 		inline size_t numPins() const { return pins.size(); }
 		inline PinIndex pinCount(const Hyperedge e) const { return hyperedges[e+1].first_out - hyperedges[e].first_out; }
-		inline HyperedgeIndex degree(const Node u) const { return nodes[u+1].first_out - nodes[u].first_out; }
+		inline InHeIndex degree(const Node u) const { return nodes[u+1].first_out - nodes[u].first_out; }
 		inline NodeWeight totalNodeWeight() const { return total_node_weight; }
 		inline NodeWeight nodeWeight(const Node u) const { return nodes[u].weight; }
 		inline HyperedgeWeight totalHyperedgeWeight() const { return total_hyperedge_weight; }
 
-		inline HyperedgeIndex beginIndexHyperedges(Node u) const { return nodes[u].first_out; }
-		inline HyperedgeIndex endIndexHyperedges(Node u) const { return nodes[u+1].first_out; }
+		inline InHeIndex beginIndexHyperedges(Node u) const { return nodes[u].first_out; }
+		inline InHeIndex endIndexHyperedges(Node u) const { return nodes[u+1].first_out; }
 		//interface for irange is front(), drop_front(), empty(), size(), begin(), end()
-		inline decltype(auto) incidentHyperedgeIndices(const Node u) const { return boost::irange<HyperedgeIndex>(beginIndexHyperedges(u), endIndexHyperedges(u)); }
+		inline decltype(auto) incidentHyperedgeIndices(const Node u) const {
+			return boost::irange<InHeIndex>(beginIndexHyperedges(u), endIndexHyperedges(u));
+		}
 		inline InHe& getInHe(const InHeIndex ind_e) { return incident_hyperedges[ind_e]; }
 		inline InHe& getInHe(const Pin& pin) { return getInHe(pin.he_inc_iter); }
 		inline const InHe& getInHe(const InHeIndex ind_e) const { return incident_hyperedges[ind_e]; }
@@ -167,24 +170,52 @@ namespace whfc {
 		inline Flow absoluteFlowSent(const InHe& inc_u) const { return std::max(0, flowSent(inc_u)); }
 		inline Flow flowSent(const Pin& pin) const { return flowSent(getInHe(pin)); }
 		inline Flow absoluteFlowSent(const Pin& pin) const { return std::max(0, flowSent(pin)); }
+		
+		//for testing only
+		inline Flow flowSent(const Node u) {
+			Flow f = 0;
+			for (const InHe& inc_u : hyperedgesOf(u))
+				f += flowSent(inc_u.flow);
+			return f;
+		}
+		
+		inline Flow flowReceived(const Node u) {
+			return -flowSent(u);
+		}
 
 		inline Flow flowReceived(const Flow f) const { return f * receives_multiplier; }
 		//flow that u = getPin(inc_u.pin_iter).pin receives from e = inc_u.e
 		inline Flow flowReceived(const InHe& inc_u) const { return flowReceived(inc_u.flow); }
+		inline Flow flowReceived(const Pin& pin) const { return flowReceived(getInHe(pin)); }
 		inline Flow absoluteFlowReceived(const InHe& inc_u) const { return std::max(0, flowReceived(inc_u)); }
 		//inline Flow flowReceived(const Pin& pin) const { return flowReceived(getInHe(pin)); }
 
 		inline Flow residualCapacity(const InHe& inc_u, InHe& inc_v) const {
 			return absoluteFlowReceived(inc_u) + absoluteFlowSent(inc_v) + residualCapacity(inc_u.e);
 		}
-
+		
+		//for testing only
+		InHe& findIncidence(const Node u, const Hyperedge e) {
+			for (InHe& x : hyperedgesOf(u))
+				if (x.e == e)
+					return x;
+			throw std::out_of_range("e is not in the list of incident hyperedges of u");
+		}
+		
+		//for testing only
+		Pin& findPin(const Hyperedge e, const Node v) {
+			for (Pin& x : pinsOf(e))
+				if (x.pin == v)
+					return x;
+			throw std::out_of_range("v is not a pin of e");
+		}
 
 		void routeFlow(InHe& inc_u, InHe& inc_v, const Flow _flow) {
 			const Hyperedge e = inc_u.e;
 			AssertMsg(inc_u.e == inc_v.e, "Routing flow but incident hyperedges are not the same");
 			AssertMsg(_flow > 0, "Routing <= 0 flow.");
 			AssertMsg(_flow <= residualCapacity(inc_u, inc_v), "Routing more flow than residual capacity");
-			AssertMsg(flow(e) <= capacity(e), "Routing more flow than capacity");
+			AssertMsg(flow(e) <= capacity(e), "Capacity on e already exceeded");
 			AssertMsg(std::abs(inc_u.flow) <= capacity(e), "Pin capacity already violated (u)");
 			AssertMsg(std::abs(inc_v.flow) <= capacity(e), "Pin capacity already violated (v)");
 
@@ -238,7 +269,7 @@ namespace whfc {
 
 			PinIndex it_o = (forwardView() == flow_receiving_pins) ? flow_pins.begin() : PinIndex(flow_pins.end() - 1);
 			InHe& inc_o = getInHe(getPin(it_o));
-			Assert(flow_receiving_pins ? flowReceived(inc_o) > 0 : flowSent(inc_o) > 0);	//ensure it_o, taken from flow_pins, actually receives or sends flow, as appropriate
+			Assert(flow_pins.size() == 1 || (flow_receiving_pins ? flowReceived(inc_o) > 0 : flowSent(inc_o) > 0));	//ensure it_o, taken from flow_pins, actually receives or sends flow, as appropriate
 			if (forwardView() == flow_receiving_pins)
 				flow_pins.advance_begin();
 			else
@@ -318,9 +349,11 @@ namespace whfc {
 		void printHyperedges(std::ostream& out) {
 			out << "---Hyperedges---\n";
 			for (const Hyperedge e: hyperedgeIDs()) {
-				out << e << " pincount = " << pinCount(e) << " w= " << capacity(e) << " pins = [";
-				for (const Pin u : pinsOf(e))
-					out << u.pin << " ";
+				out << e << " pincount = " << pinCount(e) << " w= " << capacity(e) << " pins (pin,flow) = [";
+				for (const Pin& u : pinsOf(e)) {
+					Assert(pin_is_categorized_correctly(getInHe(u)));
+					out << "(" << u.pin << "," << getInHe(u).flow << ") ";
+				}
 				out << "]" << "\n";
 			}
 			out << std::flush;

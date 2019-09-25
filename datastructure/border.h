@@ -51,7 +51,7 @@ namespace whfc {
 	class HyperedgeCut : public Border<Hyperedge, false> {
 	public:
 		using Base = Border<Hyperedge, false>;
-		explicit HyperedgeCut(const size_t nHyperedges) : Base(nHyperedges) { }
+		explicit HyperedgeCut(const size_t nHyperedges) : Base(nHyperedges), hasSettledSourcePins(nHyperedges), hasSettledTargetPins(nHyperedges) { }
 		BitVector hasSettledSourcePins, hasSettledTargetPins;	//set in CutterState::settleNode //TODO check if hasSettledSourcePins == ReachableHyperedges::areFlowSendingPinsSources()
 		size_t sourceMixed = 0, targetMixed = 0;	//equal if both cut-fronts were built. but they aren't.
 

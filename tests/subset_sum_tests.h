@@ -8,19 +8,19 @@ namespace Test {
 
 	class SubsetSumTests {
 	public:
-		using NW = whfc::NodeWeight;
-		using SR = whfc::IsolatedNodes::SummableRange;
+		using NW = NodeWeight;
+		using SR = IsolatedNodes::SummableRange;
 
 		std::vector<NW> nodeWeights = {
 			NW(2), NW(2), NW(3), NW(4), NW(2), NW(5), NW(3)
 		};
 		size_t mbw = 12;
-		whfc::FlowHypergraph hg = CreateDummyHypergraphs::noHyperedgesGivenNodeWeights(nodeWeights);
+		FlowHypergraph hg = CreateDummyHypergraphs::noHyperedgesGivenNodeWeights(nodeWeights);
 
 
 
-		whfc::BitVector convertDPTableIntoBitvector(const whfc::IsolatedNodes& iso, const size_t ub) {
-			whfc::BitVector res(static_cast<size_t>(ub+1));
+		BitVector convertDPTableIntoBitvector(const whfc::IsolatedNodes& iso, const size_t ub) {
+			BitVector res(static_cast<size_t>(ub+1));
 			for (NW x(0); x <= ub; ++x) {
 				if (iso.isSummable(x))
 					res.set(static_cast<size_t>(x));
@@ -37,8 +37,8 @@ namespace Test {
 
 
 		void run() {
-			whfc::IsolatedNodes iso(hg, NW::fromOtherValueType(mbw));
-			whfc::BitVector expected(mbw+1);
+			IsolatedNodes iso(hg, NW::fromOtherValueType(mbw));
+			BitVector expected(mbw+1);
 			expected.set(0);
 
 			AssertMsg(iso.isDPTableUpToDate(), "DP Table should be up to date without insertions");

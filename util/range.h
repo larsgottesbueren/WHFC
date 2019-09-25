@@ -62,7 +62,7 @@ struct mutable_index_range {
 	inline Index_t end() const { return __end; }
 	inline bool empty() const { return begin() == end(); }
 	inline bool contains(const Index_t i) { return i < __end && i >= __begin; }
-	inline std::size_t size() const { return static_cast<size_t>(std::distance(__begin, __end)); }
+	inline std::size_t size() const { return static_cast<size_t>(__end - __begin); }
 
 	inline void advance_begin() { __begin++; }
 	inline void retreat_begin() { __begin--; }

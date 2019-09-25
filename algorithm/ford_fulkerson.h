@@ -2,17 +2,20 @@
 
 #include "cutter_state.h"
 #include "../datastructure/stack.h"
+#include "../datastructure/queue.h"
 #include "../datastructure/bitset_reachable_sets.h"
 //#include "../datastructure/timestamp_reachable_sets.h"
 
 namespace whfc {
 
 	//template<class ScanList>
-	template<bool capacityScaling, bool alwaysSetParent = true>
+	template<typename ScanList, bool capacityScaling, bool alwaysSetParent = true>
 	class FordFulkerson /* : public FlowAlgorithm */ {
 	public:
+		static constexpr bool debug = true;
+		
 		using Type = FordFulkerson;
-		using ScanList = FixedCapacityStack<Node>;
+		//using ScanList = FixedCapacityStack<Node>;
 
 		using ReachableNodes = BitsetReachableNodes;
 		using ReachableHyperedges = BitsetReachableHyperedges;
@@ -25,23 +28,28 @@ namespace whfc {
 
 		FlowHypergraph& hg;
 		ScanList nodes_to_scan;
-		std::vector<InHeIndex> parent;
+		
+		struct Parent {
+			InHeIndex 	parentIncidenceIterator = InHeIndex::Invalid(),
+						currentIncidenceIterator = InHeIndex::Invalid();
+		};
+		std::vector<Parent> parent;
 
-		explicit FordFulkerson(FlowHypergraph& hg) : hg(hg), nodes_to_scan(hg.numNodes()), parent(hg.numNodes(), InHeIndex::Invalid()) { }
+		explicit FordFulkerson(FlowHypergraph& hg) : hg(hg), nodes_to_scan(hg.numNodes()), parent(hg.numNodes()) { }
 
 		static constexpr Flow InitialScalingCapacity = 1 << 24; //NOTE choose sensibly
 		static constexpr Flow ScalingCutOff = 4; //NOTE choose sensibly
 		Flow scalingCapacity = InitialScalingCapacity;
 
 
-		Flow recycleDatastructuresFromGrowReachablePhase(CutterState <Type> &cs) {
+		Flow recycleDatastructuresFromGrowReachablePhase(CutterState<Type> &cs) {
 			Flow flow = 0;
 			if constexpr (alwaysSetParent) {
 				if (cs.augmentingPathAvailableFromPiercing) {
 					for (Node s : cs.sourcePiercingNodes) {
 						if (cs.n.isTargetReachable(s)) {
 							cs.flipViewDirection();
-							flow += augmentFromTarget(cs.n, parent[s]);
+							flow += augmentFromTarget(cs.n, s);
 							cs.flipViewDirection();
 							break;	//no VD label propagation --> only one path
 						}
@@ -86,26 +94,21 @@ namespace whfc {
 			return growWithoutScaling<true>(cs);
 		}
 
-		Flow augmentFromTarget(ReachableNodes& n, const InHeIndex inc_target_index) {
+		Flow augmentFromTarget(ReachableNodes& n, const Node target) {
 			Flow bottleneckCapacity = maxFlow;
-			const Node target = hg.getPin(hg.getInHe(inc_target_index)).pin;
-
 			Node v = target;
-			InHeIndex inc_v_index = inc_target_index;
 			while (!n.isSource(v)) {
-				InHeIndex inc_u_index = parent[hg.getPin(hg.getInHe(inc_v_index)).pin];
-				bottleneckCapacity = std::min(bottleneckCapacity, hg.residualCapacity(hg.getInHe(inc_u_index), hg.getInHe(inc_v_index)));
-				inc_v_index = inc_u_index;
-				v = hg.getPin(hg.getInHe(inc_v_index)).pin;
+				Parent p = parent[v];
+				const Flow residual = hg.residualCapacity(hg.getInHe(p.parentIncidenceIterator), hg.getInHe(p.currentIncidenceIterator));
+				bottleneckCapacity = std::min(bottleneckCapacity, residual);
+				v = hg.getPin(hg.getInHe(p.parentIncidenceIterator)).pin;
 			}
 			AssertMsg(bottleneckCapacity > 0, "Bottleneck capacity not positive");
 			v = target;
-			inc_v_index = inc_target_index;
 			while (!n.isSource(v)) {
-				InHeIndex inc_u_index = parent[hg.getPin(hg.getInHe(inc_v_index)).pin];
-				hg.routeFlow(hg.getInHe(inc_u_index), hg.getInHe(inc_v_index), bottleneckCapacity);
-				inc_v_index = inc_u_index;
-				v = hg.getPin(hg.getInHe(inc_v_index)).pin;
+				Parent p = parent[v];
+				hg.routeFlow(hg.getInHe(p.parentIncidenceIterator), hg.getInHe(p.currentIncidenceIterator), bottleneckCapacity);
+				v = hg.getPin(hg.getInHe(p.parentIncidenceIterator)).pin;
 			}
 			return bottleneckCapacity;
 		}
@@ -116,15 +119,18 @@ namespace whfc {
 			ReachableNodes& n = cs.n;
 			ReachableHyperedges& h = cs.h;
 			nodes_to_scan.clear();
-			for (Node s : cs.sourcePiercingNodes) nodes_to_scan.push(s);
-
+			for (Node s : cs.sourcePiercingNodes)
+				nodes_to_scan.push(s);
+			
 			while (!nodes_to_scan.empty()) {
 				const Node u = nodes_to_scan.pop();
-				for (const InHe& inc_u : hg.hyperedgesOf(u)) {
+				for (InHeIndex inc_u_iter : hg.incidentHyperedgeIndices(u)) {
+					const InHe& inc_u = hg.getInHe(inc_u_iter);
 					const Hyperedge e = inc_u.e;
 
 					if (!h.areAllPinsSourceReachable(e)) {
 						const bool scanAllPins = !hg.isSaturated(e) || hg.flowReceived(inc_u) > 0;
+						
 						if (scanAllPins)
 							h.reachAllPins(e);
 						else if (h.areFlowSendingPinsSourceReachable(e))
@@ -134,15 +140,15 @@ namespace whfc {
 
 						for (const Pin& pv : scanAllPins ? hg.pinsOf(e) : hg.pinsSendingFlowInto(e)) {
 							const Node v = pv.pin;
-							if constexpr (augment_flow)
-								if (n.isTarget(v))
-									return augmentFromTarget(n, pv.he_inc_iter);
 							AssertMsg(augment_flow || !n.isTargetReachable(v), "Not augmenting flow but target side is reachable.");
 							if (!n.isSourceReachable(v)) {		//don't do VD label propagation
 								n.reach(v);
 								nodes_to_scan.push(v);
 								if constexpr (augment_flow || alwaysSetParent)
-									parent[v] = pv.he_inc_iter;
+									parent[v] = { inc_u_iter, pv.he_inc_iter };
+								if constexpr (augment_flow)
+									if (n.isTarget(v))
+										return augmentFromTarget(n, v);
 							}
 						}
 					}
@@ -161,11 +167,13 @@ namespace whfc {
 			ReachableNodes& n = cs.n;
 			ReachableHyperedges& h = cs.h;
 			nodes_to_scan.clear();
-			for (Node s : cs.sourcePiercingNodes) nodes_to_scan.push(s);
+			for (Node s : cs.sourcePiercingNodes)
+				nodes_to_scan.push(s);
 
 			while (!nodes_to_scan.empty()) {
 				const Node u = nodes_to_scan.pop();
-				for (const InHe& inc_u : hg.hyperedgesOf(u)) {
+				for (InHeIndex inc_u_iter : hg.incidentHyperedgeIndices(u)) {
+					const InHe& inc_u = hg.getInHe(inc_u_iter);
 					const Hyperedge e = inc_u.e;
 					//can push at most flow(e) back into flow-sending pin and at most residual(e) = capacity(e) - flow(e) further flow.
 					//other pins can receive at most residual(e) <= capacity(e). so checking capacity(e) < scalingCapacity is a good pruning rule
@@ -178,12 +186,12 @@ namespace whfc {
 						for (const Pin& pv : hg.pinsSendingFlowInto(e)) {
 							if (residualCapacity + hg.absoluteFlowSent(pv) >= scalingCapacity) {//residual = flow received by u + residual(e) + flow sent by v
 								const Node v = pv.pin;
-								if (n.isTarget(v))
-									return augmentFromTarget(n, pv.he_inc_iter);
 								if (!n.isSourceReachable(v)) {
 									n.reach(v);
 									nodes_to_scan.push(v);
-									parent[v] = pv.he_inc_iter;
+									parent[v] = parent[v] = { inc_u_iter, pv.he_inc_iter };
+									if (n.isTarget(v))
+										return augmentFromTarget(n, v);
 								}
 							}
 						}
@@ -193,12 +201,12 @@ namespace whfc {
 						h.reachAllPins(e);
 						for (const Pin& pv : hg.pinsNotSendingFlowInto(e)) {
 							const Node v = pv.pin;
-							if (n.isTarget(v))
-								return augmentFromTarget(n, pv.he_inc_iter);
 							if (!n.isSourceReachable(v)) {
 								n.reach(v);
 								nodes_to_scan.push(v);
-								parent[v] = pv.he_inc_iter;
+								parent[v] = parent[v] = { inc_u_iter, pv.he_inc_iter };
+								if (n.isTarget(v))
+									return augmentFromTarget(n, v);
 							}
 						}
 					}
@@ -212,15 +220,15 @@ namespace whfc {
 		}
 	};
 
-	using ScalingFordFulkerson = FordFulkerson<true>;
-	using BasicFordFulkerson = FordFulkerson<false>;
+	using ScalingFordFulkerson = FordFulkerson<FixedCapacityStack<Node>, true>;
+	using BasicFordFulkerson = FordFulkerson<FixedCapacityStack<Node>, false>;
 
-	//using PseudoDepthFirstFordFulkerson = FordFulkerson<FixedCapacityStack>;
-	//using EdmondsKarp = FordFulkerson<LayeredQueue>;
+	using ScalingEdmondsKarp = FordFulkerson<LayeredQueue<Node>, true>;
+	using BasicEdmondsKarp = FordFulkerson<LayeredQueue<Node>, false>;
 
-	class TrueDepthFirstFordFulkerson {
+	class DepthFirstFordFulkerson {
 	public:
-		using Type = TrueDepthFirstFordFulkerson;
+		using Type = DepthFirstFordFulkerson;
 		using ReachableNodes = BitsetReachableNodes;
 		using ReachableHyperedges = BitsetReachableHyperedges;
 		//using ReachableNodes = TimestampReachableNodes;
