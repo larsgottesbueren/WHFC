@@ -15,6 +15,8 @@ namespace whfc {
 		bool avoidAugmentingPaths = true;
 		std::vector<HopDistance> distanceFromCut;
 
+		static constexpr bool debug = true;
+		
 		template<class ReachableNodes>
 		const Node findPiercingNode(ReachableNodes& n, const NodeBorder& border, const NodeWeight maxBlockWeight) {
 			Score maxScore;
@@ -25,6 +27,7 @@ namespace whfc {
 						maxScore = score_u;
 				}
 			}
+			
 			return maxScore.candidate;
 		}
 
@@ -41,7 +44,13 @@ namespace whfc {
 			Score(bool aap, HopDistance hd, uint32_t rs, Node cd) : avoidsAugmentingPaths(aap), hopDistance(hd), randomScore(rs), candidate(cd) { }
 
 			bool operator<(const Score& o) const {
-				return std::tie(avoidsAugmentingPaths,hopDistance,randomScore,candidate) < std::tie(o.avoidsAugmentingPaths,hopDistance,randomScore,candidate);
+				auto a = std::tie(avoidsAugmentingPaths,hopDistance,randomScore);
+				auto b = std::tie(o.avoidsAugmentingPaths,o.hopDistance,o.randomScore);
+				return a < b || (a == b && candidate > o.candidate);
+			}
+			
+			inline friend std::ostream& operator<<(std::ostream& out, const Score& score) noexcept {
+				return out << "{ aap " << score.avoidsAugmentingPaths << " randomScore " << score.randomScore << " node " << score.candidate << " }";
 			}
 		};
 

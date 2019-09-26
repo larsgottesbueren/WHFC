@@ -16,6 +16,10 @@ namespace Util {
 		bool operator<(const InvertComparison<T>& o) const {
 			return value > o.value;
 		}
+		
+		bool operator==(const InvertComparison<T>& o) const {
+			return value == o.value;
+		}
 
 		bool operator>(const InvertComparison<T>& o) const {
 			return value < o.value;
