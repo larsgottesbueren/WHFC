@@ -11,15 +11,11 @@ namespace whfc {
 template<typename FlowAlgorithm>
 class GrowAssimilated {
 public:
-	//using ScanList = FlowAlgorithm::ScanList;
-	using ScanList = FixedCapacityStack<Node>;
 	using Pin = FlowHypergraph::Pin;
-
-	//using ReachableNodes = typename FlowAlgorithm::ReachableNodes;
-	//using ReachableHyperedges = typename FlowAlgorithm::ReachableHyperedges;
-
-	using ReachableNodes = BitsetReachableNodes;
-	using ReachableHyperedges = BitsetReachableHyperedges;
+	
+	using ScanList = typename FlowAlgorithm::ScanList;
+	using ReachableNodes = typename FlowAlgorithm::ReachableNodes;
+	using ReachableHyperedges = typename FlowAlgorithm::ReachableHyperedges;
 
 
 	static void grow(CutterState<FlowAlgorithm>& cs, ScanList& nodes_to_scan) {

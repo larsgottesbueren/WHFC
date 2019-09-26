@@ -39,9 +39,9 @@ namespace whfc {
 		}
 
 		template<typename Predicate>
-		void filter(Predicate pred) {
+		void cleanUp(Predicate pred) {
 			if constexpr (trackElements) {
-				util::filter(sourceSideBorder, pred);
+				util::remove_if_inplace(sourceSideBorder, pred);
 			}
 		}
 	};
@@ -66,7 +66,7 @@ namespace whfc {
 		//HyperedgeSet = FlowAlgorithm::ReachableHyperedges. Alternative: template the HyperedgeCut class and store reference
 		template<class HyperedgeSet>
 		void deleteNonCutHyperedges(const HyperedgeSet& h) {
-			filter([&](const Hyperedge &e) {
+			cleanUp([&](const Hyperedge &e) {
 				return isHyperedgeMixed(e) || h.areAllPinsSources(e);
 			});
 		}

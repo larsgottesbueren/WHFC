@@ -56,6 +56,7 @@ namespace whfc {
 			}
 
 		protected:
+		public:
 			BitVector S, SR, T, TR;
 		};
 

@@ -8,14 +8,13 @@
 
 namespace whfc {
 
-	//template<class ScanList>
-	template<typename ScanList, bool capacityScaling, bool alwaysSetParent = true>
+	template<typename ScanListType, bool capacityScaling, bool alwaysSetParent = true>
 	class FordFulkerson /* : public FlowAlgorithm */ {
 	public:
 		static constexpr bool debug = false;
 		
-		using Type = FordFulkerson;
-		//using ScanList = FixedCapacityStack<Node>;
+		using Type = FordFulkerson<ScanListType, capacityScaling, alwaysSetParent>;
+		using ScanList = ScanListType;
 
 		using ReachableNodes = BitsetReachableNodes;
 		using ReachableHyperedges = BitsetReachableHyperedges;
@@ -105,12 +104,10 @@ namespace whfc {
 			}
 			AssertMsg(bottleneckCapacity > 0, "Bottleneck capacity not positive");
 			v = target;
-			LOG << V(v) << V(bottleneckCapacity);
 			while (!n.isSource(v)) {
 				Parent p = parent[v];
 				hg.routeFlow(hg.getInHe(p.parentIncidenceIterator), hg.getInHe(p.currentIncidenceIterator), bottleneckCapacity);
 				v = hg.getPin(hg.getInHe(p.parentIncidenceIterator)).pin;
-				LOG << V(v);
 			}
 			return bottleneckCapacity;
 		}
@@ -221,6 +218,10 @@ namespace whfc {
 
 		void growReachable(CutterState<Type>& cs) {
 			growWithoutScaling<false>(cs);
+		}
+		
+		ScanList& getScanList() {
+			return nodes_to_scan;
 		}
 	};
 

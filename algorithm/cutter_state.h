@@ -50,6 +50,7 @@ namespace whfc {
 		inline bool canBeSettled(const Node u) const { return !n.isSource(u) && !n.isTarget(u) && !isIsolated(u); }
 
 		inline NodeWeight unclaimedNodeWeight() const { return hg.totalNodeWeight() - n.sourceReachableWeight - n.targetReachableWeight - isolatedNodes.weight; }
+		inline NodeWeight notSettledNodeWeight() const { return hg.totalNodeWeight() - n.sourceWeight - n.targetWeight - isolatedNodes.weight; }
 		inline bool hasSourcePin(const Hyperedge e) const { return cut.hasSettledSourcePins[e]; }
 		inline bool hasTargetPin(const Hyperedge e) const { return cut.hasSettledTargetPins[e]; }
 		inline bool shouldBeAddedToCut(const Hyperedge e) const { return !h.areAllPinsSourceReachable(e) && !cut.wasAdded(e) && hg.isSaturated(e); }	//the first condition is just an optimization, not really necessary
@@ -94,6 +95,7 @@ namespace whfc {
 
 		void flipViewDirection() {
 			viewDirection = 1 - viewDirection;
+			hg.flipViewDirection();
 			n.flipViewDirection();
 			h.flipViewDirection();
 			sourcePiercingNodes.swap(targetPiercingNodes);
@@ -116,11 +118,11 @@ namespace whfc {
 			}
 		}
 
-		void filterBorder() {
-			borderNodes.filter([&](const Node& x) { return !canBeSettled(x);} );
+		void cleanUpBorder() {
+			borderNodes.cleanUp([&](const Node& x) { return !canBeSettled(x); });
 		}
 
-		void filterCut() {
+		void cleanUpCut() {
 			//not necessary at the moment
 			//cut.deleteNonCutHyperedges(h);
 		}
@@ -262,6 +264,23 @@ namespace whfc {
 
 
 			partitionWrittenToNodeSet = true;
+		}
+		
+		std::string toString() {
+			std::stringstream os;
+			bool flipIt = currentViewDirection() != 0;
+			if (flipIt)
+				flipViewDirection();
+			os << "total weight=" << hg.totalNodeWeight()
+			   << " cut= " << flowValue
+			   << " s=" << n.sourceWeight << "|" << n.sourceReachableWeight
+			   << " t=" << n.targetWeight << "|" << n.targetReachableWeight
+			   << " iso=" << isolatedNodes.weight
+			   << " s-pierce=" << sourcePiercingNodes.size()
+			   << " t-pierce=" << targetPiercingNodes.size();
+			if (flipIt)
+				flipViewDirection();
+			return os.str();
 		}
 
 

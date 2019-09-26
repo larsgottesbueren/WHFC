@@ -24,7 +24,7 @@ namespace whfc {
 			EdgeAndNodeWeights = 11,
 		};
 
-		static FlowHypergraph readFlowHypergraph(std::string& filename) {
+		static FlowHypergraph readFlowHypergraph(const std::string& filename) {
 
 			std::vector<NodeWeight> nodeWeights;
 			std::vector<HyperedgeWeight> hyperedgeWeights;
@@ -51,8 +51,6 @@ namespace whfc {
 
 			bool hasHyperedgeWeights = hg_type == HGType::EdgeAndNodeWeights || hg_type == HGType ::EdgeWeights;
 			
-			if (!hasHyperedgeWeights)
-				hyperedgeWeights.resize(numHEs, HyperedgeWeight(1));
 			bool hasNodeWeights = hg_type == HGType::EdgeAndNodeWeights || hg_type == HGType::NodeWeights;
 			if (!hasNodeWeights)
 				nodeWeights.resize(numNodes, NodeWeight(1));
@@ -62,11 +60,12 @@ namespace whfc {
 				std::istringstream iss(line);
 				uint32_t pin;
 				uint32_t he_size = 0;
-				if (hasHyperedgeWeights) {
-					uint32_t we;
-					iss >> we;
-					hyperedgeWeights.emplace_back(we);
-				}
+				uint32_t he_weight = 1;
+				
+				if (hasHyperedgeWeights)
+					iss >> he_weight;
+				hyperedgeWeights.emplace_back(he_weight);
+				
 				while (iss >> pin) {
 					if (pin < 1)
 						throw std::runtime_error("File: " + filename + " has pin id < 1 (in one-based ids).");
@@ -75,15 +74,18 @@ namespace whfc {
 					he_size++;
 					pins.emplace_back(pin-1);
 				}
+				hyperedgeSizes.emplace_back(he_size);
+				
 				if (he_size > numNodes)
 					throw std::runtime_error("File: " + filename + " has hyperedge with more pins than nodes in the hypergraph.");
 				if (he_size == 0)
 					throw std::runtime_error("File: " + filename + " has hyperedge with zero pins.");
-
-				if (he_size == 1) //ignore single pin hyperedges
+				if (he_size == 1) {
+					//ignore single pin hyperedges
 					pins.pop_back();
-				else
-					hyperedgeSizes.emplace_back(he_size);
+					hyperedgeWeights.pop_back();
+					hyperedgeSizes.pop_back();
+				}
 			}
 
 			if (hasNodeWeights) {

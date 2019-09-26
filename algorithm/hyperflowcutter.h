@@ -17,9 +17,12 @@ namespace whfc {
 		Flow upperFlowBound;
 		Piercer piercer;
 
-		HyperFlowCutter(FlowHypergraph& hg, NodeWeight maxBlockWeight) : hg(hg), cs(hg, maxBlockWeight), flow_algo(hg), upperFlowBound(0), piercer(hg) { }
+		static constexpr bool debug = true;
+		
+		HyperFlowCutter(FlowHypergraph& hg, NodeWeight maxBlockWeight) : hg(hg), cs(hg, maxBlockWeight), flow_algo(hg), upperFlowBound(maxFlow), piercer(hg) { }
 
 		void initialize(Node s, Node t) {
+			LOG << V(s) << V(t);
 			cs.sourcePiercingNodes = {s};
 			cs.settleNode(s);
 			cs.targetPiercingNodes = {t};
@@ -32,13 +35,15 @@ namespace whfc {
 		}
 
 		bool pierce() {
-			cs.filterCut();
-			cs.filterBorder();
-			if (cs.unclaimedNodeWeight() == 0)
+			cs.cleanUpCut();
+			LOG << V(cs.borderNodes.sourceSideBorder.size()) << "before clean up";
+			cs.cleanUpBorder();
+			LOG << V(cs.borderNodes.sourceSideBorder.size()) << "after clean up";
+			if (cs.notSettledNodeWeight() == 0)
 				return false;
 
 			Node piercingNode = piercer.findPiercingNode(cs.n, cs.borderNodes, cs.maxBlockWeight);
-
+			LOG << V(piercingNode);
 			if (piercingNode == invalidNode) {
 				for (const Node u : hg.nodeIDs())	//Optimization options, if this occurs too often: Track unclaimed nodes in a list that gets filtered on demand.
 					if (cs.canBeSettled(u) && hg.nodeWeight(u) + cs.n.sourceWeight <= cs.maxBlockWeight) {
@@ -67,17 +72,19 @@ namespace whfc {
 				flow_algo.growReachable(cs);
 			}
 
-			if (cs.n.targetReachableWeight < cs.n.sourceReachableWeight)
+			if (cs.n.targetReachableWeight <= cs.n.sourceReachableWeight)
 				cs.flipViewDirection();
-			GrowAssimilated<FlowAlgorithm>::grow(cs, flow_algo.getQueue());
+			GrowAssimilated<FlowAlgorithm>::grow(cs, flow_algo.getScanList());
 			cs.hasCut = true;
+			LOG << cs.toString();
 		}
 
 		//for cut-based interleaving
 		//This function could be implemented via advanceOneFlowIteration() But the interface to the flow algorithm is so much nicer that I want to keep both
 		void advanceUntilCut() {
 			AssertMsg(cs.hasCut, "Advancing until cut, but hasCut flag not set");
-			pierce();
+			if (!pierce())
+				throw std::runtime_error("Piercing went wrong.");
 			exhaustFlowAndGrow();
 		}
 
@@ -119,6 +126,9 @@ namespace whfc {
 		void runUntilBalanced() {
 			while (!cs.isBalanced() && cs.flowValue < upperFlowBound)
 				advanceUntilCut();
+			LOG << V(cs.isBalanced()) << V(cs.maxBlockWeight) << V(cs.flowValue);
+			LOG << V(cs.n.sourceReachableWeight) << V(cs.n.targetReachableWeight) << V(cs.isolatedNodes.weight) << V(cs.unclaimedNodeWeight()) << V(hg.totalNodeWeight());
+			
 		}
 
 		void runUntilBalancedAndReportMostBalanced() {

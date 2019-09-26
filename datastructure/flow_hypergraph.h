@@ -64,12 +64,9 @@ namespace whfc {
 				nodes[p + 1].first_out++;			//bucket sizes
 			}
 			
-			InHeIndex running_hyperedge_index(0);
-			i = 0;
-			for (NodeData& u : nodes) {
-				u.first_out += running_hyperedge_index;			//prefix sum
-				running_hyperedge_index = u.first_out;			//prefix sum
-				u.weight = node_weights[i++];					//copy node weights
+			for (Node u : nodeIDs()) {
+				nodes[u + 1].first_out += nodes[u].first_out;			//prefix sum
+				nodes[u].weight = node_weights[u];						//copy node weights
 			}
 			
 			for (Hyperedge e : hyperedgeIDs()) {

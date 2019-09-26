@@ -5,7 +5,7 @@
 #include <random>
 
 
-//stolen from KaHyPar
+//adapted from KaHyPar
 namespace whfc {
 	class Random {
 	public:
@@ -36,6 +36,7 @@ namespace whfc {
 		}
 
 	protected:
+		//TODO initialize
 		Random() :
 				_gen(),
 				_bool_dist(0, 1),

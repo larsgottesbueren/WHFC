@@ -17,7 +17,7 @@ namespace whfc {
 		BitVector inB(universeSize);
 		for (const T& b : B)
 			inB.set(b);
-		return util::filter_copy(A, Function::RandomAccessCallableWrapper(inB));
+		return util::remove_if_copy(A, Function::RandomAccessCallableWrapper(inB));
 	}
 }
 
