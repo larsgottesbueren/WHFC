@@ -67,7 +67,6 @@ namespace Test {
 		
 		template<typename FlowAlgo>
 		bool tryFlowAlgo(std::string file, Flow expected_flow, Node s, Node t) {
-			LOG << V(file) << V(expected_flow) << V(s) << V(t);
 			FlowHypergraph hg = HMetisIO::readFlowHypergraph(file);
 			CutterState<FlowAlgo> cs(hg, NodeWeight(4000));
 			cs.sourcePiercingNodes = { s };
@@ -80,7 +79,6 @@ namespace Test {
 			
 			FlowAlgo flow(hg);
 			Flow f = flow.exhaustFlow(cs);
-			LOG << V(f);
 			return f == expected_flow;
 		};
 		
@@ -96,7 +94,7 @@ namespace Test {
 			flowAlgoTest("../test_hypergraphs/testhg.hgr", Flow(1), Node(14), Node(10));
 			flowAlgoTest("../test_hypergraphs/twocenters.hgr", Flow(2), Node(0), Node(2));
 			flowAlgoTest("../test_hypergraphs/twocenters.hgr", Flow(2), Node(0), Node(3));
-			flowAlgoTest("../test_hypergraphs/push_back.hgr", Flow(6), Node(0), Node(7));
+			flowAlgoTest("../test_hypergraphs/push_back.hgr", Flow(13), Node(0), Node(7));
 			
 		}
 	};

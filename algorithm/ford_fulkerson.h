@@ -12,7 +12,7 @@ namespace whfc {
 	template<typename ScanList, bool capacityScaling, bool alwaysSetParent = true>
 	class FordFulkerson /* : public FlowAlgorithm */ {
 	public:
-		static constexpr bool debug = true;
+		static constexpr bool debug = false;
 		
 		using Type = FordFulkerson;
 		//using ScanList = FixedCapacityStack<Node>;
@@ -105,16 +105,19 @@ namespace whfc {
 			}
 			AssertMsg(bottleneckCapacity > 0, "Bottleneck capacity not positive");
 			v = target;
+			LOG << V(v) << V(bottleneckCapacity);
 			while (!n.isSource(v)) {
 				Parent p = parent[v];
 				hg.routeFlow(hg.getInHe(p.parentIncidenceIterator), hg.getInHe(p.currentIncidenceIterator), bottleneckCapacity);
 				v = hg.getPin(hg.getInHe(p.parentIncidenceIterator)).pin;
+				LOG << V(v);
 			}
 			return bottleneckCapacity;
 		}
 
 		template<bool augment_flow>
 		Flow growWithoutScaling(CutterState<Type>& cs) {
+			LOG << "grow without scaling";
 			cs.clearForSearch();
 			ReachableNodes& n = cs.n;
 			ReachableHyperedges& h = cs.h;
@@ -163,6 +166,7 @@ namespace whfc {
 		 */
 		Flow growWithScaling(CutterState<Type>& cs) {
 			AssertMsg(scalingCapacity > 1, "Don't call this method with ScalingCapacity <= 1. Use growWithoutScaling instead.");
+			LOG << "grow with scaling" << V(scalingCapacity);
 			cs.clearForSearch();
 			ReachableNodes& n = cs.n;
 			ReachableHyperedges& h = cs.h;

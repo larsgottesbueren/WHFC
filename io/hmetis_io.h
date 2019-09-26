@@ -43,12 +43,14 @@ namespace whfc {
 				mgetline(f,line);
 				std::istringstream iss(line);
 				iss >> numHEs >> numNodes;
-				uint8_t type = 0;
-				if (iss >> type)
+				uint32_t type = 0;
+				if (iss >> type) {
 					hg_type = static_cast<HGType>(type);
+				}
 			}
 
 			bool hasHyperedgeWeights = hg_type == HGType::EdgeAndNodeWeights || hg_type == HGType ::EdgeWeights;
+			
 			if (!hasHyperedgeWeights)
 				hyperedgeWeights.resize(numHEs, HyperedgeWeight(1));
 			bool hasNodeWeights = hg_type == HGType::EdgeAndNodeWeights || hg_type == HGType::NodeWeights;
