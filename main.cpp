@@ -17,8 +17,11 @@ namespace whfc {
 			throw std::runtime_error("s or t not within node id range");
 		
 		HyperFlowCutter<BasicEdmondsKarp> hfc(hg, mbw);
+		
+		auto time = time_now();
 		hfc.initialize(s,t);
 		hfc.runUntilBalanced();
+		std::cout << second_duration(time_now() - time).count() << " [s]" << std::endl;
 	}
 }
 
