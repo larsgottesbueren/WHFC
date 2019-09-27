@@ -76,6 +76,7 @@ namespace whfc {
 		void flipViewDirection() {
 			Base::flipViewDirection();
 			std::swap(sourceMixed, targetMixed);
+			std::swap(hasSettledSourcePins, hasSettledTargetPins);
 		}
 	};
 }
