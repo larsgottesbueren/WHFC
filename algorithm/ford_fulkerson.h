@@ -12,7 +12,7 @@ namespace whfc {
 	template<typename ScanListType, bool capacityScaling, bool alwaysSetParent = true>
 	class FordFulkerson /* : public FlowAlgorithm */ {
 	public:
-		static constexpr bool debug = false;
+		static constexpr bool debug = true;
 		
 		using Type = FordFulkerson<ScanListType, capacityScaling, alwaysSetParent>;
 		using ScanList = ScanListType;
@@ -75,9 +75,13 @@ namespace whfc {
 					diff = -1;
 				}
 			}
+			LOG << V(flow) << V(diff);
+			LOG << cs.n.toString();
 			while (diff != 0) {
 				diff = growWithoutScaling<true>(cs);
 				flow += diff;
+				LOG << V(flow) << V(diff);
+				LOG << cs.n.toString();
 			}
 			scalingCapacity = InitialScalingCapacity;
 			return flow;
@@ -145,13 +149,13 @@ namespace whfc {
 							const Node v = pv.pin;
 							AssertMsg(augment_flow || !n.isTargetReachable(v), "Not augmenting flow but target side is reachable.");
 							if (!n.isSourceReachable(v)) {		//don't do VD label propagation
-								n.reach(v);
-								nodes_to_scan.push(v);
 								if constexpr (augment_flow || alwaysSetParent)
 									parent[v] = { inc_u_iter, pv.he_inc_iter };
 								if constexpr (augment_flow)
 									if (n.isTarget(v))
 										return augmentFromTarget(n, v);
+								n.reach(v);		//this has to be after the return if v is target, to avoid overwriting the targetSettled timestamp with sourceReachable
+								nodes_to_scan.push(v);
 							}
 						}
 					}
@@ -191,11 +195,11 @@ namespace whfc {
 							if (residualCapacity + hg.absoluteFlowSent(pv) >= scalingCapacity) {//residual = flow received by u + residual(e) + flow sent by v
 								const Node v = pv.pin;
 								if (!n.isSourceReachable(v)) {
-									n.reach(v);
-									nodes_to_scan.push(v);
 									parent[v] = parent[v] = { inc_u_iter, pv.he_inc_iter };
 									if (n.isTarget(v))
 										return augmentFromTarget(n, v);
+									n.reach(v);		//this has to be after the return if v is target, to avoid overwriting the targetSettled timestamp with sourceReachable
+									nodes_to_scan.push(v);
 								}
 							}
 						}
@@ -206,11 +210,11 @@ namespace whfc {
 						for (const Pin& pv : hg.pinsNotSendingFlowInto(e)) {
 							const Node v = pv.pin;
 							if (!n.isSourceReachable(v)) {
-								n.reach(v);
-								nodes_to_scan.push(v);
 								parent[v] = parent[v] = { inc_u_iter, pv.he_inc_iter };
 								if (n.isTarget(v))
 									return augmentFromTarget(n, v);
+								n.reach(v);		//this has to be after the return if v is target, to avoid overwriting the targetSettled timestamp with sourceReachable
+								nodes_to_scan.push(v);
 							}
 						}
 					}

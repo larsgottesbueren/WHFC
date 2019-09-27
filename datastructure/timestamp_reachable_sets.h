@@ -16,12 +16,12 @@ namespace whfc {
 		TimestampReachableNodes(const FlowHypergraph& hg) : Base(hg), timestamps(hg.numNodes(), unreachableTS) { }
 
 		inline size_t capacity() const { return timestamps.size(); }
-		inline bool isSource(const Node u) const { return timestamps[u] == sourceSettledTS; }
+		inline bool isSource(const Node u) const { assert(u < capacity()); return timestamps[u] == sourceSettledTS; }
 		inline bool isSourceReachable(const Node u) const { return isSource(u) || timestamps[u] == sourceReachableTS; }
-		inline bool isTarget(const Node u) const { return timestamps[u] == targetSettledTS; }
+		inline bool isTarget(const Node u) const { assert(u < capacity()); return timestamps[u] == targetSettledTS; }
 		inline bool isTargetReachable(const Node u) const { return isTarget(u) || timestamps[u] == targetReachableTS; }
-		inline void reach(const Node u) { assert(u < capacity()); assert(!isSourceReachable(u)); timestamps[u] = sourceReachableTS; Base::reach(u); }
-		inline void settle(const Node u) { assert(!isSourceReachable(u)); timestamps[u] = sourceSettledTS; Base::settle(u); }
+		inline void reach(const Node u) { assert(!isSourceReachable(u) && !isTargetReachable(u)); timestamps[u] = sourceReachableTS; Base::reach(u); }
+		inline void settle(const Node u) { assert(isSourceReachable(u)); timestamps[u] = sourceSettledTS; Base::settle(u); }
 		
 		
 		inline void unreachSource(const Node u) { Assert(isSourceReachable(u) && !isTargetReachable(u)); timestamps[u] = unreachableTS; Base::unreachSource(u); }
@@ -46,6 +46,31 @@ namespace whfc {
 				generation++;
 			sourceReachableTS = generation;
 			Base::resetSourceReachableToSource();
+		}
+		
+		std::string toString() {
+			std::stringstream os, sr, tr, s, t;
+			sr << "SR = [ ";
+			tr << "TR = [ ";
+			s << "S = [";
+			t << "T = [";
+			for (const Node u : hg.nodeIDs()) {
+				if (isSource(u))
+					s << u << " ";
+				if (isTarget(u))
+					t << u << " ";
+				if (isSourceReachable(u))
+					sr << u << " ";
+				if (isTargetReachable(u))
+					tr << u << " ";
+			}
+			sr << " ]\n";
+			tr << " ]\n";
+			s << " ]\n";
+			t << " ]\n";
+			
+			os << sr.str() << tr.str() << s.str() << t.str();
+			return os.str();
 		}
 
 		void verifyDisjoint() const {
