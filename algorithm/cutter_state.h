@@ -19,10 +19,10 @@ namespace whfc {
 		FlowHypergraph& hg;
 		Flow flowValue = 0;
 
-		using ReachableNodes = BitsetReachableNodes;
-		using ReachableHyperedges = BitsetReachableHyperedges;
-		//using ReachableNodes = FlowAlgorithm::ReachableNodes;
-		//using ReachableHyperedges = FlowAlgorithm::ReachableHyperedges;
+		//using ReachableNodes = BitsetReachableNodes;
+		//using ReachableHyperedges = BitsetReachableHyperedges;
+		using ReachableNodes = typename FlowAlgorithm::ReachableNodes;
+		using ReachableHyperedges = typename FlowAlgorithm::ReachableHyperedges;
 		ReachableNodes n;
 		ReachableHyperedges h;
 		std::vector<Node> sourcePiercingNodes, targetPiercingNodes;
@@ -37,7 +37,7 @@ namespace whfc {
 		CutterState(FlowHypergraph& _hg, NodeWeight _maxBlockWeight) :
 				hg(_hg),
 				n(_hg),
-				h(_hg.numHyperedges()),
+				h(_hg),
 				cut(_hg.numHyperedges()),
 				borderNodes(_hg.numNodes()),
 				maxBlockWeight(_maxBlockWeight),

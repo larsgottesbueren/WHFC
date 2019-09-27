@@ -4,6 +4,7 @@
 #include "../datastructure/stack.h"
 #include "../datastructure/queue.h"
 #include "../datastructure/bitset_reachable_sets.h"
+#include "../datastructure/timestamp_reachable_sets.h"
 //#include "../datastructure/timestamp_reachable_sets.h"
 
 namespace whfc {
@@ -16,10 +17,12 @@ namespace whfc {
 		using Type = FordFulkerson<ScanListType, capacityScaling, alwaysSetParent>;
 		using ScanList = ScanListType;
 
-		using ReachableNodes = BitsetReachableNodes;
-		using ReachableHyperedges = BitsetReachableHyperedges;
-		//using ReachableNodes = TimestampReachableNodes;
-		//using ReachableHyperedges = TimestampReachableHyperedges;
+		//using ReachableNodes = BitsetReachableNodes;
+		//using ReachableHyperedges = BitsetReachableHyperedges;
+		
+		using Timestamp = uint16_t;
+		using ReachableNodes = TimestampReachableNodes<Timestamp>;
+		using ReachableHyperedges = TimestampReachableHyperedges<Timestamp>;
 
 
 		using Pin = FlowHypergraph::Pin;

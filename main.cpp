@@ -16,7 +16,7 @@ namespace whfc {
 		if (s >= hg.numNodes() || t >= hg.numNodes())
 			throw std::runtime_error("s or t not within node id range");
 		
-		HyperFlowCutter<BasicEdmondsKarp> hfc(hg, mbw);
+		HyperFlowCutter<BasicFordFulkerson> hfc(hg, mbw);
 		
 		auto time = time_now();
 		hfc.initialize(s,t);

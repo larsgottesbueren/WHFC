@@ -5,9 +5,6 @@
 
 namespace whfc {
 
-		//TODO Find way to wrap other ReachableSets with a BitsetReachableSet and compare
-
-
 		class BitsetReachableNodes : public ReachableNodesBase {
 		public:
 			using Base = ReachableNodesBase;
@@ -30,8 +27,8 @@ namespace whfc {
 			inline void reach(const Node u) { SR.set(u); Base::reach(u); }
 			inline void settle(const Node u) { S.set(u); Base::settle(u); }
 
-			inline void unreachSource(const Node u) { Assert(!isSourceReachable(u)); SR.reset(u); Base::unreachSource(u); }
-			inline void unreachTarget(const Node u) { Assert(!isTargetReachable(u)); SR.reset(u); Base::unreachTarget(u); }
+			inline void unreachSource(const Node u) { Assert(isSourceReachable(u)); SR.reset(u); Base::unreachSource(u); }
+			inline void unreachTarget(const Node u) { Assert(isTargetReachable(u)); SR.reset(u); Base::unreachTarget(u); }
 
 
 			void flipViewDirection() {
@@ -64,15 +61,15 @@ namespace whfc {
 		public:
 			using Type = BitsetReachableHyperedges;
 
-			explicit BitsetReachableHyperedges(const size_t nHE) :
-					IN_SETTLED_S(nHE),
-					OUT_SETTLED_S(nHE),
-					IN_REACHED_S(nHE),
-					OUT_REACHED_S(nHE),
-					IN_SETTLED_T(nHE),
-					OUT_SETTLED_T(nHE),
-					IN_REACHED_T(nHE),
-					OUT_REACHED_T(nHE)
+			explicit BitsetReachableHyperedges(const FlowHypergraph& hg) :
+					IN_SETTLED_S(hg.numHyperedges()),
+					OUT_SETTLED_S(hg.numHyperedges()),
+					IN_REACHED_S(hg.numHyperedges()),
+					OUT_REACHED_S(hg.numHyperedges()),
+					IN_SETTLED_T(hg.numHyperedges()),
+					OUT_SETTLED_T(hg.numHyperedges()),
+					IN_REACHED_T(hg.numHyperedges()),
+					OUT_REACHED_T(hg.numHyperedges())
 			{
 
 			}
