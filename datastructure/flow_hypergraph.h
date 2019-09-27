@@ -295,20 +295,25 @@ namespace whfc {
 		}
 
 		void assert_backpointers_correct(const InHe& inhe) const {
+#ifndef NDEBUG
 			const InHe& doubled = getInHe(getPin(inhe));
 			AssertMsg(doubled.pin_iter == inhe.pin_iter, "Backpointer Pin Iter inconsistent");
 			AssertMsg(doubled.e == inhe.e, "Backpointer hyperedge ID inconsistent");
 			AssertMsg(doubled.flow == inhe.flow, "Backpointer Pin Iter inconsistent");
+#endif
 		}
 
 		void assert_backpointers_correct(const Pin& pin) const {
+#ifndef NDEBUG
 			const Pin& doubled = getPin(getInHe(pin));
 			AssertMsg(doubled.he_inc_iter== pin.he_inc_iter, "Backpointer HyperedgeIncidence iterator inconsistent");
 			AssertMsg(doubled.pin  == pin.pin, "Backpointer Node ID inconsistent");
+#endif
 		}
 
 		void sanity_check_pin_ranges(const Hyperedge e) const {
 			//check left / right end of pin ranges agree with first_out
+#ifndef NDEBUG
 			const PinIndexRange& s = forwardView() ? pins_sending_flow[e] : pins_receiving_flow[e];
 			const PinIndexRange& l = !forwardView() ? pins_sending_flow[e] : pins_receiving_flow[e];
 			Assert(hyperedges[e].first_out == s.begin());
@@ -317,6 +322,7 @@ namespace whfc {
 			Assert(s.begin() <= s.end());
 			Assert(s.end() < l.begin());
 			Assert(l.begin() <= l.end());
+#endif
 		}
 
 		bool pin_is_categorized_correctly(const InHe& inc_u) {
