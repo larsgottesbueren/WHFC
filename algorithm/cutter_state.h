@@ -25,7 +25,14 @@ namespace whfc {
 		using ReachableHyperedges = typename FlowAlgorithm::ReachableHyperedges;
 		ReachableNodes n;
 		ReachableHyperedges h;
-		std::vector<Node> sourcePiercingNodes, targetPiercingNodes;
+		
+		struct PiercingNode {
+			Node node;
+			bool isReachableFromOppositeSide;
+			PiercingNode(const Node node, bool isReachableFromOppositeSide) : node(node), isReachableFromOppositeSide(isReachableFromOppositeSide) { }
+		};
+		std::vector<PiercingNode> sourcePiercingNodes, targetPiercingNodes;
+		
 		bool augmentingPathAvailableFromPiercing = true;
 		bool hasCut = false;
 		HyperedgeCut cut;
@@ -44,6 +51,16 @@ namespace whfc {
 				isolatedNodes(hg, _maxBlockWeight)
 		{
 
+		}
+		
+		void initialize(const Node s, const Node t) {
+			Assert(sourcePiercingNodes.empty() && targetPiercingNodes.empty());
+			sourcePiercingNodes.emplace_back(s,false);
+			settleNode(s);
+			targetPiercingNodes.emplace_back(t,false);
+			flipViewDirection();
+			settleNode(t);
+			flipViewDirection();
 		}
 
 		inline bool isIsolated(const Node u) const { return !n.isSource(u) && !n.isTarget(u) && isolatedNodes.isCandidate(u); }
@@ -123,8 +140,7 @@ namespace whfc {
 		}
 
 		void cleanUpCut() {
-			//not necessary at the moment
-			//cut.deleteNonCutHyperedges(h);
+			cut.deleteNonCutHyperedges(h);
 		}
 
 
@@ -271,13 +287,11 @@ namespace whfc {
 			bool flipIt = currentViewDirection() != 0;
 			if (flipIt)
 				flipViewDirection();
-			os << "total weight=" << hg.totalNodeWeight()
-			   << " cut= " << flowValue
+			os << " cut= " << flowValue
 			   << " s=" << n.sourceWeight << "|" << n.sourceReachableWeight
 			   << " t=" << n.targetWeight << "|" << n.targetReachableWeight
 			   << " iso=" << isolatedNodes.weight
-			   << " s-pierce=" << sourcePiercingNodes.size()
-			   << " t-pierce=" << targetPiercingNodes.size();
+			    << " total=" << hg.totalNodeWeight();
 			if (flipIt)
 				flipViewDirection();
 			return os.str();

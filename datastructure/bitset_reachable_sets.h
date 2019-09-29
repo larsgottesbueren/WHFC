@@ -111,7 +111,7 @@ namespace whfc {
 				Assert(IN_SETTLED_T.is_subset_of(IN_REACHED_T));
 			}
 
-			protected:
+		protected:
 			BitVector IN_SETTLED_S, OUT_SETTLED_S, IN_REACHED_S, OUT_REACHED_S;
 			BitVector IN_SETTLED_T, OUT_SETTLED_T, IN_REACHED_T, OUT_REACHED_T;
 

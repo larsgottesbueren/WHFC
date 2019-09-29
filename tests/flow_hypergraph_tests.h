@@ -70,14 +70,7 @@ namespace Test {
 			LOG << V(file);
 			FlowHypergraph hg = HMetisIO::readFlowHypergraph(file);
 			CutterState<FlowAlgo> cs(hg, NodeWeight(4000));
-			cs.sourcePiercingNodes = { s };
-			cs.settleNode(s);
-			cs.targetPiercingNodes = { t };
-			
-			cs.flipViewDirection();
-			cs.settleNode(t);
-			cs.flipViewDirection();
-			
+			cs.initialize(s,t);
 			FlowAlgo flow(hg);
 			Flow f = flow.exhaustFlow(cs);
 			LOG << V(f);
@@ -100,7 +93,7 @@ namespace Test {
 			flowAlgoTest("../test_hypergraphs/testhg.hgr", Flow(1), Node(14), Node(10));
 			flowAlgoTest("../test_hypergraphs/twocenters.hgr", Flow(2), Node(0), Node(2));
 			flowAlgoTest("../test_hypergraphs/twocenters.hgr", Flow(2), Node(0), Node(3));
-			flowAlgoTest("../test_hypergraphs/push_back.hgr", Flow(13), Node(0), Node(7));
+			flowAlgoTest("../test_hypergraphs/push_back.hgr", Flow(6), Node(0), Node(7));
 			
 		}
 	};

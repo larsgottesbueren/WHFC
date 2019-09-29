@@ -48,9 +48,10 @@ namespace whfc {
 
 	using NodeBorder = Border<Node, true>;
 
-	class HyperedgeCut : public Border<Hyperedge, false> {
+	
+	class HyperedgeCut : public Border<Hyperedge, true> {
 	public:
-		using Base = Border<Hyperedge, false>;
+		using Base = Border<Hyperedge, true>;
 		explicit HyperedgeCut(const size_t nHyperedges) : Base(nHyperedges), hasSettledSourcePins(nHyperedges), hasSettledTargetPins(nHyperedges) { }
 		BitVector hasSettledSourcePins, hasSettledTargetPins;	//set in CutterState::settleNode //TODO check if hasSettledSourcePins == ReachableHyperedges::areFlowSendingPinsSources()
 		size_t sourceMixed = 0, targetMixed = 0;	//equal if both cut-fronts were built. but they aren't.
@@ -59,19 +60,21 @@ namespace whfc {
 			return hasSettledSourcePins[e] && hasSettledTargetPins[e];
 		}
 
-		/*
-
-		 At the moment we don't need this
-
-		//HyperedgeSet = FlowAlgorithm::ReachableHyperedges. Alternative: template the HyperedgeCut class and store reference
+		
+		HyperedgeWeight weight(const FlowHypergraph& hg) const {
+			HyperedgeWeight w(0);
+			for (const Hyperedge e : sourceSideBorder)
+				w += hg.capacity(e);
+			return w;
+		}
+		
+		//Note: we don't need this for the production version. just for checking assertions
+		//HyperedgeSet = FlowAlgorithm::ReachableHyperedges.
 		template<class HyperedgeSet>
 		void deleteNonCutHyperedges(const HyperedgeSet& h) {
-			cleanUp([&](const Hyperedge &e) {
-				return isHyperedgeMixed(e) || h.areAllPinsSources(e);
-			});
+			cleanUp([&](const Hyperedge& e) { return h.areAllPinsSources(e); });
 		}
 
-		 */
 
 		void flipViewDirection() {
 			Base::flipViewDirection();

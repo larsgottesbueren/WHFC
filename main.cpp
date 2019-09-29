@@ -7,6 +7,8 @@
 #include "algorithm/ford_fulkerson.h"
 #include "io/hmetis_io.h"
 
+#include "util/random.h"
+
 
 namespace whfc {
 	void run(const std::string& filename, Node s, Node t) {
@@ -16,7 +18,7 @@ namespace whfc {
 		if (s >= hg.numNodes() || t >= hg.numNodes())
 			throw std::runtime_error("s or t not within node id range");
 		
-		HyperFlowCutter<BasicFordFulkerson> hfc(hg, mbw);
+		HyperFlowCutter<BasicEdmondsKarp> hfc(hg, mbw);
 		
 		auto time = time_now();
 		hfc.initialize(s,t);
@@ -26,6 +28,7 @@ namespace whfc {
 }
 
 int main(int argc, const char* argv[]) {
+	whfc::Random::setSeed(42);
 	if (argc != 4)
 		throw std::runtime_error("Usage: ./WHFC hypergraphfile s t");
 	std::string hgfile = argv[1];

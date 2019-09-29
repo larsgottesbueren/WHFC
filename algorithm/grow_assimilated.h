@@ -24,7 +24,8 @@ public:
 		nodes_to_scan.clear();
 		FlowHypergraph& hg = cs.hg;
 
-		for (Node s : cs.sourcePiercingNodes) {
+		for (auto& ps : cs.sourcePiercingNodes) {
+			const Node s = ps.node;
 			nodes_to_scan.push(s);
 			AssertMsg(n.isSource(s), "source-side piercing node " + std::to_string(s) + " not a source");
 			AssertMsg(!n.isTarget(s), "source-side piercing node " + std::to_string(s) + "  is target");

@@ -20,7 +20,7 @@ namespace whfc {
 		inline bool isSourceReachable(const Node u) const { return isSource(u) || timestamps[u] == sourceReachableTS; }
 		inline bool isTarget(const Node u) const { assert(u < capacity()); return timestamps[u] == targetSettledTS; }
 		inline bool isTargetReachable(const Node u) const { return isTarget(u) || timestamps[u] == targetReachableTS; }
-		inline void reach(const Node u) { assert(!isSourceReachable(u) && !isTargetReachable(u)); timestamps[u] = sourceReachableTS; Base::reach(u); }
+		inline void reach(const Node u) { assert(!isSourceReachable(u)); timestamps[u] = sourceReachableTS; Base::reach(u); }
 		inline void settle(const Node u) { assert(isSourceReachable(u)); timestamps[u] = sourceSettledTS; Base::settle(u); }
 		
 		
@@ -45,6 +45,8 @@ namespace whfc {
 			else
 				generation++;
 			sourceReachableTS = generation;
+			if (sourceReachableTS == targetReachableTS)
+				resetSourceReachableToSource();
 			Base::resetSourceReachableToSource();
 		}
 		
@@ -64,10 +66,10 @@ namespace whfc {
 				if (isTargetReachable(u))
 					tr << u << " ";
 			}
-			sr << " ]\n";
-			tr << " ]\n";
-			s << " ]\n";
-			t << " ]\n";
+			sr << "]\n";
+			tr << "]\n";
+			s << "]\n";
+			t << "]\n";
 			
 			os << sr.str() << tr.str() << s.str() << t.str();
 			return os.str();
@@ -111,12 +113,16 @@ namespace whfc {
 		inline void reachFlowSendingPins(const Hyperedge e) { assert(!areFlowSendingPinsSourceReachable(e)); in[e] = sourceReachableTS; }
 		
 		void resetSourceReachableToSource() {
-			if (generation++ == std::numeric_limits<Timestamp>::max()) {
+			if (generation == std::numeric_limits<Timestamp>::max()) {
 				for (auto& ts : out) if (ts != sourceSettledTS && ts != targetSettledTS && ts != targetReachableTS) ts = unreachableTS;
 				for (auto& ts : in) if (ts != sourceSettledTS && ts != targetSettledTS && ts != targetReachableTS) ts = unreachableTS;
 				generation = initialTS;
 			}
+			else
+				generation++;
 			sourceReachableTS = generation;
+			if (sourceReachableTS == targetReachableTS)
+				resetSourceReachableToSource();
 		}
 
 		void flipViewDirection() {

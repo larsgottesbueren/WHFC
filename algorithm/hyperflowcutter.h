@@ -7,6 +7,8 @@
 
 
 namespace whfc {
+	
+	//TODO flow assertions
 
 	template<class FlowAlgorithm>
 	class HyperFlowCutter {
@@ -22,28 +24,19 @@ namespace whfc {
 		HyperFlowCutter(FlowHypergraph& hg, NodeWeight maxBlockWeight) : hg(hg), cs(hg, maxBlockWeight), flow_algo(hg), upperFlowBound(maxFlow), piercer(hg) { }
 
 		void initialize(Node s, Node t) {
-			LOG << V(s) << V(t);
-			cs.sourcePiercingNodes = {s};
-			cs.settleNode(s);
-			cs.targetPiercingNodes = {t};
-			
-			cs.flipViewDirection();
-			cs.settleNode(t);
-			cs.flipViewDirection();
-			
+			cs.initialize(s,t);
 			exhaustFlowAndGrow();
 		}
 
 		bool pierce() {
 			cs.cleanUpCut();
-			LOG << V(cs.borderNodes.sourceSideBorder.size()) << "before clean up";
 			cs.cleanUpBorder();
-			LOG << V(cs.borderNodes.sourceSideBorder.size()) << "after clean up";
+			Assert(static_cast<uint32_t>(cs.flowValue) == cs.cut.weight(hg));
+			
 			if (cs.notSettledNodeWeight() == 0)
 				return false;
 
 			Node piercingNode = piercer.findPiercingNode(cs.n, cs.borderNodes, cs.maxBlockWeight);
-			LOG << V(piercingNode);
 			if (piercingNode == invalidNode) {
 				for (const Node u : hg.nodeIDs())	//Optimization options, if this occurs too often: Track unclaimed nodes in a list that gets filtered on demand.
 					if (cs.canBeSettled(u) && hg.nodeWeight(u) + cs.n.sourceWeight <= cs.maxBlockWeight) {
@@ -56,7 +49,7 @@ namespace whfc {
 
 			cs.augmentingPathAvailableFromPiercing = cs.n.isTargetReachable(piercingNode);
 			cs.sourcePiercingNodes.clear();
-			cs.sourcePiercingNodes.push_back(piercingNode);
+			cs.sourcePiercingNodes.emplace_back(piercingNode, cs.n.isTargetReachable(piercingNode));
 			cs.settleNode(piercingNode);
 			cs.hasCut = false;
 			return true;
@@ -71,11 +64,23 @@ namespace whfc {
 			else {
 				flow_algo.growReachable(cs);
 			}
-
+			
+			cs.n.verifyDisjoint();
+			cs.n.verifySettledIsSubsetOfReachable();
+			cs.h.verifyDisjoint();
+			cs.h.verifySettledIsSubsetOfReachable();
+			
+			
 			if (cs.n.targetReachableWeight <= cs.n.sourceReachableWeight)
 				cs.flipViewDirection();
 			GrowAssimilated<FlowAlgorithm>::grow(cs, flow_algo.getScanList());
 			cs.hasCut = true;
+			
+			
+			cs.n.verifyDisjoint();
+			cs.n.verifySettledIsSubsetOfReachable();
+			cs.h.verifyDisjoint();
+			cs.h.verifySettledIsSubsetOfReachable();
 			LOG << cs.toString();
 		}
 
