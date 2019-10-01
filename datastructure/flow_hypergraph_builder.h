@@ -7,7 +7,13 @@ namespace whfc {
 	public:
 		using Base = FlowHypergraph;
 		
-		FlowHypergraphBuilder() : Base() { }
+		FlowHypergraphBuilder() : Base() {
+			clear();
+		}
+		
+		explicit FlowHypergraphBuilder(size_t nNodes) {
+			reinitialize(nNodes);
+		}
 		
 		//use to get rid of any allocations
 		FlowHypergraphBuilder(size_t maxNumNodes, size_t maxNumHyperedges, size_t maxNumPins) :
@@ -104,6 +110,7 @@ namespace whfc {
 		void finishHyperedge() {
 			if (currentHyperedgeSize() == 1)
 				removeLastPin();
+			
 			if (currentHyperedgeSize() > 0) {
 				pins_sending_flow.emplace_back(hyperedges.back().first_out, hyperedges.back().first_out);
 				hyperedges.push_back({PinIndex::fromOtherValueType(numPins()), Flow(0), Flow(0)});//sentinel

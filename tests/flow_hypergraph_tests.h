@@ -23,7 +23,8 @@ namespace Test {
 		static constexpr bool debug = true;
 		void routeFlowTests() {
 			std::string hgfile = "../test_hypergraphs/twocenters.hgr";
-			FlowHypergraph hg = HMetisIO::readFlowHypergraph(hgfile);
+			//FlowHypergraph hg = HMetisIO::readFlowHypergraph(hgfile);
+			FlowHypergraphBuilder hg = HMetisIO::readFlowHypergraphWithBuilder(hgfile);
 			
 			Node u(1), v(11);
 			Hyperedge e(3);

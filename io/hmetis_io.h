@@ -3,6 +3,7 @@
 #include <fstream>
 #include "../datastructure/flow_hypergraph.h"
 #include "../logger.h"
+#include "../datastructure/flow_hypergraph_builder.h"
 
 namespace whfc {
 	class HMetisIO {
@@ -23,21 +24,12 @@ namespace whfc {
 			NodeWeights = 10,
 			EdgeAndNodeWeights = 11,
 		};
-
-		static FlowHypergraph readFlowHypergraph(const std::string& filename) {
-
-			std::vector<NodeWeight> nodeWeights;
-			std::vector<HyperedgeWeight> hyperedgeWeights;
-			std::vector<Node> pins;
-			std::vector<PinIndex> hyperedgeSizes;
+		
+		
+		static auto readHeader(std::ifstream& f) {
+			std::string line;
 			size_t numHEs, numNodes;
 			HGType hg_type = HGType::Unweighted;
-
-			std::ifstream f(filename);
-			if (!f)
-				throw std::runtime_error("File: " + filename + " not found.");
-
-			std::string line;
 			{
 				//read header
 				mgetline(f,line);
@@ -48,7 +40,78 @@ namespace whfc {
 					hg_type = static_cast<HGType>(type);
 				}
 			}
+			return std::make_tuple(numNodes, numHEs, hg_type);
+		}
+		
+		static FlowHypergraphBuilder readFlowHypergraphWithBuilder(const std::string& filename) {
+			std::ifstream f(filename);
+			if (!f)
+				throw std::runtime_error("File: " + filename + " not found.");
+			
+			auto [numNodes, numHEs, hg_type] = readHeader(f);
+			FlowHypergraphBuilder hgb;
+			hgb.reinitialize(numNodes);
+			
+			std::string line;
+			
+			bool hasHyperedgeWeights = hg_type == HGType::EdgeAndNodeWeights || hg_type == HGType ::EdgeWeights;
+			bool hasNodeWeights = hg_type == HGType::EdgeAndNodeWeights || hg_type == HGType::NodeWeights;
+			
+			for (size_t e = 0; e < numHEs; ++e) {
+				mgetline(f, line);
+				std::istringstream iss(line);
+				uint32_t pin;
+				uint32_t he_weight = 1;
+				
+				if (hasHyperedgeWeights)
+					iss >> he_weight;
+				
+				hgb.startHyperedge(he_weight);
+				size_t he_size = 0;
+				while (iss >> pin) {
+					if (pin < 1)
+						throw std::runtime_error("File: " + filename + " has pin id < 1 (in one-based ids).");
+					if (pin > numNodes)
+						throw std::runtime_error("File: " + filename + " has pin id > number of nodes.");
+					hgb.addPin(Node(pin-1));
+					he_size++;
+				}
+				if (he_size <= 1)
+					throw std::runtime_error("File: " + filename + " has pin with zero or one pins.");
+			}
+			
+			for (Node u(0); u < numNodes; ++u) {
+				NodeWeight nw(1);
+				if (hasNodeWeights) {
+					mgetline(f, line);
+					std::istringstream iss(line);
+					iss >> nw;
+				}
+				hgb.nodeWeight(u) = nw;
+			}
+			
+			hgb.finalize();
+			
+			f.close();
+			return hgb;
+		}
+		
 
+		static FlowHypergraph readFlowHypergraph(const std::string& filename) {
+
+			std::vector<NodeWeight> nodeWeights;
+			std::vector<HyperedgeWeight> hyperedgeWeights;
+			std::vector<Node> pins;
+			std::vector<PinIndex> hyperedgeSizes;
+
+			std::ifstream f(filename);
+			if (!f)
+				throw std::runtime_error("File: " + filename + " not found.");
+
+			auto [numNodes, numHEs, hg_type] = readHeader(f);
+			
+			std::string line;
+			
 			bool hasHyperedgeWeights = hg_type == HGType::EdgeAndNodeWeights || hg_type == HGType ::EdgeWeights;
 			
 			bool hasNodeWeights = hg_type == HGType::EdgeAndNodeWeights || hg_type == HGType::NodeWeights;
