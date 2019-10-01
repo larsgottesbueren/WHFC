@@ -1,5 +1,4 @@
 #include <iostream>
-#include "datastructure/hypergraph.h"
 #include "util/range.h"
 #include "datastructure/flow_hypergraph.h"
 #include "algorithm/hyperflowcutter.h"
@@ -8,6 +7,7 @@
 #include "io/hmetis_io.h"
 
 #include "util/random.h"
+#include "datastructure/flow_hypergraph_builder.h"
 
 
 namespace whfc {
@@ -25,6 +25,7 @@ namespace whfc {
 		hfc.runUntilBalanced();
 		std::cout << second_duration(time_now() - time).count() << " [s]" << std::endl;
 	}
+
 }
 
 int main(int argc, const char* argv[]) {
@@ -35,5 +36,5 @@ int main(int argc, const char* argv[]) {
 	whfc::Node s(static_cast<unsigned int>(std::stoul(argv[2])));
 	whfc::Node t(static_cast<unsigned int>(std::stoul(argv[3])));
 	whfc::run(hgfile, s, t);
-	return 0;
+ 	return 0;
 }

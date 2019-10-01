@@ -11,8 +11,6 @@ namespace whfc {
 	
 	//TODO Flow assertions.
 	
-	//bitset reachable and timestamp reachable give different results
-
 	template<typename ScanListType, bool capacityScaling, bool alwaysSetParent = true>
 	class FordFulkerson /* : public FlowAlgorithm */ {
 	public:
@@ -24,10 +22,10 @@ namespace whfc {
 		//using ReachableNodes = BitsetReachableNodes;
 		//using ReachableHyperedges = BitsetReachableHyperedges;
 		
-		using ReachableNodes = ReachableNodesChecker;
+		//using ReachableNodes = ReachableNodesChecker;
 		
 		using Timestamp = uint8_t;
-		//using ReachableNodes = TimestampReachableNodes<Timestamp>;
+		using ReachableNodes = TimestampReachableNodes<Timestamp>;
 		using ReachableHyperedges = TimestampReachableHyperedges<Timestamp>;
 
 
@@ -53,8 +51,7 @@ namespace whfc {
 		Flow recycleDatastructuresFromGrowReachablePhase(CutterState<Type> &cs) {
 			Flow flow = 0;
 			
-			//source piercing node may be target-reachable, but the timestamp nodeset cannot represent that. so we store this information in the list of the source piercing nodes
-			//this problem also applies to Dinic, where we have to set new distances for the source piercing nodes and then reset them after Dinic finishes
+			
 			if constexpr (alwaysSetParent) {
 				if (cs.augmentingPathAvailableFromPiercing) {
 					for (auto& s : cs.sourcePiercingNodes) {

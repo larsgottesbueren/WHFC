@@ -26,6 +26,9 @@ namespace whfc {
 		ReachableNodes n;
 		ReachableHyperedges h;
 		
+		//source piercing node may be target-reachable, but the timestamp nodeset cannot represent that. so we store this information in the list of the source piercing nodes
+		//this is necessary when recycling datastructures, to determine from which source piercing node to run the reverse search
+		//this problem also applies to Dinic, where we have to set new distances for the source piercing nodes and then reset them after Dinic finishes
 		struct PiercingNode {
 			Node node;
 			bool isReachableFromOppositeSide;

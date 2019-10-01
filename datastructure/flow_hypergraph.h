@@ -3,6 +3,7 @@
 #include "../definitions.h"
 #include <boost/dynamic_bitset.hpp>
 #include <boost/range/irange.hpp>
+#include <type_traits>
 
 namespace whfc {
 
@@ -31,7 +32,7 @@ namespace whfc {
 			InHeIndex first_out = InHeIndex(0);
 			NodeWeight weight = NodeWeight(0);
 		};
-
+		
 		using PinRange = mutable_range<std::vector<Pin>>;
 		using PinIterator = PinRange::iterator;
 		using PinIndexRange = mutable_index_range<PinIndex>;
@@ -39,21 +40,25 @@ namespace whfc {
 		using InHeIterator = InHeRange::iterator;
 		using InHeIndexRange = mutable_index_range<InHeIndex>;
 
-
-
 		inline auto nodeIDs() const { return boost::irange<Node>(Node(0), Node::fromOtherValueType(numNodes())); }
 		inline auto hyperedgeIDs() const { return boost::irange<Hyperedge>(Hyperedge(0), Hyperedge::fromOtherValueType(numHyperedges())); }
 		inline auto pinIndices() const { return boost::irange<PinIndex>(PinIndex(0), PinIndex::fromOtherValueType(numPins())); }
 
 		FlowHypergraph() : nodes(1), hyperedges(1) { }
+		
+		//use im FlowHypergraphBuilder to get rid of any allocations
+		FlowHypergraph(size_t maxNumNodes, size_t maxNumHyperedges, size_t maxNumPins) :
+				nodes(maxNumNodes + 1), hyperedges(maxNumHyperedges + 1), pins(maxNumPins),
+				incident_hyperedges(maxNumPins), pins_sending_flow(maxNumHyperedges), pins_receiving_flow(maxNumHyperedges)
+		{ }
 
 		FlowHypergraph(std::vector<NodeWeight>& node_weights, std::vector<HyperedgeWeight>& hyperedge_weights, std::vector<PinIndex>& hyperedge_sizes, std::vector<Node>& _pins) :
 				nodes(node_weights.size() + 1),
 				hyperedges(hyperedge_weights.size() + 1),
 				pins(_pins.size()),
 				incident_hyperedges(_pins.size()),
-				pins_sending_flow(),
-				pins_receiving_flow(),
+				pins_sending_flow(hyperedge_weights.size()),
+				pins_receiving_flow(hyperedge_weights.size()),
 				total_node_weight(boost::accumulate(node_weights, NodeWeight(0))),
 				total_hyperedge_weight(boost::accumulate(hyperedge_weights, HyperedgeWeight(0)))
 
@@ -87,14 +92,13 @@ namespace whfc {
 			nodes[0].first_out = InHeIndex(0);
 			
 			PinIndex x = PinIndex(0);
-			pins_sending_flow.reserve(numHyperedges());
-			pins_receiving_flow.reserve(numHyperedges());
 			for (Hyperedge e : hyperedgeIDs()) {
-				pins_sending_flow.emplace_back(x,x);	//empty range starting at the first pin of e
+				pins_sending_flow[e] = PinIndexRange(x,x);	//empty range starting at the first pin of e
 				x += pinCount(e);
-				pins_receiving_flow.emplace_back(x, x);	//empty range starting at one past the last pin of e
+				pins_receiving_flow[e] = PinIndexRange(x, x);	//empty range starting at one past the last pin of e
 			}
 		}
+		
 
 		bool hasNodeWeights() const { return std::any_of(nodes.begin(), nodes.begin() + numNodes(), [](const NodeData& u) { return u.weight > 1; }); }
 		bool hasHyperedgeWeights() const { return std::any_of(hyperedges.begin(), hyperedges.begin() + numHyperedges(), [](const HyperedgeData& e) { return e.capacity > 1; }); }
@@ -105,6 +109,7 @@ namespace whfc {
 		inline InHeIndex degree(const Node u) const { return nodes[u+1].first_out - nodes[u].first_out; }
 		inline NodeWeight totalNodeWeight() const { return total_node_weight; }
 		inline NodeWeight nodeWeight(const Node u) const { return nodes[u].weight; }
+		inline NodeWeight& nodeWeight(const Node u) { return nodes[u].weight; }
 		inline HyperedgeWeight totalHyperedgeWeight() const { return total_hyperedge_weight; }
 
 		inline InHeIndex beginIndexHyperedges(Node u) const { return nodes[u].first_out; }
@@ -153,9 +158,10 @@ namespace whfc {
 
 		inline bool forwardView() const { return sends_multiplier == 1; }
 		void flipViewDirection() { std::swap(pins_sending_flow, pins_receiving_flow); std::swap(sends_multiplier, receives_multiplier); }
-
-
+		
+		
 		inline Flow capacity(const Hyperedge e) const { return hyperedges[e].capacity; }
+		inline Flow& capacity(const Hyperedge e) { return hyperedges[e].capacity; }
 		inline Flow flow(const Hyperedge e) const { return hyperedges[e].flow; }
 		inline Flow& flow(const Hyperedge e) { return hyperedges[e].flow; }
 		inline Flow residualCapacity(const Hyperedge e) const { return capacity(e) - flow(e); }
@@ -236,7 +242,7 @@ namespace whfc {
 			AssertMsg(pin_is_categorized_correctly(inc_v), "Pin categorized incorrectly");
 		}
 
-	private:
+	protected:
 		std::vector<NodeData> nodes;
 		std::vector<HyperedgeData> hyperedges;
 		std::vector<Pin> pins;
@@ -245,7 +251,13 @@ namespace whfc {
 		//NOTE get rid of the range and just store one index, if this turns out to be cache inefficient later on
 		std::vector<PinIndexRange> pins_sending_flow;	//indexed by hyperedge id. gives range of pin ids/iterators sending flow to that hyperedge. grows right if forwardView = true
 		std::vector<PinIndexRange> pins_receiving_flow;	//indexed by hyperedge id. gives range of pin ids/iterators receiving flow from that hyperedge. grows left if forwardView = true
-
+		
+		static_assert(std::is_trivially_destructible<Pin>::value);
+		static_assert(std::is_trivially_destructible<InHe>::value);
+		static_assert(std::is_trivially_destructible<HyperedgeData>::value);
+		static_assert(std::is_trivially_destructible<NodeData>::value);
+		static_assert(std::is_trivially_destructible<PinIndexRange>::value);
+		
 		NodeWeight total_node_weight = NodeWeight(0);
 		HyperedgeWeight total_hyperedge_weight = HyperedgeWeight(0);
 		int sends_multiplier = 1;						//if forwardView = true, flow entering hyperedge e should be positive and flow exiting e should be negative. reverse, if forwardView = false.
