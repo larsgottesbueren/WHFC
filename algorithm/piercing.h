@@ -30,6 +30,10 @@ namespace whfc {
 			
 			return maxScore.candidate;
 		}
+		
+		void clear() {
+			//once distanceFromCut is implemented, this will contain code
+		}
 
 
 	private:

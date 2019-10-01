@@ -68,6 +68,11 @@ namespace whfc {
 			timestamps.resetSourceReachableToSource();
 		}
 		
+		void fullReset() {
+			bits.fullReset();
+			timestamps.fullReset();
+		}
+		
 		void verifyDisjoint() const {
 			bits.verifyDisjoint();
 			timestamps.verifyDisjoint();

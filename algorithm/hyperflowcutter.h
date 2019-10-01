@@ -27,6 +27,12 @@ namespace whfc {
 			cs.initialize(s,t);
 			exhaustFlowAndGrow();
 		}
+		
+		void clear() {
+			cs.clear();
+			upperFlowBound = maxFlow;
+			piercer.clear();
+		}
 
 		bool pierce() {
 			cs.cleanUpCut();

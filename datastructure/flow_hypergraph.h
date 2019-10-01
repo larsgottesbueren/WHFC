@@ -6,8 +6,7 @@
 #include <type_traits>
 
 namespace whfc {
-
-	//TODO for integration: fill and reserve functions, to avoid reallocations
+	
 	class FlowHypergraph {
 	public:
 		struct Pin {
@@ -46,7 +45,7 @@ namespace whfc {
 
 		FlowHypergraph() : nodes(1), hyperedges(1) { }
 		
-		//use im FlowHypergraphBuilder to get rid of any allocations
+		//use in FlowHypergraphBuilder to get rid of any allocations
 		FlowHypergraph(size_t maxNumNodes, size_t maxNumHyperedges, size_t maxNumPins) :
 				nodes(maxNumNodes + 1), hyperedges(maxNumHyperedges + 1), pins(maxNumPins),
 				incident_hyperedges(maxNumPins), pins_sending_flow(maxNumHyperedges), pins_receiving_flow(maxNumHyperedges)

@@ -36,14 +36,11 @@ namespace whfc {
 		}
 
 	protected:
-		//TODO initialize
 		Random() :
 				_gen(),
 				_bool_dist(0, 1),
 				uint_distribution(0, std::numeric_limits<uint32_t>::max())
-		{}
-
-		~Random() = default;
+		{ }
 
 		std::mt19937 _gen;
 		std::uniform_int_distribution<int> _bool_dist;

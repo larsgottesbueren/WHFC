@@ -9,7 +9,19 @@
 #include "../util/filter.h"
 
 namespace whfc {
-	using BitVector = boost::dynamic_bitset<>;
+	class BitVector : public boost::dynamic_bitset<> {
+	public:
+		using Base = boost::dynamic_bitset<>;
+		explicit BitVector(const size_t n) : Base(n) { }
+		
+		void copyFirst(const BitVector& other, size_type n) {
+			if (n == 0)
+				return;
+			assert(n <= other.size() && n <= size());
+			size_t i = 0;
+			range_operation(0, n, );
+		}
+	};
 
 	//A - B
 	template<typename T>

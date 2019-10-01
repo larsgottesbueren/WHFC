@@ -10,7 +10,7 @@ namespace whfc {
 	template<typename T, bool trackElements>
 	class Border {
 	public:
-		explicit Border(const size_t nT) : addedToSourceSideBorder(nT), addedToTargetSideBorder(nT) { }
+		explicit Border(size_t nT) : addedToSourceSideBorder(nT), addedToTargetSideBorder(nT) { }
 
 		void flipViewDirection() {
 			std::swap(sourceSideBorder, targetSideBorder);
@@ -44,6 +44,14 @@ namespace whfc {
 				util::remove_if_inplace(sourceSideBorder, pred);
 			}
 		}
+		
+		void reset(const size_t newN) {
+			addedToSourceSideBorder.reset(0, newN);
+			addedToTargetSideBorder.reset(0, newN);
+			sourceSideBorder.clear();
+			targetSideBorder.clear();
+		}
+	
 	};
 
 	using NodeBorder = Border<Node, true>;
@@ -81,5 +89,14 @@ namespace whfc {
 			std::swap(sourceMixed, targetMixed);
 			std::swap(hasSettledSourcePins, hasSettledTargetPins);
 		}
+		
+		void reset(const size_t newN) {
+			Base::reset(newN);
+			hasSettledSourcePins.reset(0, newN);
+			hasSettledTargetPins.reset(0, newN);
+			sourceMixed = 0;
+			targetMixed = 0;
+		}
+		
 	};
 }

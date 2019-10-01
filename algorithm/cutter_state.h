@@ -65,6 +65,20 @@ namespace whfc {
 			settleNode(t);
 			flipViewDirection();
 		}
+		
+		void reset() {
+			viewDirection = 0;
+			flowValue = 0;
+			n.reset(hg.numNodes());
+			h.reset(hg.numHyperedges());
+			sourcePiercingNodes.clear(); targetPiercingNodes.clear();
+			augmentingPathAvailableFromPiercing = true;
+			hasCut = false;
+			cut.reset(hg.numHyperedges());			//this requires that FlowHypergraph is reset before resetting the CutterState
+			borderNodes.reset(hg.numNodes());
+			isolatedNodes.reset();
+			partitionWrittenToNodeSet = false;
+		}
 
 		inline bool isIsolated(const Node u) const { return !n.isSource(u) && !n.isTarget(u) && isolatedNodes.isCandidate(u); }
 		inline bool canBeSettled(const Node u) const { return !n.isSource(u) && !n.isTarget(u) && !isIsolated(u); }
@@ -280,6 +294,7 @@ namespace whfc {
 
 
 			//TODO figure out desired output
+			
 
 
 			partitionWrittenToNodeSet = true;

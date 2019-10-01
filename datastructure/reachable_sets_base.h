@@ -34,8 +34,22 @@ namespace whfc {
 			std::swap(sourceReachableSize, targetReachableSize);
 			std::swap(sourceSize, targetSize);
 		}
+		
+		void fullReset() {
+			sourceReachableWeight = NodeWeight(0);
+			sourceWeight = NodeWeight(0);
+			targetReachableWeight = NodeWeight(0);
+			targetWeight = NodeWeight(0);
+			
+			sourceReachableSize = NodeIndex(0);
+			sourceSize = NodeIndex(0);
+			targetReachableSize = NodeIndex(0);
+			targetSize = NodeIndex(0);
+		}
 
 		NodeWeight sourceReachableWeight = NodeWeight(0), sourceWeight = NodeWeight(0), targetReachableWeight = NodeWeight(0), targetWeight = NodeWeight(0);
+		
+		//TODO assess whether we need these
 		NodeIndex sourceReachableSize = NodeIndex(0), sourceSize = NodeIndex(0), targetReachableSize = NodeIndex(0), targetSize = NodeIndex(0);
 
 	protected:

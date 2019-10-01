@@ -11,6 +11,7 @@ namespace whfc {
 			using Type = BitsetReachableNodes;
 
 			explicit BitsetReachableNodes(const FlowHypergraph& hg) : Base(hg),
+																	  hg(hg),
 															 S(hg.numNodes()),
 															 SR(hg.numNodes()),
 															 T(hg.numNodes()),
@@ -42,6 +43,14 @@ namespace whfc {
 				Base::resetSourceReachableToSource();
 			}
 
+			void fullReset() {
+				Base::fullReset();
+				SR.reset(0, hg.numNodes());
+				TR.reset(0, hg.numNodes());
+				S.reset(0, hg.numNodes());
+				T.reset(0, hg.numNodes());
+			}
+			
 			void verifyDisjoint() const {
 				Assert((SR & TR).none());
 				Assert((S & T).none());
@@ -53,6 +62,7 @@ namespace whfc {
 			}
 
 		protected:
+			const FlowHypergraph& hg;
 		public:
 			BitVector S, SR, T, TR;
 		};
@@ -62,6 +72,7 @@ namespace whfc {
 			using Type = BitsetReachableHyperedges;
 
 			explicit BitsetReachableHyperedges(const FlowHypergraph& hg) :
+					hg(hg),
 					IN_SETTLED_S(hg.numHyperedges()),
 					OUT_SETTLED_S(hg.numHyperedges()),
 					IN_REACHED_S(hg.numHyperedges()),
@@ -89,6 +100,17 @@ namespace whfc {
 				IN_REACHED_S = IN_SETTLED_S;
 				OUT_REACHED_S = OUT_SETTLED_S;
 			}
+			
+			void fullReset() {
+				IN_SETTLED_S.reset(0, hg.numHyperedges());
+				OUT_SETTLED_S.reset(0, hg.numHyperedges());
+				IN_REACHED_S.reset(0, hg.numHyperedges());
+				OUT_REACHED_S.reset(0, hg.numHyperedges());
+				IN_SETTLED_T.reset(0, hg.numHyperedges());
+				OUT_SETTLED_T.reset(0, hg.numHyperedges());
+				IN_REACHED_T.reset(0, hg.numHyperedges());
+				OUT_REACHED_T.reset(0, hg.numHyperedges());
+			}
 
 			void flipViewDirection() {
 				std::swap(IN_SETTLED_S, OUT_SETTLED_T);
@@ -112,9 +134,9 @@ namespace whfc {
 			}
 
 		protected:
+			const FlowHypergraph& hg;
 			BitVector IN_SETTLED_S, OUT_SETTLED_S, IN_REACHED_S, OUT_REACHED_S;
 			BitVector IN_SETTLED_T, OUT_SETTLED_T, IN_REACHED_T, OUT_REACHED_T;
-
 		};
 
 }

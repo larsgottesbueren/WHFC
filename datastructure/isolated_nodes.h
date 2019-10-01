@@ -51,7 +51,6 @@ namespace whfc {
 
 		std::vector<Node> nodesNotInTheDPTable;
 
-
 		//This variant assumes that DPTable[sumRanges[i].from] == DPTable[sumRanges[i].to] == i
 		//Pointers in between are considered stale.
 		//Updating DP Table entries requires computing all sums available with node u.
@@ -141,6 +140,21 @@ namespace whfc {
 				//We could use maxBlocKWeight+2 for a right-ward sentinel. With +3 even a left-ward sentinel, but that would required reindexing everything by +1 which is nasty
 				//So, only rightward sentinel
 		{
+			sumRanges.emplace_back(NodeWeight(0), NodeWeight(0));
+			DPTable[0].sumsIndex = 0;
+		}
+		
+		//Unfortunately resetting IsolatedNodes is just as bad as reallocation, but at least we're saving the allocator call
+		void reset() {
+			mixedIncidentHyperedges.assign(hg.numNodes(), HyperedgeIndex(0));
+			DPTable.assign(DPTable.size(), TableEntry());
+			sumRanges.clear();
+			nextSumRanges.clear();
+			newSumAvailable = true;
+			nodes.clear();
+			nodesNotInTheDPTable.clear();
+			weight = NodeWeight(0);
+			
 			sumRanges.emplace_back(NodeWeight(0), NodeWeight(0));
 			DPTable[0].sumsIndex = 0;
 		}
