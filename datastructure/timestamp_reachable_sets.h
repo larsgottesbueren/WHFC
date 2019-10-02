@@ -33,10 +33,15 @@ namespace whfc {
 			std::swap(sourceReachableTS, targetReachableTS);
 			Base::flipViewDirection();
 		}
+		
+		void fullReset() {
+		
+		}
 
 		void resetSourceReachableToSource() {
 			if (generation == std::numeric_limits<Timestamp>::max()) {
-				for (auto& ts : timestamps) {
+				for (const Node u : hg.nodeIDs()) {
+					auto& ts = timestamps[u];
 					if (ts != sourceSettledTS && ts != targetSettledTS && ts != targetReachableTS)
 						ts = unreachableTS;
 				}
@@ -45,7 +50,7 @@ namespace whfc {
 			else
 				generation++;
 			sourceReachableTS = generation;
-			if (sourceReachableTS == targetReachableTS)
+			if (sourceReachableTS == targetReachableTS) //do it again, if we have a timestamp conflict
 				resetSourceReachableToSource();
 			Base::resetSourceReachableToSource();
 		}
@@ -99,7 +104,7 @@ namespace whfc {
 	public:
 		using Type = TimestampReachableHyperedges<Timestamp>;
 
-		TimestampReachableHyperedges(const FlowHypergraph& hg) : in(hg.numHyperedges(), unreachableTS), out(hg.numHyperedges(), unreachableTS) { }
+		TimestampReachableHyperedges(const FlowHypergraph& hg) : hg(hg), in(hg.numHyperedges(), unreachableTS), out(hg.numHyperedges(), unreachableTS) { }
 		
 		inline size_t capacity() const { return out.size(); }
 		inline bool areAllPinsSources(const Hyperedge e) const { return out[e] == sourceSettledTS; }
@@ -114,14 +119,20 @@ namespace whfc {
 		
 		void resetSourceReachableToSource() {
 			if (generation == std::numeric_limits<Timestamp>::max()) {
-				for (auto& ts : out) if (ts != sourceSettledTS && ts != targetSettledTS && ts != targetReachableTS) ts = unreachableTS;
-				for (auto& ts : in) if (ts != sourceSettledTS && ts != targetSettledTS && ts != targetReachableTS) ts = unreachableTS;
+				for (const Hyperedge e : hg.hyperedgeIDs()) {
+					auto& ts = out[e];
+					if (ts != sourceSettledTS && ts != targetSettledTS && ts != targetReachableTS) ts = unreachableTS;
+				}
+				for (const Hyperedge e : hg.hyperedgeIDs()) {
+					auto& ts = in[e];
+					if (ts != sourceSettledTS && ts != targetSettledTS && ts != targetReachableTS) ts = unreachableTS;
+				}
 				generation = initialTS;
 			}
 			else
 				generation++;
 			sourceReachableTS = generation;
-			if (sourceReachableTS == targetReachableTS)
+			if (sourceReachableTS == targetReachableTS)	//do it again, if we have a timestamp conflict
 				resetSourceReachableToSource();
 		}
 
@@ -140,6 +151,7 @@ namespace whfc {
 		}
 
 	protected:
+		const FlowHypergraph& hg;
 		static constexpr Timestamp initialTS = 3;
 		static constexpr Timestamp unreachableTS = 0;
 		Timestamp generation = initialTS;
