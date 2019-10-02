@@ -87,7 +87,7 @@ namespace whfc {
 			cs.n.verifySettledIsSubsetOfReachable();
 			cs.h.verifyDisjoint();
 			cs.h.verifySettledIsSubsetOfReachable();
-			LOG << cs.toString();
+			LOGGER << cs.toString();
 		}
 
 		//for cut-based interleaving
@@ -137,8 +137,8 @@ namespace whfc {
 		void runUntilBalanced() {
 			while (!cs.isBalanced() && cs.flowValue < upperFlowBound)
 				advanceUntilCut();
-			LOG << V(cs.isBalanced()) << V(cs.maxBlockWeight) << V(cs.flowValue);
-			LOG << V(cs.n.sourceReachableWeight) << V(cs.n.targetReachableWeight) << V(cs.isolatedNodes.weight) << V(cs.unclaimedNodeWeight()) << V(hg.totalNodeWeight());
+			LOGGER << V(cs.isBalanced()) << V(cs.maxBlockWeight) << V(cs.flowValue);
+			LOGGER << V(cs.n.sourceReachableWeight) << V(cs.n.targetReachableWeight) << V(cs.isolatedNodes.weight) << V(cs.unclaimedNodeWeight()) << V(hg.totalNodeWeight());
 			
 		}
 

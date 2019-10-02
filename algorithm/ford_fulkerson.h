@@ -125,7 +125,7 @@ namespace whfc {
 
 		template<bool augment_flow>
 		Flow growWithoutScaling(CutterState<Type>& cs) {
-			LOG << "grow without scaling";
+			LOGGER << "grow without scaling";
 			cs.clearForSearch();
 			ReachableNodes& n = cs.n;
 			ReachableHyperedges& h = cs.h;
@@ -175,7 +175,7 @@ namespace whfc {
 		 */
 		Flow growWithScaling(CutterState<Type>& cs) {
 			AssertMsg(scalingCapacity > 1, "Don't call this method with ScalingCapacity <= 1. Use growWithoutScaling instead.");
-			LOG << "grow with scaling" << V(scalingCapacity);
+			LOGGER << "grow with scaling" << V(scalingCapacity);
 			cs.clearForSearch();
 			ReachableNodes& n = cs.n;
 			ReachableHyperedges& h = cs.h;

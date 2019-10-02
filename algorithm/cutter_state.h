@@ -343,7 +343,7 @@ namespace whfc {
 
 			if (hg.totalNodeWeight() > 2 * maxBlockWeight)
 				return true;
-			LOG << "Starting expensive SubsetSum based feasibility check";
+			LOGGER << "Starting expensive SubsetSum based feasibility check";
 			IsolatedNodes subsetSumCopy = isolatedNodes;
 			for (const Node u : hg.nodeIDs())
 				if (canBeSettled(u))

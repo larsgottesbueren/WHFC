@@ -6,28 +6,28 @@
 #include <string>
 
 //adapted from KaHyPar
-class Logger {
+class HFCLogger {
 public:
-	explicit Logger(const bool newline) :
+	explicit HFCLogger(const bool newline) :
 			_newline(newline),
 			_oss() { }
 	template <typename T>
-	Logger& operator<< (const T& output) {
+	HFCLogger& operator<< (const T& output) {
 		_oss << output << ' ';
 		return *this;
 	}
-
-	Logger& operator<< (decltype(std::left)& output) {
+	
+	HFCLogger& operator<< (decltype(std::left)& output) {
+		_oss << output;
+		return *this;
+	}
+	
+	HFCLogger& operator<< (const decltype(std::setw(1))& output) {
 		_oss << output;
 		return *this;
 	}
 
-	Logger& operator<< (const decltype(std::setw(1))& output) {
-		_oss << output;
-		return *this;
-	}
-
-	~Logger() {
+	~HFCLogger() {
 		std::cout << _oss.str();
 		if (_newline) {
 			std::cout << std::endl;
@@ -41,16 +41,16 @@ private:
 	std::ostringstream _oss;
 };
 
-class LoggerVoidify {
+class HFCLoggerVoidify {
 public:
-	void operator& (Logger&) { }
+	void operator& (HFCLogger&) { }
 };
 
 #define V(X) #X << "=" << X
 
-#define LOGCC(cond, newline) \
+#define LOGGER_CC(cond, newline) \
   !(cond) ? (void)0 :        \
-  LoggerVoidify() & Logger(newline)
+  HFCLoggerVoidify() & HFCLogger(newline)
 
-#define LOG  LOGCC(log, true)
-#define LOGWN LOGCC(log,false)
+#define LOGGER  LOGGER_CC(log, true)
+#define LOGGER_WN LOGGER_CC(log,false)
