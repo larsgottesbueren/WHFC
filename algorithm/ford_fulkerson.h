@@ -243,6 +243,7 @@ namespace whfc {
 	using ScalingEdmondsKarp = FordFulkerson<LayeredQueue<Node>, true>;
 	using BasicEdmondsKarp = FordFulkerson<LayeredQueue<Node>, false>;
 
+	/*
 	class DepthFirstFordFulkerson {
 	public:
 		using Type = DepthFirstFordFulkerson;
@@ -257,13 +258,13 @@ namespace whfc {
 		FlowHypergraph& hg;
 
 		Flow growWithoutScaling(CutterState<Type>& cs) {
-			/*
+			
 			for (Node s : cs.sourcePiercingNodes) {
 				const InHeIndex e_it = hg.beginIndexHyperedges(s);
 				const PinIndex pin_it = hg.getInHe(e_it).pin_iter;
 				stack.push( { e_it, pin_it } );
 			}
-			 */
+			
 			return 0;
 		}
 
@@ -276,4 +277,6 @@ namespace whfc {
 
 
 	};
+	 */
+	 
 }
