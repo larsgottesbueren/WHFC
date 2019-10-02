@@ -11,7 +11,6 @@ namespace whfc {
 
 	template<typename FlowAlgorithm>
 	class CutterState {
-		static constexpr bool debug = true;
 	public:
 		using Pin = FlowHypergraph::Pin;
 
@@ -227,6 +226,9 @@ namespace whfc {
 			AssertMsg(isolatedNodes.isDPTableUpToDate(), "DP Table not up to date");
 			AssertMsg(isBalanced(), "Not balanced yet");
 			AssertMsg(!partitionWrittenToNodeSet, "Partition was already written");
+			
+			if (currentViewDirection() != 0)
+				flipViewDirection();
 
 			const NodeWeight
 					sw = n.sourceReachableWeight,
