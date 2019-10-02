@@ -5,7 +5,7 @@
 #include <sstream>
 #include <string>
 
-
+//adapted from KaHyPar
 class Logger {
 public:
 	explicit Logger(const bool newline) :
