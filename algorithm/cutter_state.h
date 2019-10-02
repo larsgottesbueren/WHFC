@@ -68,8 +68,8 @@ namespace whfc {
 		void reset() {
 			viewDirection = 0;
 			flowValue = 0;
-			n.reset(hg.numNodes());
-			h.reset(hg.numHyperedges());
+			n.fullReset();
+			h.fullReset();
 			sourcePiercingNodes.clear(); targetPiercingNodes.clear();
 			augmentingPathAvailableFromPiercing = true;
 			hasCut = false;

@@ -2,6 +2,10 @@
 
 #include "flow_hypergraph.h"
 
+/*
+ * hyperedges with zero/one pins are removed automatically during build process
+ */
+
 namespace whfc {
 	class FlowHypergraphBuilder : public FlowHypergraph {
 	public:
@@ -33,7 +37,6 @@ namespace whfc {
 			pins_sending_flow.clear();
 			pins_receiving_flow.clear();
 			total_node_weight = NodeWeight(0);
-			total_hyperedge_weight = HyperedgeWeight(0);
 			sends_multiplier = 1;
 			receives_multiplier = -1;
 			
@@ -49,15 +52,17 @@ namespace whfc {
 		
 		void addNode(const NodeWeight w) {
 			nodes.push_back({InHeIndex(0), w});
+			//return Node::fromOtherValueType(numNodes() - 1);
 		}
 		
 		void startHyperedge(const Flow capacity) {
 			finishHyperedge();	//finish last hyperedge
-			hyperedges.back().capacity = capacity;
+			hyperedges.back().capacity = capacity;	//exploit sentinel
 			numPinsAtHyperedgeStart = numPins();
 		}
 		
 		void addPin(const Node u) {
+			Assert(u < numNodes());
 			pins.push_back({u, InHeIndex::Invalid()});
 			nodes[u+1].first_out++;
 		}
@@ -66,18 +71,26 @@ namespace whfc {
 			return numPins() - numPinsAtHyperedgeStart;
 		}
 		
+		void removeCurrentHyperedge() {
+			while (numPins() > numPinsAtHyperedgeStart)
+				removeLastPin();
+		}
+		
 		void finalize() {
-			finishHyperedge();	//finish last open hyperedge
+			total_node_weight = NodeWeight(0);
+			if( !finishHyperedge() )	//finish last open hyperedge
+				hyperedges.back().capacity = 0;	//maybe the last started hyperedge has zero/one pins and thus we still use the previous sentinel. was never a bug, since that capacity is never read
+				
+			for (Node u : nodeIDs()) {
+				nodes[u+1].first_out += nodes[u].first_out;
+				total_node_weight += nodes[u].weight;
+			}
 			
 			incident_hyperedges.resize(numPins());
-			
-			for (Node u : nodeIDs())
-				nodes[u+1].first_out += nodes[u].first_out;
-			
 			for (Hyperedge e : hyperedgeIDs()) {
 				for (auto pin_it = beginIndexPins(e); pin_it != endIndexPins(e); pin_it++) {
 					Pin& p = pins[pin_it];
-					InHeIndex ind_he = nodes[p.pin].first_out++;							//destroy first_out temporarily and reset later
+					InHeIndex ind_he = nodes[p.pin].first_out++;	//destroy first_out temporarily and reset later
 					incident_hyperedges[ind_he] = { e, Flow(0), pin_it };
 					p.he_inc_iter = ind_he;					//set iterator for incident hyperedge -> its position in incident_hyperedges of the node
 				}
@@ -105,7 +118,7 @@ namespace whfc {
 			pins.pop_back();
 		}
 		
-		void finishHyperedge() {
+		bool finishHyperedge() {
 			if (currentHyperedgeSize() == 1)
 				removeLastPin();
 			
@@ -113,7 +126,9 @@ namespace whfc {
 				pins_sending_flow.emplace_back(hyperedges.back().first_out, hyperedges.back().first_out);
 				hyperedges.push_back({PinIndex::fromOtherValueType(numPins()), Flow(0), Flow(0)});//sentinel
 				pins_receiving_flow.emplace_back(hyperedges.back().first_out, hyperedges.back().first_out);
+				return true;
 			}
+			return false;
 		}
 		
 		bool finalized = false;

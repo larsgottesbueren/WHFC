@@ -48,8 +48,7 @@ namespace whfc {
 		//use in FlowHypergraphBuilder to get rid of any allocations
 		FlowHypergraph(size_t maxNumNodes, size_t maxNumHyperedges, size_t maxNumPins) :
 				nodes(maxNumNodes + 1), hyperedges(maxNumHyperedges + 1), pins(maxNumPins),
-				incident_hyperedges(maxNumPins), pins_sending_flow(maxNumHyperedges), pins_receiving_flow(maxNumHyperedges)
-		{ }
+				incident_hyperedges(maxNumPins), pins_sending_flow(maxNumHyperedges), pins_receiving_flow(maxNumHyperedges) { }
 
 		FlowHypergraph(std::vector<NodeWeight>& node_weights, std::vector<HyperedgeWeight>& hyperedge_weights, std::vector<PinIndex>& hyperedge_sizes, std::vector<Node>& _pins) :
 				nodes(node_weights.size() + 1),
@@ -58,9 +57,7 @@ namespace whfc {
 				incident_hyperedges(_pins.size()),
 				pins_sending_flow(hyperedge_weights.size()),
 				pins_receiving_flow(hyperedge_weights.size()),
-				total_node_weight(boost::accumulate(node_weights, NodeWeight(0))),
-				total_hyperedge_weight(boost::accumulate(hyperedge_weights, HyperedgeWeight(0)))
-
+				total_node_weight(boost::accumulate(node_weights, NodeWeight(0)))
 		{
 			size_t i = 0;
 			for (const Node p : _pins) {
@@ -109,7 +106,6 @@ namespace whfc {
 		inline NodeWeight totalNodeWeight() const { return total_node_weight; }
 		inline NodeWeight nodeWeight(const Node u) const { return nodes[u].weight; }
 		inline NodeWeight& nodeWeight(const Node u) { return nodes[u].weight; }
-		inline HyperedgeWeight totalHyperedgeWeight() const { return total_hyperedge_weight; }
 
 		inline InHeIndex beginIndexHyperedges(Node u) const { return nodes[u].first_out; }
 		inline InHeIndex endIndexHyperedges(Node u) const { return nodes[u+1].first_out; }
@@ -251,14 +247,7 @@ namespace whfc {
 		std::vector<PinIndexRange> pins_sending_flow;	//indexed by hyperedge id. gives range of pin ids/iterators sending flow to that hyperedge. grows right if forwardView = true
 		std::vector<PinIndexRange> pins_receiving_flow;	//indexed by hyperedge id. gives range of pin ids/iterators receiving flow from that hyperedge. grows left if forwardView = true
 		
-		static_assert(std::is_trivially_destructible<Pin>::value);
-		static_assert(std::is_trivially_destructible<InHe>::value);
-		static_assert(std::is_trivially_destructible<HyperedgeData>::value);
-		static_assert(std::is_trivially_destructible<NodeData>::value);
-		static_assert(std::is_trivially_destructible<PinIndexRange>::value);
-		
 		NodeWeight total_node_weight = NodeWeight(0);
-		HyperedgeWeight total_hyperedge_weight = HyperedgeWeight(0);
 		int sends_multiplier = 1;						//if forwardView = true, flow entering hyperedge e should be positive and flow exiting e should be negative. reverse, if forwardView = false.
 		int receives_multiplier = -1;
 
@@ -346,6 +335,12 @@ namespace whfc {
 					|| 	(!sends && receives && !no_flow)
 					|| 	(!sends && !receives && no_flow);
 		}
+		
+		static_assert(std::is_trivially_destructible<Pin>::value);
+		static_assert(std::is_trivially_destructible<InHe>::value);
+		static_assert(std::is_trivially_destructible<HyperedgeData>::value);
+		static_assert(std::is_trivially_destructible<NodeData>::value);
+		static_assert(std::is_trivially_destructible<PinIndexRange>::value);
 
 	public:
 
