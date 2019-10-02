@@ -20,7 +20,7 @@ namespace Test {
 		}
 		
 	public:
-		static constexpr bool debug = true;
+		static constexpr bool log = true;
 		void routeFlowTests() {
 			std::string hgfile = "../test_hypergraphs/twocenters.hgr";
 			//FlowHypergraph hg = HMetisIO::readFlowHypergraph(hgfile);

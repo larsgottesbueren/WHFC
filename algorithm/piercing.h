@@ -15,7 +15,7 @@ namespace whfc {
 		bool avoidAugmentingPaths = true;
 		std::vector<HopDistance> distanceFromCut;
 
-		static constexpr bool debug = true;
+		static constexpr bool log = true;
 		
 		template<class ReachableNodes>
 		const Node findPiercingNode(ReachableNodes& n, const NodeBorder& border, const NodeWeight maxBlockWeight) {

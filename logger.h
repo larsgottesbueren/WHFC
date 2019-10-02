@@ -52,5 +52,5 @@ public:
   !(cond) ? (void)0 :        \
   LoggerVoidify() & Logger(newline)
 
-#define LOG  LOGCC(debug, true)
-#define LOGWN LOGCC(debug,false)
+#define LOG  LOGCC(log, true)
+#define LOGWN LOGCC(log,false)

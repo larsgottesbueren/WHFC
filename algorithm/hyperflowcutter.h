@@ -19,7 +19,7 @@ namespace whfc {
 		Flow upperFlowBound;
 		Piercer piercer;
 
-		static constexpr bool debug = true;
+		static constexpr bool log = true;
 		
 		HyperFlowCutter(FlowHypergraph& hg, NodeWeight maxBlockWeight) : hg(hg), cs(hg, maxBlockWeight), flow_algo(hg), upperFlowBound(maxFlow), piercer(hg) { }
 
@@ -148,7 +148,6 @@ namespace whfc {
 				return;
 			//either run until cut would have to be broken. or track most balanced (just as a partition) and revert to that
 		}
-
 	};
 
 

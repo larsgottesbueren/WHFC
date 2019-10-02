@@ -14,7 +14,7 @@ namespace whfc {
 	template<typename ScanListType, bool capacityScaling, bool alwaysSetParent = true>
 	class FordFulkerson /* : public FlowAlgorithm */ {
 	public:
-		static constexpr bool debug = false;
+		static constexpr bool log = false;
 		
 		using Type = FordFulkerson<ScanListType, capacityScaling, alwaysSetParent>;
 		using ScanList = ScanListType;

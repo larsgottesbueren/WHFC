@@ -2,12 +2,10 @@
 
 #include <fstream>
 #include "../datastructure/flow_hypergraph.h"
-#include "../logger.h"
 #include "../datastructure/flow_hypergraph_builder.h"
 
 namespace whfc {
 	class HMetisIO {
-		static constexpr bool debug = true;
 	private:
 		inline static void mgetline(std::ifstream& f, std::string& line) {
 			std::getline(f, line);
