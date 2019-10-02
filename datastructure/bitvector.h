@@ -8,20 +8,45 @@
 #include "../util/functions.h"
 #include "../util/filter.h"
 
-namespace whfc {
-	class BitVector : public boost::dynamic_bitset<> {
-	public:
-		using Base = boost::dynamic_bitset<>;
-		explicit BitVector(const size_t n) : Base(n) { }
-		
-		void copyFirst(const BitVector& other, size_type n) {
-			if (n == 0)
-				return;
-			assert(n <= other.size() && n <= size());
-			size_t i = 0;
-			range_operation(0, n, );
-		}
+namespace HackBoostDynamicBitset {
+	struct BlockOutputIterator {
+		size_t n_blocks;
+		const boost::dynamic_bitset<>& copy_from;
+		boost::dynamic_bitset<>& copy_to;
+		BlockOutputIterator(const size_t n_blocks, const boost::dynamic_bitset<>& copy_from, boost::dynamic_bitset<>& copy_to) :
+				n_blocks(n_blocks), copy_from(copy_from), copy_to(copy_to) { }
 	};
+	
+	template <typename Block, typename Allocator>
+	size_t num_blocks(const boost::dynamic_bitset<Block, Allocator>& b, size_t pos) {
+		if (pos == 0)
+			return 0;
+		return ((pos-1) / b.bits_per_block) + 1;
+	}
+	
+}
+
+namespace boost {
+	template <>
+	inline void to_block_range(const dynamic_bitset<>& , HackBoostDynamicBitset::BlockOutputIterator h) {
+		assert(h.copy_to.num_blocks() >= h.n_blocks);
+		assert(h.copy_from.num_blocks() >= h.n_blocks);
+		std::copy_n(h.copy_from.m_bits.begin(), h.n_blocks, h.copy_to.m_bits.begin());
+	}
+}
+
+namespace whfc {
+	
+	using BitVector = boost::dynamic_bitset<>;
+	
+	void bitvector_copy_first_n(BitVector& to, BitVector& from, size_t n) {
+		using BOI = HackBoostDynamicBitset::BlockOutputIterator;
+		size_t n_blocks = HackBoostDynamicBitset::num_blocks(from, n);
+		boost::to_block_range(to, BOI(n_blocks, from, to));
+	}
+	
+	
+	
 
 	//A - B
 	template<typename T>
@@ -31,29 +56,4 @@ namespace whfc {
 			inB.set(b);
 		return util::remove_if_copy(A, Function::RandomAccessCallableWrapper(inB));
 	}
-}
-
-namespace TestOptimization {
-	template<typename id_t>
-	class BoolVec {
-	private:
-		std::vector<bool> data;
-	public:
-		static constexpr std::size_t bits_per_block = 64;
-		explicit BoolVec(const id_t __size) : data(__size, false) {}
-		inline bool operator[](const id_t idx) const { return data[idx]; }
-		inline void set(const id_t idx) { data[idx] = true; }
-		inline void reset(const id_t idx) { data[idx] = false; }
-		inline void reset() { data.assign(data.size(), false); }
-		inline bool any() const { return std::any_of(data.begin(), data.end(), Function::Identity<bool>()); }
-		inline id_t count() const {
-			id_t res = 0;
-			for (auto& x : data)
-				res += static_cast<id_t>(x);
-			return res;
-		}
-		inline std::size_t size() const { return data.size(); }
-
-	};
-
 }
