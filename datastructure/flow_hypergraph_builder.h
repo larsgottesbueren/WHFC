@@ -22,7 +22,6 @@ namespace whfc {
 			//don't do clean-up here yet, so that we can use the numbers for allocating the remaining datastructures
 		}
 		
-		
 		void clear() {
 			finalized = false;
 			numPinsAtHyperedgeStart = 0;

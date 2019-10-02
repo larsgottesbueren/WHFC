@@ -28,8 +28,8 @@ namespace whfc {
 			exhaustFlowAndGrow();
 		}
 		
-		void clear() {
-			cs.clear();
+		void reset() {
+			cs.reset();
 			upperFlowBound = maxFlow;
 			piercer.clear();
 		}
