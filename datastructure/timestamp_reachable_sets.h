@@ -35,7 +35,10 @@ namespace whfc {
 		}
 		
 		void fullReset() {
-		
+			timestamps.assign(hg.numNodes(), unreachableTS);
+			generation = initialTS;
+			sourceReachableTS = sourceSettledTS;
+			targetReachableTS = targetSettledTS;
 		}
 
 		void resetSourceReachableToSource() {
@@ -135,7 +138,15 @@ namespace whfc {
 			if (sourceReachableTS == targetReachableTS)	//do it again, if we have a timestamp conflict
 				resetSourceReachableToSource();
 		}
-
+		
+		void fullReset() {
+			in.assign(hg.numHyperedges(), unreachableTS);
+			out.assign(hg.numHyperedges(), unreachableTS);
+			generation = initialTS;
+			sourceReachableTS = sourceSettledTS;
+			targetReachableTS = targetSettledTS;
+		}
+		
 		void flipViewDirection() {
 			std::swap(in, out);
 			std::swap(sourceSettledTS, targetSettledTS);
