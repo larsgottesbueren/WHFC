@@ -25,7 +25,6 @@ namespace whfc {
 		hfc.runUntilBalanced();
 		std::cout << second_duration(time_now() - time).count() << " [s]" << std::endl;
 	}
-
 }
 
 int main(int argc, const char* argv[]) {

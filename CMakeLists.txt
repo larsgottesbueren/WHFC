@@ -14,3 +14,5 @@ add_executable(WHFC main.cpp)
 target_link_libraries(WHFC tlx)
 
 add_executable(TESTS run_tests.cpp)
+
+add_executable(SnapshotTester snapshot_tester.cpp)

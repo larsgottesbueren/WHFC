@@ -1,6 +1,6 @@
 #pragma once
 
-#include <WHFC/datastructure/queue.h>
+#include "../datastructure/queue.h"
 #include "../definitions.h"
 #include "../datastructure/border.h"
 #include "../datastructure/flow_hypergraph.h"
