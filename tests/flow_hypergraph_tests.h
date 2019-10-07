@@ -68,24 +68,18 @@ namespace Test {
 		
 		template<typename FlowAlgo>
 		bool tryFlowAlgo(std::string file, Flow expected_flow, Node s, Node t) {
-			LOG << V(file);
 			FlowHypergraph hg = HMetisIO::readFlowHypergraph(file);
 			CutterState<FlowAlgo> cs(hg, NodeWeight(4000));
 			cs.initialize(s,t);
 			FlowAlgo flow(hg);
 			Flow f = flow.exhaustFlow(cs);
-			LOG << V(f);
 			return f == expected_flow;
 		}
 		
 		void flowAlgoTest(std::string file, Flow expected_flow, Node s, Node t) {
-			LOG << "basic ff";
 			Assert(tryFlowAlgo<BasicFordFulkerson>(file, expected_flow, s, t));
-			LOG << "scaling ff";
 			Assert(tryFlowAlgo<ScalingFordFulkerson>(file, expected_flow, s, t));
-			LOG << "basic ek";
 			Assert(tryFlowAlgo<BasicEdmondsKarp >(file, expected_flow, s, t));
-			LOG << "scaling ff";
 			Assert(tryFlowAlgo<ScalingEdmondsKarp>(file, expected_flow, s, t));
 		}
 		

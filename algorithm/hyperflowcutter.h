@@ -37,11 +37,9 @@ namespace whfc {
 		bool pierce() {
 			Assert(cs.n.sourceWeight == cs.n.sourceReachableWeight);
 			Assert(cs.n.sourceReachableWeight <= cs.n.targetReachableWeight);
-			LOGGER << "before clean up" << V(cs.cut.weight(hg)) << V(cs.cut.sourceSideBorder.size());
 			cs.cleanUpCut();
 			cs.cleanUpBorder();
 			cs.verifyCutPostConditions();
-			LOGGER << "after clean up" << V(cs.flowValue) << V(cs.cut.weight(hg)) << V(cs.cut.sourceSideBorder.size());
 
 			if (cs.notSettledNodeWeight() == 0)
 				return false;

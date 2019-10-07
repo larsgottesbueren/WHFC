@@ -19,11 +19,11 @@ namespace whfc {
 		using Type = FordFulkerson<ScanListType, capacityScaling, alwaysSetParent>;
 		using ScanList = ScanListType;
 
-		//using ReachableNodes = BitsetReachableNodes;
-		//using ReachableHyperedges = BitsetReachableHyperedges;
+		using ReachableNodes = BitsetReachableNodes;
+		using ReachableHyperedges = BitsetReachableHyperedges;
 		
-		using ReachableNodes = ReachableNodesChecker;
-		using ReachableHyperedges = ReachableHyperedgesChecker;
+		//using ReachableNodes = ReachableNodesChecker;
+		//using ReachableHyperedges = ReachableHyperedgesChecker;
 		
 		using Timestamp = uint8_t;
 		//using ReachableNodes = TimestampReachableNodes<Timestamp>;
@@ -174,7 +174,6 @@ namespace whfc {
 		 */
 		Flow growWithScaling(CutterState<Type>& cs) {
 			AssertMsg(scalingCapacity > 1, "Don't call this method with ScalingCapacity <= 1. Use growWithoutScaling instead.");
-			LOGGER << "grow with scaling" << V(scalingCapacity);
 			cs.clearForSearch();
 			ReachableNodes& n = cs.n;
 			ReachableHyperedges& h = cs.h;
