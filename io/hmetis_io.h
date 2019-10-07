@@ -171,19 +171,23 @@ namespace whfc {
 			if (!f)
 				throw std::runtime_error("Failed at creating Flow Hypergraph file " + filename);
 
+			static constexpr bool log = true;
+			
 			bool hasNodeWeights = hg.hasNodeWeights();
 			bool hasHyperedgeWeights = hg.hasHyperedgeWeights();
 
+			LOGGER << V(hg.numNodes()) << V(hg.numHyperedges()) << V(hg.numPins()) << V(hasNodeWeights) << V(hasHyperedgeWeights);
+			
 			{
 				//write header
 				f << hg.numHyperedges() << " " << hg.numNodes();
 				if (hasNodeWeights)
 					if (hasHyperedgeWeights)
-						f << " " << static_cast<uint8_t>(HGType::EdgeAndNodeWeights);
+						f << " " << static_cast<uint32_t>(HGType::EdgeAndNodeWeights);
 					else
-						f << " " << static_cast<uint8_t>(HGType::NodeWeights);
+						f << " " << static_cast<uint32_t>(HGType::NodeWeights);
 				else if (hasHyperedgeWeights)
-					f << " " << static_cast<uint8_t>(HGType::EdgeWeights);
+					f << " " << static_cast<uint32_t>(HGType::EdgeWeights);
 				f << "\n";
 			}
 
@@ -192,7 +196,7 @@ namespace whfc {
 				if (pinsOfE.empty())
 					throw std::runtime_error("Hypergraph has hyperedge with zero pins");
 				if (hasHyperedgeWeights)
-					f << hg.capacity(e);
+					f << hg.capacity(e) << " ";
 				
 				f << (pinsOfE.begin()->pin + 1); pinsOfE.advance_begin();	//special case first pin since we have |e|-1 white spaces
 				for (const FlowHypergraph::Pin& p : pinsOfE)
