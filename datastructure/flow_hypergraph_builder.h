@@ -51,7 +51,8 @@ namespace whfc {
 		}
 		
 		void addNode(const NodeWeight w) {
-			nodes.push_back({InHeIndex(0), w});
+			nodes.back().weight = w;
+			nodes.push_back({InHeIndex(0), NodeWeight(0)});
 			//return Node::fromOtherValueType(numNodes() - 1);
 		}
 		
@@ -77,10 +78,10 @@ namespace whfc {
 		}
 		
 		void finalize() {
-			total_node_weight = NodeWeight(0);
 			if( !finishHyperedge() )	//finish last open hyperedge
 				hyperedges.back().capacity = 0;	//maybe the last started hyperedge has zero/one pins and thus we still use the previous sentinel. was never a bug, since that capacity is never read
-				
+			
+			total_node_weight = NodeWeight(0);
 			for (Node u : nodeIDs()) {
 				nodes[u+1].first_out += nodes[u].first_out;
 				total_node_weight += nodes[u].weight;
