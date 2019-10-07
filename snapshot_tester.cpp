@@ -15,7 +15,7 @@ namespace whfc {
 		Node s = info.s;
 		Node t = info.t;
 		NodeWeight mbw = info.maxBlockWeight;
-		std::cout << s << t << mbw << info.upperFlowBound<< std::endl;
+		std::cout << s << " " << t << " " << mbw << " " << info.upperFlowBound<< std::endl;
 		
 		FlowHypergraph hg = HMetisIO::readFlowHypergraph(filename);
 		if (s >= hg.numNodes() || t >= hg.numNodes())
