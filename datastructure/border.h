@@ -5,6 +5,7 @@
 #include "../definitions.h"
 
 #include "../util/filter.h"
+#include "flow_hypergraph.h"
 
 namespace whfc {
 	template<typename T, bool trackElements>
@@ -69,10 +70,12 @@ namespace whfc {
 		}
 
 		
-		HyperedgeWeight weight(const FlowHypergraph& hg) const {
-			HyperedgeWeight w(0);
-			for (const Hyperedge e : sourceSideBorder)
+		Flow weight(const FlowHypergraph& hg) const {
+			Flow w = 0;
+			for (const Hyperedge e : sourceSideBorder) {
+				Assert(hg.isSaturated(e));
 				w += hg.capacity(e);
+			}
 			return w;
 		}
 		

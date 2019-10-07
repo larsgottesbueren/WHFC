@@ -1,5 +1,6 @@
 #pragma once
 
+#include <WHFC/datastructure/queue.h>
 #include "../definitions.h"
 #include "../datastructure/border.h"
 #include "../datastructure/flow_hypergraph.h"
@@ -8,6 +9,8 @@
 #include "../util/math.h"
 
 namespace whfc {
+
+	//TODO assert flow conservation, capacity constraints and that the flow actually induces an st-cut
 
 	template<typename FlowAlgorithm>
 	class CutterState {
@@ -102,8 +105,6 @@ namespace whfc {
 				n.reach(u);
 			n.settle(u);
 
-			//isolatedNodes.settleNode(u);		only do this, if we ever decide to eject entries in IsolatedNodes, which would require resolving from scratch
-
 			for (const auto& he_inc : hg.hyperedgesOf(u)) {
 				const Hyperedge e = he_inc.e;
 				if (!hasSourcePin(e)) {
@@ -161,6 +162,8 @@ namespace whfc {
 
 
 		bool isBalanced() {
+			AssertMsg(!partitionWrittenToNodeSet, "Cannot call isBalanced() once the partition has been written");
+			
 			const NodeWeight
 					sw = n.sourceReachableWeight,		//cannot be split
 					tw = n.targetReachableWeight,		//cannot be split
@@ -290,15 +293,44 @@ namespace whfc {
 			AssertMsg(t <= maxBlockWeight, "computed assignment violates max block weight on target side");
 			AssertMsg(isolatedNodes.isSummable(trackedIsolatedWeight), "isolated weight is not summable");
 
-			auto [sIso, tIso] = isolatedNodes.extractBipartition(trackedIsolatedWeight);		//commodity. could be handled otherwise.
-			if (!assignTrackedIsolatedWeightToSource)
-				std::swap(sIso, tIso);
-
-
-			//TODO figure out desired output
+			auto isoSubset = isolatedNodes.extractSubset(trackedIsolatedWeight);
+			for (const Node u : isoSubset) {
+				Assert(!n.isSourceReachable(u) && !n.isTargetReachable(u) && isIsolated(u));
+				if (assignTrackedIsolatedWeightToSource) {
+					n.reach(u); n.settle(u);
+				}
+				else {
+					n.reachTarget(u); n.settleTarget(u);
+				}
+			}
 			
-
-
+			for (const Node u : hg.nodeIDs()) {
+				if (n.isSourceReachable(u) && !n.isSource(u))
+					n.settle(u);
+				
+				if (n.isTargetReachable(u) && !n.isTarget(u))
+					n.settleTarget(u);
+				
+				if (!n.isSourceReachable(u) && !n.isTargetReachable(u) && !isIsolated(u)) {
+					if (assignUnclaimedToSource) {
+						n.reach(u); n.settle(u);
+					}
+					else {
+						n.reachTarget(u); n.settleTarget(u);
+					}
+				}
+				
+				if (isIsolated(u)) {
+					if (assignTrackedIsolatedWeightToSource) {
+						n.reachTarget(u); n.settleTarget(u);
+					}
+					else {
+						n.reach(u); n.settle(u);
+					}
+				}
+			}
+			
+			Assert(n.sourceSize + n.targetSize == hg.numNodes() && n.sourceWeight + n.targetWeight == hg.totalNodeWeight());
 			partitionWrittenToNodeSet = true;
 		}
 		
@@ -320,7 +352,6 @@ namespace whfc {
 
 	private:
 
-
 		//side of a gets x, side of b gets isolatedNodes.weight - x
 		//result.first = x, result.second = block weight difference
 		inline std::pair<NodeWeight, NodeWeight> isolatedWeightAssignmentToFirst(const NodeWeight a, NodeWeight b, const IsolatedNodes::SummableRange& sr) const {
@@ -328,35 +359,194 @@ namespace whfc {
 			const NodeWeight x = (a < b) ? std::max(std::min(NodeWeight((b-a)/2), sr.to), sr.from) : sr.from;
 			return std::make_pair(x, Math::absdiff(a + x, b - x));
 		}
-
-
-
-		NodeWeight maxBlockWeightDiff() {
-			if (!partitionWrittenToNodeSet)
-				throw std::runtime_error("Partition wasn't written yet. Call outputMostBalancedPartition() first");
-			return maxBlockWeight - std::min(n.sourceWeight,n.targetWeight);
+		
+	public:
+		
+		void verifyFlow() {
+			verifyFlowConstraints();
+			verifySetInvariants();
 		}
-
-/*
-		bool isInfeasible() {
-			//call rarely. only intended for debugging purposes
-
-			if (hg.totalNodeWeight() > 2 * maxBlockWeight)
-				return true;
-			LOGGER << "Starting expensive SubsetSum based feasibility check";
-			IsolatedNodes subsetSumCopy = isolatedNodes;
-			for (const Node u : hg.nodeIDs())
-				if (canBeSettled(u))
-					subsetSumCopy.add(u);
-			subsetSumCopy.updateDPTable();
-
-			//this is unfortunately as good as it gets. removing one element from a given subset sum instance is just as hard as re-solving from scratch
-			std::swap(isolatedNodes, subsetSumCopy);
-			const bool res = !isBalanced();
-			std::swap(isolatedNodes, subsetSumCopy);
-			return res;
-	}
-*/
+		
+		void verifyFlowConstraints() {
+#ifndef NDEBUG
+			Flow sourceExcess = 0, targetExcess = 0;
+			for (Node u : hg.nodeIDs()) {
+				Flow excess = 0;
+				for (auto& he_inc : hg.hyperedgesOf(u))
+					excess += hg.flowSent(he_inc);
+				if (n.isSource(u))
+					sourceExcess += excess;
+				else if (n.isTarget(u))
+					targetExcess += excess;
+				else
+					Assert(excess == 0);
+			}
+			Assert(sourceExcess >= 0 && targetExcess <= 0);
+			Assert(hg.flowSent(sourceExcess) == hg.flowReceived(targetExcess));
+			Assert(sourceExcess == flowValue);
+			
+			for (Hyperedge e : hg.hyperedgeIDs()) {
+				Flow flow_in = 0, flow_out = 0;
+				for (Pin& p : hg.pinsOf(e)) {
+					Assert(std::abs(hg.flowSent(p)) <= hg.capacity(e));
+					flow_in += hg.absoluteFlowSent(p);
+					flow_out += hg.absoluteFlowReceived(hg.getInHe(p));
+				}
+				Assert(flow_in >= 0);
+				Assert(flow_in == flow_out);
+				Assert(flow_in == std::abs(hg.flow(e)));
+				Assert(flow_in <= hg.capacity(e));
+				
+				for (Pin& p : hg.pinsSendingFlowInto(e))
+					Assert(hg.flowSent(p) > 0);
+				for (Pin& p : hg.pinsReceivingFlowFrom(e))
+					Assert(hg.flowReceived(p) > 0);
+				for (Pin& p : hg.pinsWithoutFlow(e))
+					Assert(hg.flowSent(p) == 0);
+			}
+#endif
+		}
+		
+		void verifyCutPostConditions() {
+			Assert(hasCut);
+			verifySetInvariants();
+			verifyCutInducedByPartitionMatchesExtractedCutHyperedges();
+			verifyExtractedCutHyperedgesActuallySplitHypergraph();
+			Assert(flowValue == cut.weight(hg));
+		}
+		
+		void verifySetInvariants() {
+#ifndef NDEBUG
+			n.verifyDisjoint();
+			n.verifySettledIsSubsetOfReachable();
+			h.verifyDisjoint();
+			h.verifySettledIsSubsetOfReachable();
+			for (Hyperedge e : hg.hyperedgeIDs()) {
+				Assert(!h.areAllPinsSources(e) ||
+					   std::all_of(hg.pinsOf(e).begin(), hg.pinsOf(e).end(),
+								   [&](const Pin& p) { return n.isSource(p.pin) || isIsolated(p.pin); }));
+				Assert(!h.areAllPinsSourceReachable(e) ||
+					   std::all_of(hg.pinsOf(e).begin(), hg.pinsOf(e).end(),
+								   [&](const Pin& p) { return n.isSourceReachable(p.pin); }));
+				Assert(!h.areFlowSendingPinsSources(e) ||
+					   std::all_of(hg.pinsSendingFlowInto(e).begin(), hg.pinsSendingFlowInto(e).end(),
+								   [&](const Pin& p) { return n.isSource(p.pin) || isIsolated(p.pin); }));
+				Assert(!h.areFlowSendingPinsSourceReachable(e) ||
+					   std::all_of(hg.pinsSendingFlowInto(e).begin(), hg.pinsSendingFlowInto(e).end(),
+								   [&](const Pin& p) { return n.isSourceReachable(p.pin); }));
+			}
+#endif
+		}
+		
+		
+		void verifyCutInducedByPartitionMatchesExtractedCutHyperedges() {
+#ifndef NDEBUG
+			std::vector<Hyperedge> cut_from_partition;
+			for (Hyperedge e : hg.hyperedgeIDs()) {
+				bool hasSource = false;
+				bool hasOther = false;
+				for (Pin& p : hg.pinsOf(e)) {
+					Node v = p.pin;
+					hasSource |= n.isSource(v);
+					hasOther |= !n.isSource(v);
+				}
+				if (hasSource && hasOther) {
+					cut_from_partition.push_back(e);
+					Assert(h.areFlowSendingPinsSources(e));
+				}
+				
+				if (hasSource && !hasOther)
+					Assert(h.areAllPinsSources(e));
+			}
+			
+			std::vector<Hyperedge> sorted_cut = cut.sourceSideBorder;
+			std::sort(sorted_cut.begin(), sorted_cut.end());
+			Assert(sorted_cut == cut_from_partition);
+#endif
+		}
+		
+		
+		void verifyExtractedCutHyperedgesActuallySplitHypergraph() {
+#ifndef NDEBUG
+			BitVector he_seen(hg.numHyperedges()), node_seen(hg.numNodes());
+			LayeredQueue<Node> queue(hg.numNodes());
+			for (Node u : hg.nodeIDs()) {
+				if (n.isSource(u)) {
+					queue.push(u);
+					node_seen.set(u);
+				}
+			}
+			
+			for (Hyperedge e : cut.sourceSideBorder)
+				he_seen.set(e);
+			
+			while (!queue.empty()) {
+				Node u = queue.pop();
+				for (auto& he_inc : hg.hyperedgesOf(u)) {
+					Hyperedge e = he_inc.e;
+					if (!he_seen[e]) {
+						he_seen.set(e);
+						for (auto& pin : hg.pinsOf(e)) {
+							Node v = pin.pin;
+							Assert(!n.isTargetReachable(v));
+							Assert(n.isSourceReachable(v));
+							if (!node_seen[v]) {
+								node_seen.set(v);
+								queue.push(v);
+							}
+						}
+					}
+				}
+			}
+			
+			for (Node u : hg.nodeIDs()) {
+				if (n.isTargetReachable(u))
+					Assert(!node_seen[u]);
+				if (n.isSourceReachable(u))
+					Assert(node_seen[u]);
+			}
+			
+			queue.clear();
+			he_seen.reset();
+			node_seen.reset();
+			for (Node u : hg.nodeIDs()) {
+				if (n.isTarget(u)) {
+					queue.push(u);
+					node_seen.set(u);
+				}
+			}
+			
+			for (Hyperedge e : cut.sourceSideBorder)
+				he_seen.set(e);
+			
+			while (!queue.empty()) {
+				Node u = queue.pop();
+				for (auto& he_inc : hg.hyperedgesOf(u)) {
+					Hyperedge e = he_inc.e;
+					if (!he_seen[e]) {
+						he_seen.set(e);
+						for (auto& pin : hg.pinsOf(e)) {
+							Node v = pin.pin;
+							Assert(!n.isSourceReachable(v));
+							//no Assert(n.isTargetReachable(v)) since we removed the source-side cut
+							if (!node_seen[v]) {
+								node_seen.set(v);
+								queue.push(v);
+							}
+						}
+					}
+				}
+			}
+			
+			for (Node u : hg.nodeIDs()) {
+				if (n.isTargetReachable(u))
+					Assert(node_seen[u]);
+				if (n.isSourceReachable(u))
+					Assert(!node_seen[u]);
+			}
+#endif
+		}
+		
 	};
 
 

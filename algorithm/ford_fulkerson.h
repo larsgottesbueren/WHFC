@@ -14,7 +14,7 @@ namespace whfc {
 	template<typename ScanListType, bool capacityScaling, bool alwaysSetParent = true>
 	class FordFulkerson /* : public FlowAlgorithm */ {
 	public:
-		static constexpr bool log = false;
+		static constexpr bool log = true;
 		
 		using Type = FordFulkerson<ScanListType, capacityScaling, alwaysSetParent>;
 		using ScanList = ScanListType;
@@ -22,11 +22,12 @@ namespace whfc {
 		//using ReachableNodes = BitsetReachableNodes;
 		//using ReachableHyperedges = BitsetReachableHyperedges;
 		
-		//using ReachableNodes = ReachableNodesChecker;
+		using ReachableNodes = ReachableNodesChecker;
+		using ReachableHyperedges = ReachableHyperedgesChecker;
 		
 		using Timestamp = uint8_t;
-		using ReachableNodes = TimestampReachableNodes<Timestamp>;
-		using ReachableHyperedges = TimestampReachableHyperedges<Timestamp>;
+		//using ReachableNodes = TimestampReachableNodes<Timestamp>;
+		//using ReachableHyperedges = TimestampReachableHyperedges<Timestamp>;
 
 
 		using Pin = FlowHypergraph::Pin;
@@ -50,7 +51,6 @@ namespace whfc {
 
 		Flow recycleDatastructuresFromGrowReachablePhase(CutterState<Type> &cs) {
 			Flow flow = 0;
-			
 			
 			if constexpr (alwaysSetParent) {
 				if (cs.augmentingPathAvailableFromPiercing) {
@@ -117,7 +117,9 @@ namespace whfc {
 			v = target;
 			while (!n.isSource(v)) {
 				Parent p = parent[v];
-				hg.routeFlow(hg.getInHe(p.parentIncidenceIterator), hg.getInHe(p.currentIncidenceIterator), bottleneckCapacity);
+				auto& inc_u = hg.getInHe(p.parentIncidenceIterator);
+				auto& inc_v = hg.getInHe(p.currentIncidenceIterator);
+				hg.routeFlow(inc_u, inc_v, bottleneckCapacity);
 				v = hg.getPin(hg.getInHe(p.parentIncidenceIterator)).pin;
 			}
 			return bottleneckCapacity;
@@ -125,7 +127,6 @@ namespace whfc {
 
 		template<bool augment_flow>
 		Flow growWithoutScaling(CutterState<Type>& cs) {
-			LOGGER << "grow without scaling";
 			cs.clearForSearch();
 			ReachableNodes& n = cs.n;
 			ReachableHyperedges& h = cs.h;
@@ -138,10 +139,8 @@ namespace whfc {
 				for (InHeIndex inc_u_iter : hg.incidentHyperedgeIndices(u)) {
 					const InHe& inc_u = hg.getInHe(inc_u_iter);
 					const Hyperedge e = inc_u.e;
-
 					if (!h.areAllPinsSourceReachable(e)) {
 						const bool scanAllPins = !hg.isSaturated(e) || hg.flowReceived(inc_u) > 0;
-						
 						if (scanAllPins)
 							h.reachAllPins(e);
 						else if (h.areFlowSendingPinsSourceReachable(e))
@@ -190,6 +189,7 @@ namespace whfc {
 					const Hyperedge e = inc_u.e;
 					//can push at most flow(e) back into flow-sending pin and at most residual(e) = capacity(e) - flow(e) further flow.
 					//other pins can receive at most residual(e) <= capacity(e). so checking capacity(e) < scalingCapacity is a good pruning rule
+					//Note that this is not residual capacity
 					if (hg.capacity(e) < scalingCapacity)
 						continue;
 

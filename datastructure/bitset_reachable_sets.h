@@ -27,7 +27,10 @@ namespace whfc {
 			inline bool isTargetReachable(const Node u) const { return TR[u]; }
 			inline void reach(const Node u) { SR.set(u); Base::reach(u); }
 			inline void settle(const Node u) { S.set(u); Base::settle(u); }
-
+			inline void reachTarget(const Node u) { TR.set(u); Base::reachTarget(u); }
+			inline void settleTarget(const Node u) { T.set(u); Base::settleTarget(u); }
+			
+			
 			inline void unreachSource(const Node u) { Assert(isSourceReachable(u)); SR.reset(u); Base::unreachSource(u); }
 			inline void unreachTarget(const Node u) { Assert(isTargetReachable(u)); SR.reset(u); Base::unreachTarget(u); }
 

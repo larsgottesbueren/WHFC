@@ -35,10 +35,14 @@ namespace whfc {
 		}
 
 		bool pierce() {
+			Assert(cs.n.sourceWeight == cs.n.sourceReachableWeight);
+			Assert(cs.n.sourceReachableWeight <= cs.n.targetReachableWeight);
+			LOGGER << "before clean up" << V(cs.cut.weight(hg)) << V(cs.cut.sourceSideBorder.size());
 			cs.cleanUpCut();
 			cs.cleanUpBorder();
-			Assert(static_cast<uint32_t>(cs.flowValue) == cs.cut.weight(hg));
-			
+			cs.verifyCutPostConditions();
+			LOGGER << "after clean up" << V(cs.flowValue) << V(cs.cut.weight(hg)) << V(cs.cut.sourceSideBorder.size());
+
 			if (cs.notSettledNodeWeight() == 0)
 				return false;
 
@@ -70,23 +74,13 @@ namespace whfc {
 			else {
 				flow_algo.growReachable(cs);
 			}
-			
-			cs.n.verifyDisjoint();
-			cs.n.verifySettledIsSubsetOfReachable();
-			cs.h.verifyDisjoint();
-			cs.h.verifySettledIsSubsetOfReachable();
-			
+			cs.verifyFlow();
 			
 			if (cs.n.targetReachableWeight <= cs.n.sourceReachableWeight)
 				cs.flipViewDirection();
 			GrowAssimilated<FlowAlgorithm>::grow(cs, flow_algo.getScanList());
 			cs.hasCut = true;
-			
-			
-			cs.n.verifyDisjoint();
-			cs.n.verifySettledIsSubsetOfReachable();
-			cs.h.verifyDisjoint();
-			cs.h.verifySettledIsSubsetOfReachable();
+			cs.verifyFlow();
 			LOGGER << cs.toString();
 		}
 

@@ -21,8 +21,9 @@ namespace whfc {
 		inline bool isTarget(const Node u) const { assert(u < capacity()); return timestamps[u] == targetSettledTS; }
 		inline bool isTargetReachable(const Node u) const { return isTarget(u) || timestamps[u] == targetReachableTS; }
 		inline void reach(const Node u) { assert(!isSourceReachable(u)); timestamps[u] = sourceReachableTS; Base::reach(u); }
+		inline void reachTarget(const Node u) { assert(!isSourceReachable(u) && !isTargetReachable(u)); timestamps[u] = targetReachableTS; Base::reachTarget(u); }
 		inline void settle(const Node u) { assert(isSourceReachable(u)); timestamps[u] = sourceSettledTS; Base::settle(u); }
-		
+		inline void settleTarget(const Node u) { assert(!isSourceReachable(u) && isTargetReachable(u)); timestamps[u] = targetSettledTS; Base::settleTarget(u); }
 		
 		inline void unreachSource(const Node u) { Assert(isSourceReachable(u) && !isTargetReachable(u)); timestamps[u] = unreachableTS; Base::unreachSource(u); }
 		inline void unreachTarget(const Node u) { Assert(isTargetReachable(u) && !isSourceReachable(u)); timestamps[u] = unreachableTS; Base::unreachTarget(u); }

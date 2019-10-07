@@ -22,6 +22,14 @@ namespace whfc {
 		inline void settle(const Node u) {
 			sourceWeight += hg.nodeWeight(u); sourceSize++;
 		}
+		
+		inline void reachTarget(const Node u) {
+			targetReachableWeight += hg.nodeWeight(u); targetReachableSize++;
+		}
+		
+		inline void settleTarget(const Node u) {
+			targetWeight += hg.nodeWeight(u); targetSize++;
+		}
 
 		void resetSourceReachableToSource() {
 			sourceReachableWeight = sourceWeight;
