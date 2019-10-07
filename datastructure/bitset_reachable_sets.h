@@ -92,8 +92,8 @@ namespace whfc {
 			inline size_t capacity() const { return IN_SETTLED_S.size(); }
 			inline bool areAllPinsSources(const Hyperedge e) const { return OUT_SETTLED_S[e]; }
 			inline bool areAllPinsSourceReachable(const Hyperedge e) const { return OUT_REACHED_S[e]; }
-			inline void settleAllPins(const Hyperedge e) { Assert(!areAllPinsSources(e)); OUT_SETTLED_S.set(e); IN_SETTLED_S.set(e);}
-			inline void reachAllPins(const Hyperedge e) { Assert(!areAllPinsSourceReachable(e)); OUT_REACHED_S.set(e); IN_REACHED_S.set(e);}
+			inline void settleAllPins(const Hyperedge e) { Assert(!areAllPinsSources(e)); OUT_SETTLED_S.set(e); }
+			inline void reachAllPins(const Hyperedge e) { Assert(!areAllPinsSourceReachable(e)); OUT_REACHED_S.set(e); }
 
 			inline bool areFlowSendingPinsSources(const Hyperedge e) const { return IN_SETTLED_S[e]; }
 			inline bool areFlowSendingPinsSourceReachable(const Hyperedge e) const { return IN_REACHED_S[e]; }

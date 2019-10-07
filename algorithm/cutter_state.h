@@ -10,8 +10,6 @@
 
 namespace whfc {
 
-	//TODO assert flow conservation, capacity constraints and that the flow actually induces an st-cut
-
 	template<typename FlowAlgorithm>
 	class CutterState {
 	public:
