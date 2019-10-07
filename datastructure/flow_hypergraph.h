@@ -110,7 +110,7 @@ namespace whfc {
 		inline InHeIndex beginIndexHyperedges(Node u) const { return nodes[u].first_out; }
 		inline InHeIndex endIndexHyperedges(Node u) const { return nodes[u+1].first_out; }
 		//interface for irange is front(), drop_front(), empty(), size(), begin(), end()
-		inline decltype(auto) incidentHyperedgeIndices(const Node u) const {
+		inline auto incidentHyperedgeIndices(const Node u) const {
 			return boost::irange<InHeIndex>(beginIndexHyperedges(u), endIndexHyperedges(u));
 		}
 		inline InHe& getInHe(const InHeIndex ind_e) { return incident_hyperedges[ind_e]; }
@@ -149,6 +149,9 @@ namespace whfc {
 			else {
 				return pinsInRange(PinIndexRange(beginIndexPins(e), pins_sending_flow[e].begin()));
 			}
+		}
+		PinRange pinsWithoutFlow(const Hyperedge e) {
+			return pinsInRange(pins_without_flow(e));
 		}
 
 		inline bool forwardView() const { return sends_multiplier == 1; }
@@ -208,21 +211,46 @@ namespace whfc {
 			throw std::out_of_range("v is not a pin of e");
 		}
 
-		void routeFlow(InHe& inc_u, InHe& inc_v, const Flow _flow) {
+		void routeFlow(InHe& inc_u, InHe& inc_v, Flow flow_delta) {
 			const Hyperedge e = inc_u.e;
 			AssertMsg(inc_u.e == inc_v.e, "Routing flow but incident hyperedges are not the same");
-			AssertMsg(_flow > 0, "Routing <= 0 flow.");
-			AssertMsg(_flow <= residualCapacity(inc_u, inc_v), "Routing more flow than residual capacity");
+			AssertMsg(flow_delta > 0, "Routing <= 0 flow.");
+			AssertMsg(flow_delta <= residualCapacity(inc_u, inc_v), "Routing more flow than residual capacity");
 			AssertMsg(flow(e) <= capacity(e), "Capacity on e already exceeded");
 			AssertMsg(std::abs(inc_u.flow) <= capacity(e), "Pin capacity already violated (u)");
 			AssertMsg(std::abs(inc_v.flow) <= capacity(e), "Pin capacity already violated (v)");
 
-			hyperedges[e].flow += (_flow - absoluteFlowReceived(inc_u) - absoluteFlowSent(inc_v));
 			const Flow prevFlowU = inc_u.flow;
 			const Flow prevFlowV = inc_v.flow;
-			inc_u.flow += flowSent(_flow);
-			inc_v.flow += flowReceived(_flow);
+			
+			
+			
+			Flow flow_delta_on_v_eOut_eIn_u = std::min({ absoluteFlowSent(inc_v), absoluteFlowReceived(inc_u), flow_delta });
+			inc_u.flow += flowSent(flow_delta_on_v_eOut_eIn_u);
+			inc_v.flow += flowReceived(flow_delta_on_v_eOut_eIn_u);
+			flow(e) -= flow_delta_on_v_eOut_eIn_u;
+			flow_delta -= flow_delta_on_v_eOut_eIn_u;
+			
+			Flow flow_delta_on_v_eOut_u = std::min(flow_delta, absoluteFlowReceived(inc_u));
+			inc_u.flow += flowSent(flow_delta_on_v_eOut_u);
+			inc_v.flow += flowReceived(flow_delta_on_v_eOut_u);
+			//does not influence flow(e)
+			flow_delta -= flow_delta_on_v_eOut_u;
+			
+			Flow flow_delta_on_v_eIn_u = std::min(flow_delta, absoluteFlowSent(inc_v));
+			inc_u.flow += flowSent(flow_delta_on_v_eIn_u);
+			inc_v.flow += flowReceived(flow_delta_on_v_eIn_u);
+			//does not influence flow(e)
+			flow_delta -= flow_delta_on_v_eIn_u;
+			
+			Flow flow_delta_on_v_eIn_eOut_u = flow_delta;
+			Assert(flow_delta_on_v_eIn_eOut_u <= residualCapacity(e));
+			inc_u.flow += flowSent(flow_delta_on_v_eIn_eOut_u);
+			inc_v.flow += flowReceived(flow_delta_on_v_eIn_eOut_u);
+			flow(e) += flow_delta_on_v_eIn_eOut_u;
 
+			
+			
 			if (flowReceived(prevFlowU) > 0 && flowSent(inc_u.flow) >= 0)	//u previously received flow and now either has none, or sends flow.
 				removePinFromFlowPins(inc_u, true);
 			if (flowSent(inc_u.flow) > 0 && flowSent(prevFlowU) <= 0) //u now sends flow and did not previously, thus must be inserted into pins_sending_flow
@@ -232,7 +260,8 @@ namespace whfc {
 				removePinFromFlowPins(inc_v, false);
 			if (flowReceived(inc_v.flow) > 0 && flowReceived(prevFlowV) <= 0)  //v now receives flow and did not previously, thus must be inserted into pins_receiving_flow
 				insertPinIntoFlowPins(inc_v, true);
-
+			
+			check_flow_conservation_locally(e);
 			AssertMsg(pin_is_categorized_correctly(inc_u), "Pin categorized incorrectly");
 			AssertMsg(pin_is_categorized_correctly(inc_v), "Pin categorized incorrectly");
 		}
@@ -266,7 +295,7 @@ namespace whfc {
 
 			PinIndex it_o = (forwardView() == flow_receiving_pins) ? flow_pins.begin() : PinIndex(flow_pins.end() - 1);
 			InHe& inc_o = getInHe(getPin(it_o));
-			Assert(flow_pins.size() == 1 || (flow_receiving_pins ? flowReceived(inc_o) > 0 : flowSent(inc_o) > 0));	//ensure it_o, taken from flow_pins, actually receives or sends flow, as appropriate
+			Assert(it_o == it_u || (flow_receiving_pins ? flowReceived(inc_o) > 0 : flowSent(inc_o) > 0));	//ensure it_o, taken from flow_pins, actually receives or sends flow, as appropriate
 			if (forwardView() == flow_receiving_pins)
 				flow_pins.advance_begin();
 			else
@@ -292,6 +321,19 @@ namespace whfc {
 			std::swap(pins[it_u], pins[it_o]);
 			Assert(flow_pins.contains(it_o));
 			return it_o;
+		}
+		
+		void check_flow_conservation_locally(const Hyperedge e) {
+#ifndef NDEBUG
+			Flow f = 0, f_in = 0;
+			for (Pin& p : pinsOf(e)) {
+				f += flowSent(p);
+				f_in += absoluteFlowSent(p);
+				Assert(std::abs(flowSent(p)) <= capacity(e));
+			}
+			Assert(f == 0);
+			Assert(f_in == flow(e));
+#endif
 		}
 
 		void assert_backpointers_correct(const InHe& inhe) const {
