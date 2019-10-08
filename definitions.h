@@ -34,7 +34,15 @@ namespace whfc {
 	using PinIndex = TaggedInteger<7, uint32_t, std::numeric_limits<uint32_t>::max(), 0>;
 	using HyperedgeIncidenceIndex = TaggedInteger<8, uint32_t, std::numeric_limits<uint32_t>::max(), 0>;
 	using InHeIndex = HyperedgeIncidenceIndex;
-
+	
+	static_assert(sizeof(Node) == sizeof(uint32_t));
+	static_assert(sizeof(Hyperedge) == sizeof(uint32_t));
+	static_assert(sizeof(NodeWeight) == sizeof(uint32_t));
+	static_assert(sizeof(NodeIndex) == sizeof(uint32_t));
+	static_assert(sizeof(HyperedgeIndex) == sizeof(uint32_t));
+	static_assert(sizeof(PinIndex) == sizeof(uint32_t));
+	static_assert(sizeof(HyperedgeIncidenceIndex) == sizeof(uint32_t));
+	
 	using HopDistance = uint32_t;
 	static constexpr HopDistance maxHopDistance = std::numeric_limits<uint32_t>::max();
 
