@@ -63,7 +63,6 @@ namespace whfc {
 		using Base = Border<Hyperedge, true>;
 		explicit HyperedgeCut(const size_t nHyperedges) : Base(nHyperedges), hasSettledSourcePins(nHyperedges), hasSettledTargetPins(nHyperedges) { }
 		BitVector hasSettledSourcePins, hasSettledTargetPins;	//set in CutterState::settleNode //TODO check if hasSettledSourcePins == ReachableHyperedges::areFlowSendingPinsSources()
-		size_t sourceMixed = 0, targetMixed = 0;	//equal if both cut-fronts were built. but they aren't.
 
 		inline bool isHyperedgeMixed(const Hyperedge e) const {
 			return hasSettledSourcePins[e] && hasSettledTargetPins[e];
@@ -89,7 +88,6 @@ namespace whfc {
 
 		void flipViewDirection() {
 			Base::flipViewDirection();
-			std::swap(sourceMixed, targetMixed);
 			std::swap(hasSettledSourcePins, hasSettledTargetPins);
 		}
 		
@@ -97,8 +95,6 @@ namespace whfc {
 			Base::reset(newN);
 			hasSettledSourcePins.reset(0, newN);
 			hasSettledTargetPins.reset(0, newN);
-			sourceMixed = 0;
-			targetMixed = 0;
 		}
 		
 	};
