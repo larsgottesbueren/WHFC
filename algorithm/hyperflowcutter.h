@@ -21,11 +21,6 @@ namespace whfc {
 		
 		HyperFlowCutter(FlowHypergraph& hg, NodeWeight maxBlockWeight) : hg(hg), cs(hg, maxBlockWeight), flow_algo(hg), upperFlowBound(maxFlow), piercer(hg) { }
 
-		void initialize(Node s, Node t) {
-			cs.initialize(s,t);
-			exhaustFlowAndGrow();
-		}
-		
 		void reset() {
 			cs.reset();
 			flow_algo.reset();
@@ -132,7 +127,8 @@ namespace whfc {
 			return true;
 		}
 
-		void runUntilBalancedOrFlowBoundExceeded() {
+		void runUntilBalancedOrFlowBoundExceeded(const Node s, const Node t) {
+			cs.initialize(s,t);
 			bool piercingFailedOrFlowBoundReachedWithNonAAPPiercingNode = false;
 																												//no cut ==> run and don't check for balance.
 			while (!piercingFailedOrFlowBoundReachedWithNonAAPPiercingNode && cs.flowValue <= upperFlowBound && (!cs.hasCut || !cs.isBalanced())) {
@@ -146,7 +142,9 @@ namespace whfc {
 			LOGGER << V(cs.n.sourceReachableWeight) << V(cs.n.targetReachableWeight) << V(cs.isolatedNodes.weight) << V(cs.unclaimedNodeWeight()) << V(hg.totalNodeWeight());
 		}
 		
-		void runUntilBalanced() {
+		void findCutsUntilBalancedOrFlowBoundExceeded(const Node s, const Node t) {
+			cs.initialize(s,t);
+			exhaustFlowAndGrow();
 			while (cs.flowValue <= upperFlowBound && !cs.isBalanced()) {
 				if (pierce())
 					exhaustFlowAndGrow();

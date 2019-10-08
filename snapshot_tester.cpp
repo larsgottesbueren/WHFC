@@ -9,7 +9,7 @@
 
 
 namespace whfc {
-	void runSnapshotTester(const std::string& filename) {
+	void runSnapshotTester(const std::string& filename, std::string& interleaving) {
 		
 		WHFC_IO::WHFCInformation info = WHFC_IO::readAdditionalInformation(filename);
 		Node s = info.s;
@@ -25,18 +25,24 @@ namespace whfc {
 		hfc.upperFlowBound = info.upperFlowBound;
 		
 		auto time = time_now();
-		hfc.initialize(s,t);
-		hfc.runUntilBalanced();
-		//hfc.runUntilBalancedOrFlowBoundExceeded();
+		
+		if (interleaving == "flowbased")
+			hfc.runUntilBalancedOrFlowBoundExceeded(s, t);
+		else if (interleaving == "cutbased")
+			hfc.findCutsUntilBalancedOrFlowBoundExceeded(s, t);
+		else
+			throw std::runtime_error("Unknown interleaving option");
+		
 		std::cout << second_duration(time_now() - time).count() << " [s]" << std::endl;
 	}
 }
 
 int main(int argc, const char* argv[]) {
 	whfc::Random::setSeed(42);
-	if (argc != 2)
-		throw std::runtime_error("Usage: ./WHFC hypergraphfile");
+	if (argc != 3)
+		throw std::runtime_error("Usage: ./WHFC hypergraphfile interleaving-style (flowbased or cutbased)");
 	std::string hgfile = argv[1];
-	whfc::runSnapshotTester(hgfile);
+	std::string interleavingstyle = argv[2];
+	whfc::runSnapshotTester(hgfile, interleavingstyle);
 	return 0;
 }
