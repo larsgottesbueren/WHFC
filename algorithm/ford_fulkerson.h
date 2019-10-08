@@ -39,13 +39,22 @@ namespace whfc {
 		};
 		std::vector<Parent> parent;
 
-		explicit FordFulkerson(FlowHypergraph& hg) : hg(hg), nodes_to_scan(hg.numNodes()), parent(hg.numNodes()) { }
+		explicit FordFulkerson(FlowHypergraph& hg) : hg(hg), nodes_to_scan(hg.numNodes()), parent(hg.numNodes()) {
+			initialScalingCapacity = std::min(DefaultInitialScalingCapacity, nextSmallerPowerOfTwo(hg.maxHyperedgeCapacity));
+			scalingCapacity = initialScalingCapacity;
+		}
 
-		static constexpr Flow InitialScalingCapacity = 1 << 24; //NOTE choose sensibly
+		static constexpr Flow DefaultInitialScalingCapacity = 1 << 24;
 		static constexpr Flow ScalingCutOff = 4; //NOTE choose sensibly
-		Flow scalingCapacity = InitialScalingCapacity;
+		Flow initialScalingCapacity = DefaultInitialScalingCapacity;
+		Flow scalingCapacity = initialScalingCapacity;
 
 
+		void reset() {
+			initialScalingCapacity = std::min(DefaultInitialScalingCapacity, nextSmallerPowerOfTwo(hg.maxHyperedgeCapacity));
+			scalingCapacity = initialScalingCapacity;
+		}
+		
 		Flow recycleDatastructuresFromGrowReachablePhase(CutterState<Type> &cs) {
 			Flow flow = 0;
 			
@@ -75,7 +84,7 @@ namespace whfc {
 						diff = growWithScaling(cs);
 						flow += diff;
 					}
-					scalingCapacity /= 2;
+					reduceScalingCapacity();
 					diff = -1;
 				}
 			}
@@ -83,7 +92,7 @@ namespace whfc {
 				diff = growWithoutScaling<true>(cs);
 				flow += diff;
 			}
-			scalingCapacity = InitialScalingCapacity;
+			scalingCapacity = initialScalingCapacity;
 			return flow;
 		}
 
@@ -94,10 +103,13 @@ namespace whfc {
 					if (flow != 0)
 						return flow;
 					else
-						scalingCapacity /= 2;
+						reduceScalingCapacity();
 				}
 			}
-			return growWithoutScaling<true>(cs);
+			Flow flow = growWithoutScaling<true>(cs);
+			if (flow == 0)
+				scalingCapacity = initialScalingCapacity;
+			return flow;
 		}
 
 		Flow augmentFromTarget(ReachableNodes& n, const Node target) {
@@ -170,6 +182,7 @@ namespace whfc {
 		 * Note: capacity scaling is implemented separately from search without capacity scaling, as capacity scaling pruning requires more memory accesses than plain search
 		 */
 		Flow growWithScaling(CutterState<Type>& cs) {
+			LOGGER << "Grow with scaling " << V(scalingCapacity);
 			AssertMsg(scalingCapacity > 1, "Don't call this method with ScalingCapacity <= 1. Use growWithoutScaling instead.");
 			cs.clearForSearch();
 			ReachableNodes& n = cs.n;
@@ -235,6 +248,17 @@ namespace whfc {
 		}
 		
 	private:
+		void reduceScalingCapacity() {
+			scalingCapacity /= 2;
+		}
+		
+		Flow nextSmallerPowerOfTwo(const Flow cap) {
+			Flow res = 1;
+			while (2 * res <= cap)
+				res *= 2;
+			return res;
+		}
+		
 		bool incidentToPiercingNodes(const Hyperedge e, CutterState<Type>& cs) const {
 			return std::any_of(cs.sourcePiercingNodes.begin(), cs.sourcePiercingNodes.end(), [&](const auto& sp) {
 				return std::any_of(hg.pinsOf(e).begin(), hg.pinsOf(e).end(), [&](const auto& pe) {

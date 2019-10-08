@@ -29,6 +29,7 @@ namespace whfc {
 		void clear() {
 			finalized = false;
 			numPinsAtHyperedgeStart = 0;
+			maxHyperedgeCapacity = 0;
 			
 			nodes.clear();
 			hyperedges.clear();
@@ -60,6 +61,7 @@ namespace whfc {
 			finishHyperedge();	//finish last hyperedge
 			hyperedges.back().capacity = capacity;	//exploit sentinel
 			numPinsAtHyperedgeStart = numPins();
+			maxHyperedgeCapacity = std::max(maxHyperedgeCapacity, capacity);
 		}
 		
 		void addPin(const Node u) {
@@ -134,6 +136,5 @@ namespace whfc {
 		
 		bool finalized = false;
 		size_t numPinsAtHyperedgeStart = 0;
-	
 	};
 }

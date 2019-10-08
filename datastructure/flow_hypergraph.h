@@ -51,6 +51,7 @@ namespace whfc {
 				incident_hyperedges(maxNumPins), pins_sending_flow(maxNumHyperedges), pins_receiving_flow(maxNumHyperedges) { }
 
 		FlowHypergraph(std::vector<NodeWeight>& node_weights, std::vector<HyperedgeWeight>& hyperedge_weights, std::vector<PinIndex>& hyperedge_sizes, std::vector<Node>& _pins) :
+				maxHyperedgeCapacity(0),
 				nodes(node_weights.size() + 1),
 				hyperedges(hyperedge_weights.size() + 1),
 				pins(_pins.size()),
@@ -81,6 +82,7 @@ namespace whfc {
 					inc_he.pin_iter = pin_it;				//set iterator for pin -> its position in the pins of the hyperedge
 					p.he_inc_iter = ind_he;					//set iterator for incident hyperedge -> its position in incident_hyperedges of the node
 				}
+				maxHyperedgeCapacity = std::max(maxHyperedgeCapacity, hyperedges[e].capacity);
 			}
 			
 			for (NodeIndex u(numNodes()-1); u > 0; u--)
@@ -265,6 +267,8 @@ namespace whfc {
 			AssertMsg(pin_is_categorized_correctly(inc_u), "Pin categorized incorrectly");
 			AssertMsg(pin_is_categorized_correctly(inc_v), "Pin categorized incorrectly");
 		}
+		
+		Flow maxHyperedgeCapacity = maxFlow;
 
 	protected:
 		std::vector<NodeData> nodes;
