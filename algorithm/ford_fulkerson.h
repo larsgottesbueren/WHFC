@@ -195,6 +195,7 @@ namespace whfc {
 						for (const Pin& pv : hg.pinsSendingFlowInto(e)) {
 							if (residualCapacity + hg.absoluteFlowSent(pv) >= scalingCapacity) {//residual = flow received by u + residual(e) + flow sent by v
 								const Node v = pv.pin;
+								Assert(!cs.isIsolated(v) || incidentToPiercingNodes(e, cs));
 								if (!n.isSourceReachable(v)) {
 									parent[v] = parent[v] = { inc_u_iter, pv.he_inc_iter };
 									if (n.isTarget(v))
@@ -210,6 +211,7 @@ namespace whfc {
 						h.reachAllPins(e);
 						for (const Pin& pv : hg.pinsNotSendingFlowInto(e)) {
 							const Node v = pv.pin;
+							Assert(!cs.isIsolated(v) || incidentToPiercingNodes(e, cs));
 							if (!n.isSourceReachable(v)) {
 								parent[v] = parent[v] = { inc_u_iter, pv.he_inc_iter };
 								if (n.isTarget(v))
