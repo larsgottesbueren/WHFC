@@ -8,9 +8,6 @@
 #include "../datastructure/reachable_checker.h"
 
 namespace whfc {
-	
-	//TODO Flow assertions.
-	
 	template<typename ScanListType, bool capacityScaling, bool alwaysSetParent = true>
 	class FordFulkerson /* : public FlowAlgorithm */ {
 	public:

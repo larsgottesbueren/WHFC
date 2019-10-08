@@ -7,8 +7,6 @@
 
 
 namespace whfc {
-	
-	//TODO flow assertions
 
 	template<class FlowAlgorithm>
 	class HyperFlowCutter {
