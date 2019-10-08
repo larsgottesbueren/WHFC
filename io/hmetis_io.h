@@ -171,13 +171,9 @@ namespace whfc {
 			if (!f)
 				throw std::runtime_error("Failed at creating Flow Hypergraph file " + filename);
 
-			static constexpr bool log = true;
-			
 			bool hasNodeWeights = hg.hasNodeWeights();
 			bool hasHyperedgeWeights = hg.hasHyperedgeWeights();
 
-			LOGGER << V(hg.numNodes()) << V(hg.numHyperedges()) << V(hg.numPins()) << V(hasNodeWeights) << V(hasHyperedgeWeights);
-			
 			{
 				//write header
 				f << hg.numHyperedges() << " " << hg.numNodes();
