@@ -148,7 +148,7 @@ namespace whfc {
 						for (const Pin& pv : scanAllPins ? hg.pinsOf(e) : hg.pinsSendingFlowInto(e)) {
 							const Node v = pv.pin;
 							AssertMsg(augment_flow || !n.isTargetReachable(v), "Not augmenting flow but target side is reachable.");
-							Assert(!cs.isIsolated(v));
+							Assert(!cs.isIsolated(v) || (augment_flow && incidentToPiercingNodes(e, cs)));
 							if (!n.isSourceReachable(v)) {		//don't do VD label propagation
 								if constexpr (augment_flow || alwaysSetParent)
 									parent[v] = { inc_u_iter, pv.he_inc_iter };
@@ -230,6 +230,15 @@ namespace whfc {
 		
 		ScanList& getScanList() {
 			return nodes_to_scan;
+		}
+		
+	private:
+		bool incidentToPiercingNodes(const Hyperedge e, CutterState<Type>& cs) const {
+			return std::any_of(cs.sourcePiercingNodes.begin(), cs.sourcePiercingNodes.end(), [&](const auto& sp) {
+				return std::any_of(hg.pinsOf(e).begin(), hg.pinsOf(e).end(), [&](const auto& pe) {
+					return pe.pin == sp.node;
+				});
+			});
 		}
 	};
 
