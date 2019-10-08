@@ -157,9 +157,9 @@ namespace whfc {
 		void cleanUpCut() {
 			cut.deleteNonCutHyperedges(h);
 		}
-
-
+		
 		bool isBalanced() {
+			Assert(hasCut);
 			AssertMsg(!partitionWrittenToNodeSet, "Cannot call isBalanced() once the partition has been written");
 			
 			const NodeWeight
@@ -359,11 +359,6 @@ namespace whfc {
 		}
 		
 	public:
-		
-		void verifyFlow() {
-			verifyFlowConstraints();
-			verifySetInvariants();
-		}
 		
 		void verifyFlowConstraints() {
 #ifndef NDEBUG

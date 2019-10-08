@@ -28,20 +28,21 @@ namespace whfc {
 		
 		void reset() {
 			cs.reset();
+			flow_algo.reset();
 			upperFlowBound = maxFlow;
 			piercer.clear();
 		}
 
-		bool pierce() {
+		Node selectPiercingNode() {
+			if (cs.notSettledNodeWeight() == 0)
+				return invalidNode;
+			
 			Assert(cs.n.sourceWeight == cs.n.sourceReachableWeight);
 			Assert(cs.n.sourceReachableWeight <= cs.n.targetReachableWeight);
 			cs.cleanUpCut();
 			cs.cleanUpBorder();
 			cs.verifyCutPostConditions();
-
-			if (cs.notSettledNodeWeight() == 0)
-				return false;
-
+			
 			Node piercingNode = piercer.findPiercingNode(cs.n, cs.borderNodes, cs.maxBlockWeight);
 			if (piercingNode == invalidNode) {
 				for (const Node u : hg.nodeIDs())	//Optimization options, if this occurs too often: Track unclaimed nodes in a list that gets filtered on demand.
@@ -49,18 +50,28 @@ namespace whfc {
 						piercingNode = u;
 						break;
 					}
-				if (piercingNode == invalidNode)
-					return false;
 			}
+			return piercingNode;
+		}
 
+		void setPiercingNode(const Node piercingNode) {
 			cs.augmentingPathAvailableFromPiercing = cs.n.isTargetReachable(piercingNode);
 			cs.sourcePiercingNodes.clear();
 			cs.sourcePiercingNodes.emplace_back(piercingNode, cs.n.isTargetReachable(piercingNode));
 			cs.settleNode(piercingNode);
 			cs.hasCut = false;
+		}
+		
+		bool pierce() {
+			Node piercingNode = selectPiercingNode();
+			if (piercingNode == invalidNode)
+				return false;
+			if (cs.flowValue == upperFlowBound && cs.n.isTargetReachable(piercingNode))
+				return false;
+			setPiercingNode(piercingNode);
 			return true;
 		}
-
+		
 		void exhaustFlowAndGrow() {
 			if (cs.augmentingPathAvailableFromPiercing) {
 				cs.flowValue += flow_algo.exhaustFlow(cs);
@@ -70,36 +81,25 @@ namespace whfc {
 			else {
 				flow_algo.growReachable(cs);
 			}
-			cs.verifyFlow();
+			cs.verifyFlowConstraints();
+			cs.verifySetInvariants();
 			
-			if (cs.n.targetReachableWeight <= cs.n.sourceReachableWeight)
-				cs.flipViewDirection();
-			GrowAssimilated<FlowAlgorithm>::grow(cs, flow_algo.getScanList());
 			cs.hasCut = true;
-			cs.verifyFlow();
+			if (cs.n.targetReachableWeight <= cs.n.sourceReachableWeight) {
+				cs.flipViewDirection();
+			}
+			GrowAssimilated<FlowAlgorithm>::grow(cs, flow_algo.getScanList());
+			cs.verifyFlowConstraints();
+			cs.verifySetInvariants();
 			LOGGER << cs.toString();
 		}
 
-		//for cut-based interleaving
-		//This function could be implemented via advanceOneFlowIteration() But the interface to the flow algorithm is so much nicer that I want to keep both
-		void advanceUntilCut() {
-			AssertMsg(cs.hasCut, "Advancing until cut, but hasCut flag not set");
-			if (!pierce())
-				throw std::runtime_error("Piercing went wrong.");
-			exhaustFlowAndGrow();
-		}
-
 		//for flow-based interleaving
-		void advanceOneFlowIteration() {
-			//currently we return after every cut found (potentially multiple with the same cutsize due to aap).
-			//when aap applies, this does not incur linear work, i.e. when parallelizing/interleaving, all aap rounds should be bundled with its previous flow-increasing round
-			//we want to report all of these aap cuts. therefore the surrounding caller has to perform the bundling
-			//could do an example implementation with a report callback here.
-
+		bool advanceOneFlowIteration() {
 			const bool pierceInThisIteration = cs.hasCut;
-			if (pierceInThisIteration) {
-				pierce();
-			}
+			if (pierceInThisIteration)
+				if (!pierce())
+					return false;
 
 			if (cs.augmentingPathAvailableFromPiercing) {
 				if (pierceInThisIteration)
@@ -116,28 +116,48 @@ namespace whfc {
 				flow_algo.growReachable(cs);		//don't grow target reachable
 				cs.hasCut = true;
 			}
-
+			
+			cs.verifyFlowConstraints();
+			
 			if (cs.hasCut) {
-				if (cs.n.targetReachableWeight < cs.n.sourceReachableWeight)
+				cs.verifySetInvariants();
+				if (cs.n.targetReachableWeight <= cs.n.sourceReachableWeight)
 					cs.flipViewDirection();
-				GrowAssimilated<FlowAlgorithm>::grow(cs, flow_algo.getQueue());
+				GrowAssimilated<FlowAlgorithm>::grow(cs, flow_algo.getScanList());
+				cs.verifyFlowConstraints();
+				cs.verifySetInvariants();
+				LOGGER << cs.toString();
 			}
+			
+			return true;
 		}
 
+		void runUntilBalancedOrFlowBoundExceeded() {
+			bool piercingFailedOrFlowBoundReachedWithNonAAPPiercingNode = false;
+																												//no cut ==> run and don't check for balance.
+			while (!piercingFailedOrFlowBoundReachedWithNonAAPPiercingNode && cs.flowValue <= upperFlowBound && (!cs.hasCut || !cs.isBalanced())) {
+				piercingFailedOrFlowBoundReachedWithNonAAPPiercingNode = !advanceOneFlowIteration();
+			}
+			LOGGER << V(cs.maxBlockWeight) << V(cs.flowValue);
+			if (cs.hasCut)
+				LOGGER << "has cut" << V(cs.isBalanced());
+			else
+				LOGGER << "no cut available ==> balance irrelevant";
+			LOGGER << V(cs.n.sourceReachableWeight) << V(cs.n.targetReachableWeight) << V(cs.isolatedNodes.weight) << V(cs.unclaimedNodeWeight()) << V(hg.totalNodeWeight());
+		}
+		
 		void runUntilBalanced() {
-			while (!cs.isBalanced() && cs.flowValue < upperFlowBound)
-				advanceUntilCut();
+			while (cs.flowValue <= upperFlowBound && !cs.isBalanced()) {
+				if (pierce())
+					exhaustFlowAndGrow();
+				else
+					break;
+			}
 			LOGGER << V(cs.isBalanced()) << V(cs.maxBlockWeight) << V(cs.flowValue);
 			LOGGER << V(cs.n.sourceReachableWeight) << V(cs.n.targetReachableWeight) << V(cs.isolatedNodes.weight) << V(cs.unclaimedNodeWeight()) << V(hg.totalNodeWeight());
 			
 		}
 
-		void runUntilBalancedAndReportMostBalanced() {
-			runUntilBalanced();
-			if (cs.flowValue >= upperFlowBound)
-				return;
-			//either run until cut would have to be broken. or track most balanced (just as a partition) and revert to that
-		}
 	};
 
 

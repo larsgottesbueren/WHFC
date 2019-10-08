@@ -21,12 +21,13 @@ namespace whfc {
 		if (s >= hg.numNodes() || t >= hg.numNodes())
 			throw std::runtime_error("s or t not within node id range");
 		
-		HyperFlowCutter<BasicFordFulkerson> hfc(hg, mbw);
+		HyperFlowCutter<ScalingFordFulkerson> hfc(hg, mbw);
 		hfc.upperFlowBound = info.upperFlowBound;
 		
 		auto time = time_now();
 		hfc.initialize(s,t);
 		hfc.runUntilBalanced();
+		//hfc.runUntilBalancedOrFlowBoundExceeded();
 		std::cout << second_duration(time_now() - time).count() << " [s]" << std::endl;
 	}
 }
