@@ -53,9 +53,11 @@ namespace whfc {
 			}
 			else
 				generation++;
-			sourceReachableTS = generation;
-			if (sourceReachableTS == targetReachableTS) //do it again, if we have a timestamp conflict
+			
+			if (sourceReachableTS == generation || targetReachableTS == generation)	//timestamp conflict: do it again
 				resetSourceReachableToSource();
+			
+			sourceReachableTS = generation;
 			Base::resetSourceReachableToSource();
 		}
 		
@@ -125,19 +127,21 @@ namespace whfc {
 			if (generation == std::numeric_limits<Timestamp>::max()) {
 				for (const Hyperedge e : hg.hyperedgeIDs()) {
 					auto& ts = out[e];
-					if (ts != sourceSettledTS && ts != targetSettledTS && ts != targetReachableTS) ts = unreachableTS;
+					if (ts != sourceSettledTS && ts != targetSettledTS && ts != targetReachableTS)
+						ts = unreachableTS;
 				}
 				for (const Hyperedge e : hg.hyperedgeIDs()) {
 					auto& ts = in[e];
-					if (ts != sourceSettledTS && ts != targetSettledTS && ts != targetReachableTS) ts = unreachableTS;
+					if (ts != sourceSettledTS && ts != targetSettledTS && ts != targetReachableTS)
+						ts = unreachableTS;
 				}
 				generation = initialTS;
 			}
 			else
 				generation++;
-			sourceReachableTS = generation;
-			if (sourceReachableTS == targetReachableTS)	//do it again, if we have a timestamp conflict
+			if (sourceReachableTS == generation || targetReachableTS == generation)	//timestamp conflict: do it again
 				resetSourceReachableToSource();
+			sourceReachableTS = generation;
 		}
 		
 		void fullReset() {
