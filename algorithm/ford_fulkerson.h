@@ -40,8 +40,7 @@ namespace whfc {
 		std::vector<Parent> parent;
 
 		explicit FordFulkerson(FlowHypergraph& hg) : hg(hg), nodes_to_scan(hg.numNodes()), parent(hg.numNodes()) {
-			initialScalingCapacity = std::min(DefaultInitialScalingCapacity, nextSmallerPowerOfTwo(hg.maxHyperedgeCapacity));
-			scalingCapacity = initialScalingCapacity;
+			initalizeScalingCapacity(hg.maxHyperedgeCapacity);
 		}
 
 		static constexpr Flow DefaultInitialScalingCapacity = 1 << 24;
@@ -51,8 +50,7 @@ namespace whfc {
 
 
 		void reset() {
-			initialScalingCapacity = std::min(DefaultInitialScalingCapacity, nextSmallerPowerOfTwo(hg.maxHyperedgeCapacity));
-			scalingCapacity = initialScalingCapacity;
+			initalizeScalingCapacity(hg.maxHyperedgeCapacity);
 		}
 		
 		Flow recycleDatastructuresFromGrowReachablePhase(CutterState<Type> &cs) {
@@ -252,11 +250,13 @@ namespace whfc {
 			scalingCapacity /= 2;
 		}
 		
-		Flow nextSmallerPowerOfTwo(const Flow cap) {
-			Flow res = 1;
-			while (2 * res <= cap)
-				res *= 2;
-			return res;
+		void initalizeScalingCapacity(Flow cap) {
+			cap = std::min(DefaultInitialScalingCapacity, cap);
+			initialScalingCapacity = 1;
+			while (2 * initialScalingCapacity <= cap) {
+				initialScalingCapacity *= 2;
+			}
+			scalingCapacity = initialScalingCapacity;
 		}
 		
 		bool incidentToPiercingNodes(const Hyperedge e, CutterState<Type>& cs) const {
