@@ -9,13 +9,21 @@
 namespace whfc {
 	class Piercer {
 	public:
-		explicit Piercer(FlowHypergraph& _hg) : hg(_hg) { }
+		explicit Piercer(FlowHypergraph& _hg) : hg(_hg), distanceFromCut(hg.numNodes(), 0) { }
 
 		bool useDistancesFromCut = false;
 		bool avoidAugmentingPaths = true;
-		std::vector<HopDistance> distanceFromCut;
-
+		int multiplier = -1;
+		
 		static constexpr bool log = true;
+		
+		void flipViewDirection() {
+			multiplier *= -1;
+		}
+		
+		void clear() {
+			multiplier = -1;
+		}
 		
 		template<class ReachableNodes>
 		const Node findPiercingNode(ReachableNodes& n, const NodeBorder& border, const NodeWeight maxBlockWeight) {
@@ -31,11 +39,6 @@ namespace whfc {
 			return maxScore.candidate;
 		}
 		
-		void clear() {
-			//once distanceFromCut is implemented, this will contain code
-		}
-
-
 	private:
 
 		struct Score {
@@ -58,11 +61,11 @@ namespace whfc {
 			}
 		};
 
-		bool distancesFromCutAvailable() const { return useDistancesFromCut && distanceFromCut.size() == hg.numNodes(); }
+		bool distancesFromCutAvailable() const { return useDistancesFromCut; }
 
 		HopDistance getHopDistanceFromCut(const Node x) {
-			//TODO multiply with -1 for nodes which were not on the current source side, in the original partition
-			return distancesFromCutAvailable() ? distanceFromCut[x] : 0;
+														//distances of vertices on opposite side are negative --> throw away
+			return distancesFromCutAvailable() ? std::max(multiplier * distanceFromCut[x], 0) : 0;
 		}
 
 		bool doesNodeAvoidAugmentingPath(const bool does_it) {
@@ -70,5 +73,9 @@ namespace whfc {
 		}
 
 		FlowHypergraph& hg;
+		
+	public:
+		//negative entries for original source-side, positive entries for original target-side. start counting at -1/1
+		std::vector<HopDistance> distanceFromCut;
 	};
 }

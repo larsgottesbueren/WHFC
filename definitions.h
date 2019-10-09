@@ -43,7 +43,7 @@ namespace whfc {
 	static_assert(sizeof(PinIndex) == sizeof(uint32_t));
 	static_assert(sizeof(HyperedgeIncidenceIndex) == sizeof(uint32_t));
 	
-	using HopDistance = uint32_t;
+	using HopDistance = int32_t;
 	static constexpr HopDistance maxHopDistance = std::numeric_limits<uint32_t>::max();
 
 	using Index = uint32_t;

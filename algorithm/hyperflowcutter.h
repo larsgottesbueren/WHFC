@@ -19,7 +19,6 @@ namespace whfc {
 		FlowAlgorithm flow_algo;	// = SearchAlgorithm
 		Flow upperFlowBound;
 		Piercer piercer;
-		
 
 		static constexpr bool log = true;
 		HyperFlowCutter(FlowHypergraph& hg, NodeWeight maxBlockWeight) : timer(algo_name), hg(hg), cs(hg, maxBlockWeight, timer), flow_algo(hg), upperFlowBound(maxFlow), piercer(hg) { }
