@@ -20,9 +20,8 @@ namespace whfc {
 		
 		HyperFlowCutter<BasicEdmondsKarp> hfc(hg, mbw);
 		
-		auto time = time_now();
 		hfc.findCutsUntilBalancedOrFlowBoundExceeded(s, t);
-		std::cout << second_duration(time_now() - time).count() << " [s]" << std::endl;
+		hfc.timer.report(std::cout);
 	}
 }
 

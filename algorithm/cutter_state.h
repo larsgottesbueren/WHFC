@@ -43,43 +43,22 @@ namespace whfc {
 		NodeWeight maxBlockWeight;
 		IsolatedNodes isolatedNodes;
 		bool partitionWrittenToNodeSet = false;
+		TimeReporter& timer;
 
-		CutterState(FlowHypergraph& _hg, NodeWeight _maxBlockWeight) :
+		CutterState(FlowHypergraph& _hg, NodeWeight _maxBlockWeight, TimeReporter& timer) :
 				hg(_hg),
 				n(_hg),
 				h(_hg),
 				cut(_hg.numHyperedges()),
 				borderNodes(_hg.numNodes()),
 				maxBlockWeight(_maxBlockWeight),
-				isolatedNodes(hg, _maxBlockWeight)
+				isolatedNodes(hg, _maxBlockWeight),
+				timer(timer)
 		{
-
+			timer.registerCategory("Balance Check");
+			timer.registerCategory("Outpust Balanced Partition");
 		}
 		
-		void initialize(const Node s, const Node t) {
-			Assert(sourcePiercingNodes.empty() && targetPiercingNodes.empty());
-			sourcePiercingNodes.emplace_back(s,false);
-			settleNode(s);
-			targetPiercingNodes.emplace_back(t,false);
-			flipViewDirection();
-			settleNode(t);
-			flipViewDirection();
-		}
-		
-		void reset() {
-			viewDirection = 0;
-			flowValue = 0;
-			n.fullReset();
-			h.fullReset();
-			sourcePiercingNodes.clear(); targetPiercingNodes.clear();
-			augmentingPathAvailableFromPiercing = true;
-			hasCut = false;
-			cut.reset(hg.numHyperedges());			//this requires that FlowHypergraph is reset before resetting the CutterState
-			borderNodes.reset(hg.numNodes());
-			isolatedNodes.reset();
-			partitionWrittenToNodeSet = false;
-		}
-
 		inline bool isIsolated(const Node u) const { return !n.isSource(u) && !n.isTarget(u) && isolatedNodes.isCandidate(u); }
 		inline bool canBeSettled(const Node u) const { return !n.isSource(u) && !n.isTarget(u) && !isIsolated(u); }
 
@@ -149,7 +128,31 @@ namespace whfc {
 				h.resetSourceReachableToSource();
 			}
 		}
-
+		
+		void reset() {
+			viewDirection = 0;
+			flowValue = 0;
+			n.fullReset();
+			h.fullReset();
+			sourcePiercingNodes.clear(); targetPiercingNodes.clear();
+			augmentingPathAvailableFromPiercing = true;
+			hasCut = false;
+			cut.reset(hg.numHyperedges());			//this requires that FlowHypergraph is reset before resetting the CutterState
+			borderNodes.reset(hg.numNodes());
+			isolatedNodes.reset();
+			partitionWrittenToNodeSet = false;
+		}
+		
+		void initialize(const Node s, const Node t) {
+			Assert(sourcePiercingNodes.empty() && targetPiercingNodes.empty());
+			sourcePiercingNodes.emplace_back(s,false);
+			settleNode(s);
+			targetPiercingNodes.emplace_back(t,false);
+			flipViewDirection();
+			settleNode(t);
+			flipViewDirection();
+		}
+		
 		void cleanUpBorder() {
 			borderNodes.cleanUp([&](const Node& x) { return !canBeSettled(x); });
 		}
@@ -182,7 +185,9 @@ namespace whfc {
 				if (balanced)
 					return true;
 			}
-
+			
+			timer.start("Balance Check");
+			
 			isolatedNodes.updateDPTable();
 
 			const NodeWeight
@@ -192,10 +197,11 @@ namespace whfc {
 					tuw = tw + uw,
 					suwRem = suw <= maxBlockWeight ? maxBlockWeight - suw : NodeWeight::Invalid(),
 					tuwRem = tuw <= maxBlockWeight ? maxBlockWeight - tuw : NodeWeight::Invalid();
-
+			
+			bool balanced = false;
+			
 			//sides: (S + U, T) + <ISO> and (S, T + U) + <ISO>
 			for (const IsolatedNodes::SummableRange& sr : isolatedNodes.getSumRanges()) {
-				bool balanced = false;
 				if (suwRem.isValid()) {
 					//S+U not overloaded. Therefore, try (S + U, T) + <ISO>
 
@@ -212,10 +218,11 @@ namespace whfc {
 				}
 
 				if (balanced)
-					return true;
+					break;
 			}
 
-			return false;
+			timer.stop("Balance Check");
+			return balanced;
 		}
 
 
@@ -224,6 +231,7 @@ namespace whfc {
 		 * maybe a different interface is better?
 		 */
 		void outputMostBalancedPartition() {
+			timer.start("Output Balanced Partition");
 			AssertMsg(isolatedNodes.isDPTableUpToDate(), "DP Table not up to date");
 			AssertMsg(isBalanced(), "Not balanced yet");
 			AssertMsg(!partitionWrittenToNodeSet, "Partition was already written");
@@ -330,6 +338,7 @@ namespace whfc {
 			
 			Assert(n.sourceSize + n.targetSize == hg.numNodes() && n.sourceWeight + n.targetWeight == hg.totalNodeWeight());
 			partitionWrittenToNodeSet = true;
+			timer.stop("Output Balanced Partition");
 		}
 		
 		std::string toString() {

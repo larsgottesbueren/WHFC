@@ -24,16 +24,16 @@ namespace whfc {
 		HyperFlowCutter<ScalingFordFulkerson> hfc(hg, mbw);
 		hfc.upperFlowBound = info.upperFlowBound;
 		
-		auto time = time_now();
-		
+		hfc.timer.start();
 		if (interleaving == "flowbased")
 			hfc.runUntilBalancedOrFlowBoundExceeded(s, t);
 		else if (interleaving == "cutbased")
 			hfc.findCutsUntilBalancedOrFlowBoundExceeded(s, t);
 		else
 			throw std::runtime_error("Unknown interleaving option");
+		hfc.timer.stop();
+		hfc.timer.report(std::cout);
 		
-		std::cout << second_duration(time_now() - time).count() << " [s]" << std::endl;
 	}
 }
 

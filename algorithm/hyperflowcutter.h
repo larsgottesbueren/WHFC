@@ -6,26 +6,30 @@
 #include "piercing.h"
 
 
+
 namespace whfc {
 
 	template<class FlowAlgorithm>
 	class HyperFlowCutter {
 	public:
+		static constexpr const char *algo_name = "HyperFlowCutter";		//this looks weird
+		TimeReporter timer;
 		FlowHypergraph& hg;
 		CutterState<FlowAlgorithm> cs;
 		FlowAlgorithm flow_algo;	// = SearchAlgorithm
 		Flow upperFlowBound;
 		Piercer piercer;
+		
 
 		static constexpr bool log = true;
-		
-		HyperFlowCutter(FlowHypergraph& hg, NodeWeight maxBlockWeight) : hg(hg), cs(hg, maxBlockWeight), flow_algo(hg), upperFlowBound(maxFlow), piercer(hg) { }
+		HyperFlowCutter(FlowHypergraph& hg, NodeWeight maxBlockWeight) : timer(algo_name), hg(hg), cs(hg, maxBlockWeight, timer), flow_algo(hg), upperFlowBound(maxFlow), piercer(hg) { }
 
 		void reset() {
 			cs.reset();
 			flow_algo.reset();
 			upperFlowBound = maxFlow;
 			piercer.clear();
+			timer.clear();
 		}
 
 		Node selectPiercingNode() {
@@ -58,7 +62,9 @@ namespace whfc {
 		}
 		
 		bool pierce() {
+			timer.start("Piercing");
 			Node piercingNode = selectPiercingNode();
+			timer.stop("Piercing");
 			if (piercingNode == invalidNode)
 				return false;
 			if (cs.flowValue == upperFlowBound && cs.n.isTargetReachable(piercingNode))
@@ -68,14 +74,22 @@ namespace whfc {
 		}
 		
 		void exhaustFlowAndGrow() {
+			timer.start("Flow");
 			if (cs.augmentingPathAvailableFromPiercing) {
+				timer.start("Augment", "Flow");
 				cs.flowValue += flow_algo.exhaustFlow(cs);
+				timer.stop("Augment");
 				cs.flipViewDirection();
+				timer.start("Grow Backward Reachable", "Flow");
 				flow_algo.growReachable(cs);
+				timer.stop("Grow Backward Reachable");
 			}
 			else {
+				timer.start("Grow Reachable due to AAP", "Flow");
 				flow_algo.growReachable(cs);
+				timer.stop("Grow Reachable due to AAP");
 			}
+			timer.stop("Flow");
 			cs.verifyFlowConstraints();
 			cs.verifySetInvariants();
 			
@@ -83,7 +97,9 @@ namespace whfc {
 			if (cs.n.targetReachableWeight <= cs.n.sourceReachableWeight) {
 				cs.flipViewDirection();
 			}
+			timer.start("Grow Assimilated");
 			GrowAssimilated<FlowAlgorithm>::grow(cs, flow_algo.getScanList());
+			timer.stop("Grow Assimilated");
 			cs.verifyFlowConstraints();
 			cs.verifySetInvariants();
 			LOGGER << cs.toString();
@@ -95,22 +111,30 @@ namespace whfc {
 			if (pierceInThisIteration)
 				if (!pierce())
 					return false;
-
+			
+			timer.start("Flow");
 			if (cs.augmentingPathAvailableFromPiercing) {
+				timer.start("Augment", "Flow");
 				if (pierceInThisIteration)
 					cs.flowValue += flow_algo.recycleDatastructuresFromGrowReachablePhase(cs);	//the flow due to recycled datastructures does not matter when deciding whether we have a cut available
 				Flow flow_diff = flow_algo.growFlowOrSourceReachable(cs);
+				timer.stop("Augment");
 				cs.flowValue += flow_diff;
 				cs.hasCut = flow_diff == 0;
 				if (cs.hasCut) {
 					cs.flipViewDirection();
+					timer.start("Grow Backward Reachable", "Flow");
 					flow_algo.growReachable(cs);
+					timer.stop("Grow Backward Reachable");
 				}
 			}
 			else {
+				timer.start("Grow Reachable due to AAP", "Flow");
 				flow_algo.growReachable(cs);		//don't grow target reachable
+				timer.stop("Grow Reachable due to AAP");
 				cs.hasCut = true;
 			}
+			timer.stop("Flow");
 			
 			cs.verifyFlowConstraints();
 			
@@ -118,7 +142,9 @@ namespace whfc {
 				cs.verifySetInvariants();
 				if (cs.n.targetReachableWeight <= cs.n.sourceReachableWeight)
 					cs.flipViewDirection();
+				timer.start("Grow Assimilated");
 				GrowAssimilated<FlowAlgorithm>::grow(cs, flow_algo.getScanList());
+				timer.stop("Grow Assimilated");
 				cs.verifyFlowConstraints();
 				cs.verifySetInvariants();
 				LOGGER << cs.toString();
@@ -128,8 +154,7 @@ namespace whfc {
 		}
 
 		bool runUntilBalancedOrFlowBoundExceeded(const Node s, const Node t) {
-			//TODO add most balanced minimum cut
-			
+			//TODO add most balanced minimum cut, once is_balanced becomes true
 			cs.initialize(s,t);
 			bool piercingFailedOrFlowBoundReachedWithNonAAPPiercingNode = false;
 			bool is_balanced = false;
@@ -157,12 +182,8 @@ namespace whfc {
 		void findCutsUntilBalancedOrFlowBoundExceeded(const Node s, const Node t) {
 			cs.initialize(s,t);
 			exhaustFlowAndGrow();
-			while (cs.flowValue <= upperFlowBound && !cs.isBalanced()) {
-				if (pierce())
-					exhaustFlowAndGrow();
-				else
-					break;
-			}
+			while (cs.flowValue <= upperFlowBound && !cs.isBalanced() && pierce())
+				exhaustFlowAndGrow();
 			LOGGER << V(cs.isBalanced()) << V(cs.maxBlockWeight) << V(cs.flowValue);
 			LOGGER << V(cs.n.sourceReachableWeight) << V(cs.n.targetReachableWeight) << V(cs.isolatedNodes.weight) << V(cs.unclaimedNodeWeight()) << V(hg.totalNodeWeight());
 			
