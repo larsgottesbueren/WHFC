@@ -19,7 +19,10 @@ namespace whfc {
 		Piercer piercer;
 
 		static constexpr bool log = true;
-		HyperFlowCutter(FlowHypergraph& hg, NodeWeight maxBlockWeight) : timer(algo_name), hg(hg), cs(hg, maxBlockWeight, timer), flow_algo(hg), upperFlowBound(maxFlow), piercer(hg) { }
+		HyperFlowCutter(FlowHypergraph& hg, NodeWeight maxBlockWeight) : timer(algo_name), hg(hg), cs(hg, maxBlockWeight, timer), flow_algo(hg), upperFlowBound(maxFlow), piercer(hg)
+		{
+		
+		}
 
 		void reset() {
 			cs.reset();
@@ -27,6 +30,11 @@ namespace whfc {
 			upperFlowBound = maxFlow;
 			piercer.clear();
 			timer.clear();
+		}
+		
+		void flipViewDirection() {
+			cs.flipViewDirection();
+			piercer.flipViewDirection();
 		}
 
 		Node selectPiercingNode() {
@@ -76,7 +84,7 @@ namespace whfc {
 				timer.start("Augment", "Flow");
 				cs.flowValue += flow_algo.exhaustFlow(cs);
 				timer.stop("Augment");
-				cs.flipViewDirection();
+				flipViewDirection();
 				timer.start("Grow Backward Reachable", "Flow");
 				flow_algo.growReachable(cs);
 				timer.stop("Grow Backward Reachable");
@@ -92,7 +100,7 @@ namespace whfc {
 			
 			cs.hasCut = true;
 			if (cs.n.targetReachableWeight <= cs.n.sourceReachableWeight) {
-				cs.flipViewDirection();
+				flipViewDirection();
 			}
 			timer.start("Grow Assimilated");
 			GrowAssimilated<FlowAlgorithm>::grow(cs, flow_algo.getScanList());
@@ -119,7 +127,7 @@ namespace whfc {
 				cs.flowValue += flow_diff;
 				cs.hasCut = flow_diff == 0;
 				if (cs.hasCut) {
-					cs.flipViewDirection();
+					flipViewDirection();
 					timer.start("Grow Backward Reachable", "Flow");
 					flow_algo.growReachable(cs);
 					timer.stop("Grow Backward Reachable");
@@ -138,7 +146,7 @@ namespace whfc {
 			if (cs.hasCut) {
 				cs.verifySetInvariants();
 				if (cs.n.targetReachableWeight <= cs.n.sourceReachableWeight)
-					cs.flipViewDirection();
+					flipViewDirection();
 				timer.start("Grow Assimilated");
 				GrowAssimilated<FlowAlgorithm>::grow(cs, flow_algo.getScanList());
 				timer.stop("Grow Assimilated");
