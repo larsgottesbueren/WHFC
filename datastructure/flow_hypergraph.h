@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../definitions.h"
+#include "../util/unused.h"
 #include <boost/dynamic_bitset.hpp>
 #include <boost/range/irange.hpp>
 #include <type_traits>
@@ -263,7 +264,7 @@ namespace whfc {
 			if (flowReceived(inc_v.flow) > 0 && flowReceived(prevFlowV) <= 0)  //v now receives flow and did not previously, thus must be inserted into pins_receiving_flow
 				insertPinIntoFlowPins(inc_v, true);
 			
-			check_flow_conservation_locally(e);
+			Assert(check_flow_conservation_locally(e));
 			AssertMsg(pin_is_categorized_correctly(inc_u), "Pin categorized incorrectly");
 			AssertMsg(pin_is_categorized_correctly(inc_v), "Pin categorized incorrectly");
 		}
@@ -327,8 +328,7 @@ namespace whfc {
 			return it_o;
 		}
 		
-		void check_flow_conservation_locally(const Hyperedge e) {
-#ifndef NDEBUG
+		bool check_flow_conservation_locally(const Hyperedge e) {
 			Flow f = 0, f_in = 0;
 			for (Pin& p : pinsOf(e)) {
 				f += flowSent(p);
@@ -337,29 +337,24 @@ namespace whfc {
 			}
 			Assert(f == 0);
 			Assert(f_in == flow(e));
-#endif
+			return true;
 		}
 
 		void assert_backpointers_correct(const InHe& inhe) const {
-#ifndef NDEBUG
 			const InHe& doubled = getInHe(getPin(inhe));
 			AssertMsg(doubled.pin_iter == inhe.pin_iter, "Backpointer Pin Iter inconsistent");
 			AssertMsg(doubled.e == inhe.e, "Backpointer hyperedge ID inconsistent");
 			AssertMsg(doubled.flow == inhe.flow, "Backpointer Pin Iter inconsistent");
-#endif
 		}
 
 		void assert_backpointers_correct(const Pin& pin) const {
-#ifndef NDEBUG
 			const Pin& doubled = getPin(getInHe(pin));
 			AssertMsg(doubled.he_inc_iter== pin.he_inc_iter, "Backpointer HyperedgeIncidence iterator inconsistent");
 			AssertMsg(doubled.pin  == pin.pin, "Backpointer Node ID inconsistent");
-#endif
 		}
 
 		void sanity_check_pin_ranges(const Hyperedge e) const {
 			//check left / right end of pin ranges agree with first_out
-#ifndef NDEBUG
 			const PinIndexRange& s = forwardView() ? pins_sending_flow[e] : pins_receiving_flow[e];
 			const PinIndexRange& l = !forwardView() ? pins_sending_flow[e] : pins_receiving_flow[e];
 			Assert(hyperedges[e].first_out == s.begin());
@@ -368,7 +363,6 @@ namespace whfc {
 			Assert(s.begin() <= s.end());
 			Assert(s.end() < l.begin());
 			Assert(l.begin() <= l.end());
-#endif
 		}
 
 		bool pin_is_categorized_correctly(const InHe& inc_u) {

@@ -293,12 +293,14 @@ namespace whfc {
 
 			}
 
+#ifndef NDEBUG
 			NodeWeight s = (assignUnclaimedToSource ? sw : suw) + (assignTrackedIsolatedWeightToSource ? trackedIsolatedWeight : iso - trackedIsolatedWeight);
 			NodeWeight t = (assignUnclaimedToSource ? tuw : tw) + (assignTrackedIsolatedWeightToSource ? iso - trackedIsolatedWeight : trackedIsolatedWeight);
 			AssertMsg(s <= maxBlockWeight, "computed assignment violates max block weight on source side");
 			AssertMsg(t <= maxBlockWeight, "computed assignment violates max block weight on target side");
 			AssertMsg(isolatedNodes.isSummable(trackedIsolatedWeight), "isolated weight is not summable");
-
+#endif
+			
 			auto isoSubset = isolatedNodes.extractSubset(trackedIsolatedWeight);
 			for (const Node u : isoSubset) {
 				Assert(!n.isSourceReachable(u) && !n.isTargetReachable(u) && isIsolated(u));
