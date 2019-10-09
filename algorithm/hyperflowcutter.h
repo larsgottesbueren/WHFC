@@ -5,8 +5,6 @@
 #include "grow_assimilated.h"
 #include "piercing.h"
 
-
-
 namespace whfc {
 
 	template<class FlowAlgorithm>

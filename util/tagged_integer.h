@@ -49,6 +49,7 @@ public:
         internalValue += other.internalValue;
         return *this;
     }
+    
     inline Type& operator+=(const ValueType& other) noexcept {
         AssertMsg(isValid(), "Cannot add something to an Invalid value.");
         internalValue += other;
