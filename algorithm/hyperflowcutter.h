@@ -162,26 +162,17 @@ namespace whfc {
 			//TODO add most balanced minimum cut, once is_balanced becomes true
 			cs.initialize(s,t);
 			bool piercingFailedOrFlowBoundReachedWithNonAAPPiercingNode = false;
-			bool is_balanced = false;
+			bool has_balanced_cut = false;
 			
-																												//no cut ==> run and don't check for balance.
-			while (cs.flowValue <= upperFlowBound && (!cs.hasCut || !is_balanced)) {
+			while (cs.flowValue <= upperFlowBound && !has_balanced_cut) {
 				piercingFailedOrFlowBoundReachedWithNonAAPPiercingNode = !advanceOneFlowIteration();
 				if (piercingFailedOrFlowBoundReachedWithNonAAPPiercingNode)
 					break;
-				is_balanced = cs.isBalanced();
+				has_balanced_cut = cs.hasCut && cs.isBalanced(); //no cut ==> run and don't check for balance.
 			}
 			
 			Assert(!cs.hasCut || cs.isBalanced() || cs.flowValue > upperFlowBound);
-			
-			LOGGER << V(cs.maxBlockWeight) << V(cs.flowValue);
-			if (cs.hasCut)
-				LOGGER << "has cut" << V(cs.isBalanced());
-			else
-				LOGGER << "no cut available ==> balance irrelevant";
-			LOGGER << V(cs.n.sourceReachableWeight) << V(cs.n.targetReachableWeight) << V(cs.isolatedNodes.weight) << V(cs.unclaimedNodeWeight()) << V(hg.totalNodeWeight());
-		
-			return !piercingFailedOrFlowBoundReachedWithNonAAPPiercingNode && cs.flowValue <= upperFlowBound && cs.hasCut && is_balanced;
+			return !piercingFailedOrFlowBoundReachedWithNonAAPPiercingNode && cs.flowValue <= upperFlowBound && cs.hasCut && has_balanced_cut;
 		}
 		
 		void findCutsUntilBalancedOrFlowBoundExceeded(const Node s, const Node t) {
@@ -189,9 +180,6 @@ namespace whfc {
 			exhaustFlowAndGrow();
 			while (cs.flowValue <= upperFlowBound && !cs.isBalanced() && pierce())
 				exhaustFlowAndGrow();
-			LOGGER << V(cs.isBalanced()) << V(cs.maxBlockWeight) << V(cs.flowValue);
-			LOGGER << V(cs.n.sourceReachableWeight) << V(cs.n.targetReachableWeight) << V(cs.isolatedNodes.weight) << V(cs.unclaimedNodeWeight()) << V(hg.totalNodeWeight());
-			
 		}
 
 	};
