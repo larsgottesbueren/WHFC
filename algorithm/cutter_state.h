@@ -243,7 +243,6 @@ namespace whfc {
 					sw = n.sourceReachableWeight,
 					tw = n.targetReachableWeight,
 					uw = unclaimedNodeWeight(),
-					iso = isolatedNodes.weight,
 					suw = sw + uw,
 					tuw = tw + uw;
 
@@ -294,6 +293,7 @@ namespace whfc {
 			}
 
 #ifndef NDEBUG
+			const NodeWeight iso = isolatedNodes.weight;
 			NodeWeight s = (assignUnclaimedToSource ? sw : suw) + (assignTrackedIsolatedWeightToSource ? trackedIsolatedWeight : iso - trackedIsolatedWeight);
 			NodeWeight t = (assignUnclaimedToSource ? tuw : tw) + (assignTrackedIsolatedWeightToSource ? iso - trackedIsolatedWeight : trackedIsolatedWeight);
 			AssertMsg(s <= maxBlockWeight, "computed assignment violates max block weight on source side");
