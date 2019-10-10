@@ -68,7 +68,8 @@ struct mutable_index_range {
 	inline void retreat_begin() { __begin--; }
 	inline void advance_end() { __end++; }
 	inline void retreat_end() { __end--; }
-
+	
 	mutable_index_range() : __begin(Index_t(0)), __end(Index_t(0)) { }
 	mutable_index_range(const Index_t _beg, const Index_t _end) : __begin(_beg), __end(_end) { }
 };
+

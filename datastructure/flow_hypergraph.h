@@ -3,7 +3,6 @@
 #include "../definitions.h"
 #include "../util/unused.h"
 #include <boost/dynamic_bitset.hpp>
-#include <boost/range/irange.hpp>
 #include <type_traits>
 
 namespace whfc {
@@ -40,9 +39,9 @@ namespace whfc {
 		using InHeIterator = InHeRange::iterator;
 		using InHeIndexRange = mutable_index_range<InHeIndex>;
 
-		inline auto nodeIDs() const { return boost::irange<Node>(Node(0), Node::fromOtherValueType(numNodes())); }
-		inline auto hyperedgeIDs() const { return boost::irange<Hyperedge>(Hyperedge(0), Hyperedge::fromOtherValueType(numHyperedges())); }
-		inline auto pinIndices() const { return boost::irange<PinIndex>(PinIndex(0), PinIndex::fromOtherValueType(numPins())); }
+		inline auto nodeIDs() const { return mutable_index_range<Node>(Node(0), Node::fromOtherValueType(numNodes())); }
+		inline auto hyperedgeIDs() const { return mutable_index_range<Hyperedge>(Hyperedge(0), Hyperedge::fromOtherValueType(numHyperedges())); }
+		inline auto pinIndices() const { return PinIndexRange(PinIndex(0), PinIndex::fromOtherValueType(numPins())); }
 
 		FlowHypergraph() : nodes(1), hyperedges(1) { }
 		
@@ -113,8 +112,8 @@ namespace whfc {
 		inline InHeIndex beginIndexHyperedges(Node u) const { return nodes[u].first_out; }
 		inline InHeIndex endIndexHyperedges(Node u) const { return nodes[u+1].first_out; }
 		//interface for irange is front(), drop_front(), empty(), size(), begin(), end()
-		inline auto incidentHyperedgeIndices(const Node u) const {
-			return boost::irange<InHeIndex>(beginIndexHyperedges(u), endIndexHyperedges(u));
+		inline InHeIndexRange incidentHyperedgeIndices(const Node u) const {
+			return InHeIndexRange(beginIndexHyperedges(u), endIndexHyperedges(u));
 		}
 		inline InHe& getInHe(const InHeIndex ind_e) { return incident_hyperedges[ind_e]; }
 		inline InHe& getInHe(const Pin& pin) { return getInHe(pin.he_inc_iter); }
@@ -123,7 +122,8 @@ namespace whfc {
 
 		inline PinIndex beginIndexPins(const Hyperedge e) const { return hyperedges[e].first_out; }
 		inline PinIndex endIndexPins(const Hyperedge e) const { return hyperedges[e+1].first_out; }
-		inline decltype(auto) pinIndices(const Hyperedge e) const { return boost::irange<PinIndex>(beginIndexPins(e), endIndexPins(e)); }
+		inline PinIndexRange pinIndices(const Hyperedge e) const { return PinIndexRange(beginIndexPins(e), endIndexPins(e)); }
+		inline PinIndexRange pinsSendingFlowIndices(const Hyperedge e) const { return pins_sending_flow[e]; }
 		inline Pin& getPin(const PinIndex ind_p) { return pins[ind_p]; }
 		inline Pin& getPin(const InHe& inc_p) { return getPin(inc_p.pin_iter); }
 		inline const Pin& getPin(const PinIndex ind_p) const { return pins[ind_p]; }

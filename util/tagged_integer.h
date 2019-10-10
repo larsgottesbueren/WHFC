@@ -117,8 +117,6 @@ public:
         return Type(internalValue - other.internalValue);
     }
 
-
-
     /*
     //not reference, so we can write TaggedInteger(4) - 1
     inline Type operator-(const ValueType other) const noexcept {
@@ -154,6 +152,10 @@ public:
         AssertMsg(isValid(), "Cannot increment an Invalid value.");
         internalValue++;
         return Type(internalValue - 1);
+    }
+    
+    inline Type& operator*() noexcept {
+        return *this;
     }
 
     inline Type& operator--() noexcept {
