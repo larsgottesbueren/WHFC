@@ -367,7 +367,7 @@ namespace whfc {
 			Assert(hyperedges[e+1].first_out == l.end());
 
 			Assert(s.begin() <= s.end());
-			Assert(s.end() < l.begin());
+			Assert(s.end() <= l.begin());
 			Assert(l.begin() <= l.end());
 			return true;
 		}
