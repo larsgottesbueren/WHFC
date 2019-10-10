@@ -82,6 +82,7 @@ namespace Test {
 			Assert(tryFlowAlgo<ScalingFordFulkerson>(file, expected_flow, s, t));
 			Assert(tryFlowAlgo<BasicEdmondsKarp >(file, expected_flow, s, t));
 			Assert(tryFlowAlgo<ScalingEdmondsKarp>(file, expected_flow, s, t));
+			Assert(tryFlowAlgo<DepthFirstFordFulkerson>(file, expected_flow, s, t));
 		}
 		
 		void run() {

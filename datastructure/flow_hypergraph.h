@@ -153,6 +153,7 @@ namespace whfc {
 				return pinsInRange(PinIndexRange(beginIndexPins(e), pins_sending_flow[e].begin()));
 			}
 		}
+		
 		PinRange pinsWithoutFlow(const Hyperedge e) {
 			return pinsInRange(pins_without_flow(e));
 		}

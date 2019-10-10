@@ -23,6 +23,13 @@ public:
 		ReachableHyperedges& h = cs.h;
 		nodes_to_scan.clear();
 		FlowHypergraph& hg = cs.hg;
+		
+		static constexpr bool log = true;
+		Hyperedge f(664);
+		LOGGER << V(h.areAllPinsSourceReachable(f))
+			   << V(h.areAllPinsSources(f))
+			   << V(h.areFlowSendingPinsSources(f))
+			   << V(h.areFlowSendingPinsSourceReachable(f));
 
 		for (auto& ps : cs.sourcePiercingNodes) {
 			const Node s = ps.node;
@@ -39,14 +46,17 @@ public:
 
 				if (!h.areAllPinsSources(e)) {
 					const bool scanAllPins = !hg.isSaturated(e) || hg.flowReceived(he_inc) > 0;
-					if (scanAllPins)
+					if (scanAllPins) {
 						h.settleAllPins(e);
+						Assert(h.areAllPinsSourceReachable(e));
+					}
 					else {
 						if (cs.shouldBeAddedToCut(e))
 							cs.addToCut(e);
 						if (h.areFlowSendingPinsSources(e))
 							continue;
 						h.settleFlowSendingPins(e);
+						Assert(h.areAllPinsSourceReachable(e) || h.areFlowSendingPinsSourceReachable(e));	//if a different hg traversal first finds a way to scan all pins, then that flag will be set
 					}
 
 					for (const Pin& pv : scanAllPins ? hg.pinsOf(e) : hg.pinsSendingFlowInto(e)) {

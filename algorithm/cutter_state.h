@@ -14,7 +14,8 @@ namespace whfc {
 	class CutterState {
 	public:
 		using Pin = FlowHypergraph::Pin;
-
+		static constexpr bool log = true;
+		
 		int viewDirection = 0;	//potential prettyfication: ViewDirection class
 		FlowHypergraph& hg;
 		Flow flowValue = 0;
@@ -59,7 +60,10 @@ namespace whfc {
 			timer.registerCategory("Outpust Balanced Partition");
 		}
 		
-		inline bool isIsolated(const Node u) const { return !n.isSource(u) && !n.isTarget(u) && isolatedNodes.isCandidate(u); }
+		inline bool isIsolated(const Node u) const {
+			return !n.isSource(u) && !n.isTarget(u) && isolatedNodes.isCandidate(u);
+		}
+		
 		inline bool canBeSettled(const Node u) const { return !n.isSource(u) && !n.isTarget(u) && !isIsolated(u); }
 
 		inline NodeWeight unclaimedNodeWeight() const { return hg.totalNodeWeight() - n.sourceReachableWeight - n.targetReachableWeight - isolatedNodes.weight; }
@@ -92,7 +96,7 @@ namespace whfc {
 							isolatedNodes.mixedIncidentHyperedges[p]++;
 							if (isIsolated(p)) {
 								isolatedNodes.add(p);
-
+								LOGGER << "Isolated " << V(p);
 								if (n.isSourceReachable(p))
 									n.unreachSource(p);
 								if (n.isTargetReachable(p))
