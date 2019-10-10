@@ -14,9 +14,9 @@ public:
 	inline void clear() { __size = 0; }
 	inline bool empty() const { return __size == 0; }
 	inline T pop() { Assert(!empty()); return stack[--__size]; }
-	inline T top() { Assert(!empty()); return stack[__size - 1]; }
+	inline T& top() { Assert(!empty()); return stack[__size - 1]; }
 	inline void push(const T& x) { Assert(__size < stack.size()); stack[__size++] = x; }
-	inline T elementAt(const index_t t) const { return stack[t]; }
+	inline T& at(const index_t t) { return stack[t]; }
 	inline index_t size() { return __size; }
 
 	inline index_t capacity() const { return static_cast<index_t>(stack.size()); }

@@ -274,40 +274,128 @@ namespace whfc {
 	using ScalingEdmondsKarp = FordFulkerson<LayeredQueue<Node>, true>;
 	using BasicEdmondsKarp = FordFulkerson<LayeredQueue<Node>, false>;
 
-	/*
+	
 	class DepthFirstFordFulkerson {
 	public:
 		using Type = DepthFirstFordFulkerson;
-		using ReachableNodes = BitsetReachableNodes;
-		using ReachableHyperedges = BitsetReachableHyperedges;
-		//using ReachableNodes = TimestampReachableNodes;
-		//using ReachableHyperedges = TimestampReachableHyperedges;
+		using ReachableNodes = ReachableNodesChecker;
+		using ReachableHyperedges = ReachableHyperedgesChecker;
 
 		using Pin = FlowHypergraph::Pin;
+		using PinIndexRange = FlowHypergraph::PinIndexRange;
 		using InHe = FlowHypergraph::InHe;
-
-		FlowHypergraph& hg;
-
-		Flow growWithoutScaling(CutterState<Type>& cs) {
-			
-			for (Node s : cs.sourcePiercingNodes) {
-				const InHeIndex e_it = hg.beginIndexHyperedges(s);
-				const PinIndex pin_it = hg.getInHe(e_it).pin_iter;
-				stack.push( { e_it, pin_it } );
+		
+		
+		
+		void reset() {
+		
+		}
+		
+		Flow recycleDatastructuresFromGrowReachablePhase(CutterState<Type> &cs) {
+			return 0;	//we don't know which side worked on the stack the last time, and we don't have the incoming hyperedge iterator at the target
+		}
+		
+		Flow exhaustFlow(CutterState<Type>& cs) {
+			Flow flow = 0;
+			Flow diff = -1;
+			while (diff != 0) {
+				diff = growWithoutScaling(cs);
+				flow += diff;
 			}
+			return flow;
+		}
+		
+		Flow growFlowOrSourceReachable(CutterState<Type>& cs) {
+			return growWithoutScaling(cs);
+		}
+		
+		Flow augmentFromTarget(InHeIndex inc_target_it) {
+			Flow bottleneckCapacity = maxFlow;
+			InHeIndex inc_v_it = inc_target_it;
+			for (int64_t stack_pointer = stack.size() - 1; stack_pointer >= 0; --stack_pointer) {
+				const StackElement& t = stack.at(stack_pointer);
+				const Flow residual = hg.residualCapacity(hg.getInHe(t.out_he_it), hg.getInHe(inc_v_it));
+				bottleneckCapacity = std::min(bottleneckCapacity, residual);
+				inc_v_it = t.parent_he_it;
+			}
+			AssertMsg(bottleneckCapacity > 0, "Bottleneck capacity not positive");
+			inc_v_it = inc_target_it;
+			while (!stack.empty()) {
+				const StackElement& t = stack.top();
+				hg.routeFlow(hg.getInHe(t.out_he_it), hg.getInHe(inc_v_it), bottleneckCapacity);
+				inc_v_it = t.parent_he_it;
+				stack.pop();
+			}
+			return bottleneckCapacity;
+		}
+		
+		Flow growWithoutScaling(CutterState<Type>& cs) {
+			cs.clearForSearch();
+			ReachableNodes& n = cs.n;
+			ReachableHyperedges& h = cs.h;
+			stack.clear();
 			
+			for (auto& s : cs.sourcePiercingNodes) {
+				stack.push({ s.node, hg.beginIndexHyperedges(s.node), InHeIndex::Invalid(), PinIndexRange::Invalid() });
+				
+				while (!stack.empty()) {
+					InHeIndex& he_it = stack.top().out_he_it;
+					PinIndexRange& pins_to_scan = stack.top().pins;
+					const Node u = stack.top().u;
+					Node v = invalidNode;
+					InHeIndex inc_v_it = InHeIndex::Invalid();
+					
+					for ( ; he_it < hg.endIndexHyperedges(u) && v == invalidNode; he_it++, pins_to_scan.invalidate()) {
+						if (pins_to_scan.isInvalid()) {		//start new hyperedge
+							auto& inc_u = hg.getInHe(he_it);
+							const Hyperedge e = inc_u.e;
+							pins_to_scan = PinIndexRange();		//empty
+							if (!h.areAllPinsSourceReachable(e)) {
+								if (!hg.isSaturated(e) || hg.flowReceived(inc_u) > 0) {
+									h.reachAllPins(e);
+									pins_to_scan = hg.pinIndices(e);
+								}
+								else if (!h.areFlowSendingPinsSourceReachable(e)) {
+									h.reachFlowSendingPins(e);
+									pins_to_scan = hg.pinsSendingFlowIndices(e);
+								}
+							}
+						}
+						
+						for ( ; v == invalidNode && !pins_to_scan.empty(); pins_to_scan.advance_begin()) {
+							if (!n.isSourceReachable(hg.getPin(pins_to_scan.begin()).pin)) {
+								v = hg.getPin(pins_to_scan.begin()).pin;
+								inc_v_it = hg.getPin(pins_to_scan.begin()).he_inc_iter;
+							}
+						}
+					}
+					
+					if (v == invalidNode)
+						stack.pop();
+					else if (n.isTarget(v))
+						return augmentFromTarget(inc_v_it);
+					else {
+						n.reach(v);
+						stack.push({ v, hg.beginIndexHyperedges(v), inc_v_it, PinIndexRange::Invalid() });
+					}
+				}
+			}
+				
+				
 			return 0;
 		}
 
 		struct StackElement {
-			InHeIndex e_it;
-			PinIndex pin_it;
+			Node u;
+			InHeIndex out_he_it;
+			InHeIndex parent_he_it;
+			PinIndexRange pins;
 		};
-
+		
+		FlowHypergraph& hg;
 		FixedCapacityStack<StackElement> stack;
-
-
+		
 	};
-	 */
+	
 	 
 }

@@ -55,6 +55,7 @@ struct mutable_range {
 
 template<typename Index_t>
 struct mutable_index_range {
+	using Type = mutable_index_range<Index_t>;
 	Index_t __begin;
 	Index_t __end;
 
@@ -63,6 +64,11 @@ struct mutable_index_range {
 	inline bool empty() const { return begin() == end(); }
 	inline bool contains(const Index_t i) { return i < __end && i >= __begin; }
 	inline std::size_t size() const { return static_cast<size_t>(__end - __begin); }
+	
+	inline bool isInvalid() const { return __end < __begin; }
+	static Type Invalid() { return Type(Index_t(1), Index_t(0)); }
+	void invalidate() { __begin = __end + Index_t(1); }
+	void makeEmpty() { __begin = __end; }
 
 	inline void advance_begin() { __begin++; }
 	inline void retreat_begin() { __begin--; }
