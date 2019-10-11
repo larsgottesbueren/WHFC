@@ -22,6 +22,7 @@ namespace whfc {
 	template<typename ScanListType, bool capacityScaling, bool alwaysSetParent = true>
 	class FordFulkerson /* : public FlowAlgorithm */ {
 	public:
+		static constexpr bool same_traversal_as_grow_assimilated = true;
 		static constexpr bool log = true;
 		
 		using Type = FordFulkerson<ScanListType, capacityScaling, alwaysSetParent>;
@@ -278,6 +279,7 @@ namespace whfc {
 	
 	class DepthFirstFordFulkerson {
 	public:
+		static constexpr bool same_traversal_as_grow_assimilated = false;
 		static constexpr bool log = true;
 		using Type = DepthFirstFordFulkerson;
 		
