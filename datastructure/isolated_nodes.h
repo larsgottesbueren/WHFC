@@ -185,7 +185,7 @@ namespace whfc {
 				DPTable.resize(std::min((size_t)2*(weight+1), (size_t)maxSubsetSumWeight + 1), TableEntry());
 			}
 			updateDPTableWithSumRanges();
-			//Internal_UpdateDPTableWithSumRangesAndRangePruning();		NOT IMPLEMENTED YET. Note sure if faster or necessary
+			//Internal_UpdateDPTableWithSumRangesAndRangePruning();		NOT IMPLEMENTED YET. Not sure if faster or necessary
 			nodesNotInTheDPTable.clear();
 		}
 

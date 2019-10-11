@@ -74,6 +74,7 @@ namespace whfc {
 				return false;
 			if (cs.flowValue == upperFlowBound && cs.n.isTargetReachable(piercingNode))
 				return false;
+			LOGGER << "Piercing" << V(piercingNode);
 			setPiercingNode(piercingNode);
 			return true;
 		}
@@ -103,6 +104,7 @@ namespace whfc {
 				flipViewDirection();
 			}
 			timer.start("Grow Assimilated");
+			LOGGER << "grow assimilated";
 			GrowAssimilated<FlowAlgorithm>::grow(cs, flow_algo.getScanList());
 			timer.stop("Grow Assimilated");
 			cs.verifyFlowConstraints();

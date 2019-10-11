@@ -95,8 +95,8 @@ namespace whfc {
 							const Node p = px.pin;
 							isolatedNodes.mixedIncidentHyperedges[p]++;
 							if (isIsolated(p)) {
+								LOGGER << "Isolated" << p;
 								isolatedNodes.add(p);
-								LOGGER << "Isolated " << V(p);
 								if (n.isSourceReachable(p))
 									n.unreachSource(p);
 								if (n.isTargetReachable(p))

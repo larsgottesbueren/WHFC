@@ -11,8 +11,8 @@
 namespace whfc {
 	void runSnapshotTester(const std::string& filename, std::string& interleaving) {
 		
-		using FlowAlgorithm = DepthFirstFordFulkerson;
-		//using FlowAlgorithm = BasicFordFulkerson;
+		using FlowAlgorithm = BasicDepthFirstFordFulkerson;
+		//using FlowAlgorithm = ScalingEdmondsKarp;
 		
 		WHFC_IO::WHFCInformation info = WHFC_IO::readAdditionalInformation(filename);
 		Node s = info.s;

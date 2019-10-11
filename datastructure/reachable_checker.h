@@ -177,7 +177,7 @@ namespace whfc {
 	
 	private:
 		BitsetReachableHyperedges bits;
-		TimestampReachableHyperedges<uint8_t> timestamps;
+		TimestampReachableHyperedges<uint32_t> timestamps;
 	};
 	
 	

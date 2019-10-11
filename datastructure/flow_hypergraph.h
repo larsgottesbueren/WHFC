@@ -6,6 +6,8 @@
 #include <type_traits>
 
 namespace whfc {
+
+	//TODO. when all flow algorithms are implemented. Reassess whether we want to store the flow at the pins or the incidences. and whether we actually want array of structs
 	
 	class FlowHypergraph {
 	public:
@@ -227,8 +229,6 @@ namespace whfc {
 			const Flow prevFlowU = inc_u.flow;
 			const Flow prevFlowV = inc_v.flow;
 			
-			
-			
 			Flow flow_delta_on_v_eOut_eIn_u = std::min({ absoluteFlowSent(inc_v), absoluteFlowReceived(inc_u), flow_delta });
 			inc_u.flow += flowSent(flow_delta_on_v_eOut_eIn_u);
 			inc_v.flow += flowReceived(flow_delta_on_v_eOut_eIn_u);
@@ -253,7 +253,6 @@ namespace whfc {
 			inc_v.flow += flowReceived(flow_delta_on_v_eIn_eOut_u);
 			flow(e) += flow_delta_on_v_eIn_eOut_u;
 
-			
 			
 			if (flowReceived(prevFlowU) > 0 && flowSent(inc_u.flow) >= 0)	//u previously received flow and now either has none, or sends flow.
 				removePinFromFlowPins(inc_u, true);
@@ -281,7 +280,7 @@ namespace whfc {
 		std::vector<Pin> pins;
 		std::vector<InHe> incident_hyperedges;
 
-		//NOTE get rid of the range and just store one index, if this turns out to be cache inefficient later on
+		//TODO get rid of the range and just store one index, if this turns out to be cache inefficient later on
 		std::vector<PinIndexRange> pins_sending_flow;	//indexed by hyperedge id. gives range of pin ids/iterators sending flow to that hyperedge. grows right if forwardView = true
 		std::vector<PinIndexRange> pins_receiving_flow;	//indexed by hyperedge id. gives range of pin ids/iterators receiving flow from that hyperedge. grows left if forwardView = true
 		
@@ -289,9 +288,7 @@ namespace whfc {
 		int sends_multiplier = 1;						//if forwardView = true, flow entering hyperedge e should be positive and flow exiting e should be negative. reverse, if forwardView = false.
 		int receives_multiplier = -1;
 
-		//this nasty stuff is implemented directly here and not in range.h, since the ranges would have to fiddle with memory ranges they don't manage.
-		//this is a particular special case, which should not be accessible via a public interface
-		inline PinIndexRange pins_without_flow(const Hyperedge e) const {
+		PinIndexRange pins_without_flow(const Hyperedge e) const {
 			return forwardView() ? PinIndexRange(pins_sending_flow[e].end(), pins_receiving_flow[e].begin()) : PinIndexRange(pins_receiving_flow[e].end(), pins_sending_flow[e].begin());
 		}
 

@@ -17,6 +17,31 @@ namespace whfc {
 				});
 			});
 		}
+		
+		class Scaling {
+		public:
+			static constexpr Flow DefaultInitialCapacity = 1 << 24;
+			static constexpr Flow CutOff = 4; //NOTE choose sensibly
+			Flow initialCapacity = DefaultInitialCapacity;
+			Flow capacity = initialCapacity;
+			
+			void reduceCapacity() {
+				capacity /= 2;
+			}
+			
+			void reset() {
+				capacity = initialCapacity;
+			}
+			
+			void initialize(Flow cap) {
+				cap = std::min(DefaultInitialCapacity, cap);
+				initialCapacity = 1;
+				while (2 * initialCapacity <= cap) {
+					initialCapacity *= 2;
+				}
+				capacity = initialCapacity;
+			}
+		};
 	}
 	
 	template<typename ScanListType, bool capacityScaling, bool alwaysSetParent = true>
@@ -52,17 +77,13 @@ namespace whfc {
 		std::vector<Parent> parent;
 
 		explicit FordFulkerson(FlowHypergraph& hg) : hg(hg), nodes_to_scan(hg.numNodes()), parent(hg.numNodes()) {
-			initalizeScalingCapacity(hg.maxHyperedgeCapacity);
+			reset();
 		}
 
-		static constexpr Flow DefaultInitialScalingCapacity = 1 << 24;
-		static constexpr Flow ScalingCutOff = 4; //NOTE choose sensibly
-		Flow initialScalingCapacity = DefaultInitialScalingCapacity;
-		Flow scalingCapacity = initialScalingCapacity;
-
+		FlowCommons::Scaling scaling;
 
 		void reset() {
-			initalizeScalingCapacity(hg.maxHyperedgeCapacity);
+			scaling.initialize(hg.maxHyperedgeCapacity);
 		}
 		
 		Flow recycleDatastructuresFromGrowReachablePhase(CutterState<Type> &cs) {
@@ -72,7 +93,7 @@ namespace whfc {
 					for (auto& s : cs.sourcePiercingNodes) {
 						if (s.isReachableFromOppositeSide) {
 							cs.flipViewDirection();
-							flow += augmentFromTarget(cs.n, s.node);
+							flow += augmentFromTarget(cs, cs.n, s.node);
 							cs.flipViewDirection();
 							break;	//only one path available
 						}
@@ -87,12 +108,12 @@ namespace whfc {
 			flow += recycleDatastructuresFromGrowReachablePhase(cs);
 			Flow diff = -1;
 			if constexpr (capacityScaling) {
-				while (scalingCapacity > ScalingCutOff) {
+				while (scaling.capacity > scaling.CutOff) {
 					while (diff != 0) {
 						diff = growWithScaling(cs);
 						flow += diff;
 					}
-					reduceScalingCapacity();
+					scaling.reduceCapacity();
 					diff = -1;
 				}
 			}
@@ -100,27 +121,27 @@ namespace whfc {
 				diff = growWithoutScaling<true>(cs);
 				flow += diff;
 			}
-			scalingCapacity = initialScalingCapacity;
+			scaling.reset();
 			return flow;
 		}
 
 		Flow growFlowOrSourceReachable(CutterState<Type>& cs) {
 			if constexpr (capacityScaling) {
-				while (scalingCapacity > ScalingCutOff) {
+				while (scaling.capacity > scaling.CutOff) {
 					Flow flow = growWithScaling(cs);
 					if (flow != 0)
 						return flow;
 					else
-						reduceScalingCapacity();
+						scaling.reduceCapacity();
 				}
 			}
 			Flow flow = growWithoutScaling<true>(cs);
 			if (flow == 0)
-				scalingCapacity = initialScalingCapacity;
+				scaling.reset();
 			return flow;
 		}
 
-		Flow augmentFromTarget(ReachableNodes& n, const Node target) {
+		Flow augmentFromTarget(CutterState<Type>& cs, ReachableNodes& n, const Node target) {
 			Assert(n.isTarget(target));
 			Flow bottleneckCapacity = maxFlow;
 			Node v = target;
@@ -129,6 +150,7 @@ namespace whfc {
 				const Flow residual = hg.residualCapacity(hg.getInHe(p.parentIncidenceIterator), hg.getInHe(p.currentIncidenceIterator));
 				bottleneckCapacity = std::min(bottleneckCapacity, residual);
 				v = hg.getPin(hg.getInHe(p.parentIncidenceIterator)).pin;
+				Assert(!cs.isIsolated(v));
 			}
 			AssertMsg(bottleneckCapacity > 0, "Bottleneck capacity not positive");
 			v = target;
@@ -174,7 +196,7 @@ namespace whfc {
 									parent[v] = { inc_u_iter, pv.he_inc_iter };
 								if constexpr (augment_flow)
 									if (n.isTarget(v))
-										return augmentFromTarget(n, v);
+										return augmentFromTarget(cs, n, v);
 								n.reach(v);		//this has to be after the return if v is target, to avoid overwriting the targetSettled timestamp with sourceReachable
 								nodes_to_scan.push(v);
 							}
@@ -190,8 +212,8 @@ namespace whfc {
 		 * Note: capacity scaling is implemented separately from search without capacity scaling, as capacity scaling pruning requires more memory accesses than plain search
 		 */
 		Flow growWithScaling(CutterState<Type>& cs) {
-			LOGGER << "Grow with scaling " << V(scalingCapacity);
-			AssertMsg(scalingCapacity > 1, "Don't call this method with ScalingCapacity <= 1. Use growWithoutScaling instead.");
+			LOGGER << "Grow with scaling " << V(scaling.capacity);
+			AssertMsg(scaling.capacity > 1, "Don't call this method with ScalingCapacity <= 1. Use growWithoutScaling instead.");
 			cs.clearForSearch();
 			ReachableNodes& n = cs.n;
 			ReachableHyperedges& h = cs.h;
@@ -207,20 +229,20 @@ namespace whfc {
 					//can push at most flow(e) back into flow-sending pin and at most residual(e) = capacity(e) - flow(e) further flow.
 					//other pins can receive at most residual(e) <= capacity(e). so checking capacity(e) < scalingCapacity is a good pruning rule
 					//Note that this is not residual capacity
-					if (hg.capacity(e) < scalingCapacity)
+					if (hg.capacity(e) < scaling.capacity)
 						continue;
 
 					Flow residualCapacity = hg.absoluteFlowReceived(inc_u) + hg.residualCapacity(e);
 					if (!h.areFlowSendingPinsSourceReachable(e)) {
 						h.reachFlowSendingPins(e);		//Note: this is only fine because we're not using growWithScaling to determine the reachable sets!
 						for (const Pin& pv : hg.pinsSendingFlowInto(e)) {
-							if (residualCapacity + hg.absoluteFlowSent(pv) >= scalingCapacity) {//residual = flow received by u + residual(e) + flow sent by v
+							if (residualCapacity + hg.absoluteFlowSent(pv) >= scaling.capacity) {//residual = flow received by u + residual(e) + flow sent by v
 								const Node v = pv.pin;
 								Assert(!cs.isIsolated(v) || FlowCommons::incidentToPiercingNodes(e, cs));
 								if (!n.isSourceReachable(v)) {
 									parent[v] = parent[v] = { inc_u_iter, pv.he_inc_iter };
 									if (n.isTarget(v))
-										return augmentFromTarget(n, v);
+										return augmentFromTarget(cs, n, v);
 									n.reach(v);		//this has to be after the return if v is target, to avoid overwriting the targetSettled timestamp with sourceReachable
 									nodes_to_scan.push(v);
 								}
@@ -228,7 +250,7 @@ namespace whfc {
 						}
 					}
 
-					if (residualCapacity >= scalingCapacity && !h.areAllPinsSourceReachable(e) && (!hg.isSaturated(e) || hg.flowReceived(inc_u) > 0)) {
+					if (residualCapacity >= scaling.capacity && !h.areAllPinsSourceReachable(e) && (!hg.isSaturated(e) || hg.flowReceived(inc_u) > 0)) {
 						h.reachAllPins(e);
 						for (const Pin& pv : hg.pinsNotSendingFlowInto(e)) {
 							const Node v = pv.pin;
@@ -236,7 +258,7 @@ namespace whfc {
 							if (!n.isSourceReachable(v)) {
 								parent[v] = parent[v] = { inc_u_iter, pv.he_inc_iter };
 								if (n.isTarget(v))
-									return augmentFromTarget(n, v);
+									return augmentFromTarget(cs, n, v);
 								n.reach(v);		//this has to be after the return if v is target, to avoid overwriting the targetSettled timestamp with sourceReachable
 								nodes_to_scan.push(v);
 							}
@@ -254,20 +276,6 @@ namespace whfc {
 		ScanList& getScanList() {
 			return nodes_to_scan;
 		}
-		
-	private:
-		void reduceScalingCapacity() {
-			scalingCapacity /= 2;
-		}
-		
-		void initalizeScalingCapacity(Flow cap) {
-			cap = std::min(DefaultInitialScalingCapacity, cap);
-			initialScalingCapacity = 1;
-			while (2 * initialScalingCapacity <= cap) {
-				initialScalingCapacity *= 2;
-			}
-			scalingCapacity = initialScalingCapacity;
-		}
 	};
 
 	using ScalingFordFulkerson = FordFulkerson<FixedCapacityStack<Node>, true>;
@@ -276,12 +284,13 @@ namespace whfc {
 	using ScalingEdmondsKarp = FordFulkerson<LayeredQueue<Node>, true>;
 	using BasicEdmondsKarp = FordFulkerson<LayeredQueue<Node>, false>;
 
-	
+
+	template<bool use_scaling>
 	class DepthFirstFordFulkerson {
 	public:
 		static constexpr bool same_traversal_as_grow_assimilated = false;
 		static constexpr bool log = true;
-		using Type = DepthFirstFordFulkerson;
+		using Type = DepthFirstFordFulkerson<use_scaling>;
 		
 		using ReachableNodes = ReachableNodesChecker;
 		using ReachableHyperedges = ReachableHyperedgesChecker;
@@ -290,37 +299,67 @@ namespace whfc {
 		using PinIndexRange = FlowHypergraph::PinIndexRange;
 		using InHe = FlowHypergraph::InHe;
 		
-		DepthFirstFordFulkerson(FlowHypergraph& hg) : hg(hg), stack(hg.numNodes()), scan_list(hg.numNodes()) {
+		bool found_isolated = false;
 		
+		DepthFirstFordFulkerson(FlowHypergraph& hg) : hg(hg), stack(hg.numNodes()), scan_list(hg.numNodes()) {
+			reset();
 		}
 		
 		void reset() {
-		
+			scaling.initialize(hg.maxHyperedgeCapacity);
 		}
 		
 		Flow recycleDatastructuresFromGrowReachablePhase(CutterState<Type> &cs) {
-			return 0;	//we don't know which side worked on the stack the last time, and we don't have the incoming hyperedge iterator at the target
+			return 0;
 		}
+		
 		
 		Flow exhaustFlow(CutterState<Type>& cs) {
 			Flow flow = 0;
+			flow += recycleDatastructuresFromGrowReachablePhase(cs);
 			Flow diff = -1;
+			if constexpr (use_scaling) {
+				while (scaling.capacity > scaling.CutOff) {
+					while (diff != 0) {
+						diff = growWithScaling(cs);
+						flow += diff;
+					}
+					scaling.reduceCapacity();
+					diff = -1;
+				}
+			}
 			while (diff != 0) {
 				diff = growWithoutScaling<true>(cs);
 				flow += diff;
 			}
+			Assert(!found_isolated);
+			scaling.reset();
 			return flow;
 		}
 		
 		Flow growFlowOrSourceReachable(CutterState<Type>& cs) {
-			return growWithoutScaling<true>(cs);
+			if constexpr (use_scaling) {
+				while (scaling.capacity > scaling.CutOff) {
+					Flow flow = growWithScaling(cs);
+					if (flow != 0)
+						return flow;
+					else
+						scaling.reduceCapacity();
+				}
+			}
+			Flow flow = growWithoutScaling<true>(cs);
+			if (flow == 0) {
+				Assert(!found_isolated);
+				scaling.reset();
+			}
+			return flow;
 		}
 		
 		void growReachable(CutterState<Type>& cs) {
 			growWithoutScaling<false>(cs);
 		}
 		
-		Flow augmentFromTarget(InHeIndex inc_target_it) {
+		Flow augmentFromTarget(CutterState<Type>& cs, InHeIndex inc_target_it) {
 			Flow bottleneckCapacity = maxFlow;
 			InHeIndex inc_v_it = inc_target_it;
 			for (int64_t stack_pointer = stack.size() - 1; stack_pointer >= 0; --stack_pointer) {
@@ -328,6 +367,9 @@ namespace whfc {
 				const Flow residual = hg.residualCapacity(hg.getInHe(t.out_he_it), hg.getInHe(inc_v_it));
 				bottleneckCapacity = std::min(bottleneckCapacity, residual);
 				inc_v_it = t.parent_he_it;
+				if (cs.isIsolated(t.u)) {
+					LOGGER << V(t.u) << " is isolated " << V(stack.size()) << V(stack_pointer);
+				}
 			}
 			AssertMsg(bottleneckCapacity > 0, "Bottleneck capacity not positive");
 			inc_v_it = inc_target_it;
@@ -342,6 +384,7 @@ namespace whfc {
 		
 		template<bool augment_flow>
 		Flow growWithoutScaling(CutterState<Type>& cs) {
+			found_isolated = false;
 			cs.clearForSearch();
 			ReachableNodes& n = cs.n;
 			ReachableHyperedges& h = cs.h;
@@ -375,9 +418,15 @@ namespace whfc {
 						}
 						
 						for ( ; v == invalidNode && !pins_to_scan.empty(); pins_to_scan.advance_begin()) {
-							if (!n.isSourceReachable(hg.getPin(pins_to_scan.begin()).pin)) {
-								v = hg.getPin(pins_to_scan.begin()).pin;
-								inc_v_it = hg.getPin(pins_to_scan.begin()).he_inc_iter;
+							const Pin& pv = hg.getPin(pins_to_scan.begin());
+							AssertMsg(augment_flow || !n.isTargetReachable(pv.pin), "Not augmenting flow but target side is reachable.");
+							Assert(!cs.isIsolated(pv.pin) || augment_flow);
+#ifndef NDEBUG
+							found_isolated |= cs.isIsolated(pv.pin);	//since we don't find shortest paths, this might actually happen when augmenting flow. but not when no flow can be pushed.
+#endif
+							if (!n.isSourceReachable(pv.pin)) {
+								v = pv.pin;
+								inc_v_it = pv.he_inc_iter;
 							}
 						}
 						
@@ -390,16 +439,77 @@ namespace whfc {
 					if (v == invalidNode)
 						stack.pop();
 					else {
-						AssertMsg(augment_flow || !n.isTargetReachable(v), "Not augmenting flow but target side is reachable.");
-						Assert(!cs.isIsolated(v) || (augment_flow && FlowCommons::incidentToPiercingNodes(hg.getInHe(he_it).e, cs)));
 						if constexpr (augment_flow)
 							if (n.isTarget(v))
-								return augmentFromTarget(inc_v_it);
+								return augmentFromTarget(cs, inc_v_it);
 						n.reach(v);
 						stack.push({ v, hg.beginIndexHyperedges(v), inc_v_it, PinIndexRange::Invalid() });
 					}
 				}
 			}
+			return 0;
+		}
+		
+		Flow growWithScaling(CutterState<Type>& cs) {
+			cs.clearForSearch();
+			ReachableNodes& n = cs.n;
+			ReachableHyperedges& h = cs.h;
+			stack.clear();
+			
+			for (auto& s : cs.sourcePiercingNodes) {
+				Assert(stack.empty());
+				stack.push({ s.node, hg.beginIndexHyperedges(s.node), InHeIndex::Invalid(), PinIndexRange::Invalid() });
+				while (!stack.empty()) {
+					InHeIndex& he_it = stack.top().out_he_it;
+					PinIndexRange& pins_to_scan = stack.top().pins;
+					const Node u = stack.top().u;
+					Node v = invalidNode;
+					InHeIndex inc_v_it = InHeIndex::Invalid();
+					
+					while (he_it < hg.endIndexHyperedges(u) && v == invalidNode) {
+						auto& inc_u = hg.getInHe(he_it);
+						const Hyperedge e = inc_u.e;
+						if (hg.capacity(e) >= scaling.capacity) {
+							Flow residualCapacity = hg.residualCapacity(e) + hg.absoluteFlowReceived(inc_u);
+							if (pins_to_scan.isInvalid()) {		//start new hyperedge
+								pins_to_scan = PinIndexRange();		//empty
+								if (!h.areAllPinsSourceReachable(e)) {
+									if (residualCapacity >= scaling.capacity && (!hg.isSaturated(e) || hg.flowReceived(inc_u) > 0)) {
+										h.reachAllPins(e);
+										pins_to_scan = hg.pinIndices(e);
+									}
+									else if (!h.areFlowSendingPinsSourceReachable(e)) {
+										h.reachFlowSendingPins(e);
+										pins_to_scan = hg.pinsSendingFlowIndices(e);
+									}
+								}
+							}
+							
+							for ( ; v == invalidNode && !pins_to_scan.empty(); pins_to_scan.advance_begin()) {
+								const Pin& pv = hg.getPin(pins_to_scan.begin());
+								if (residualCapacity + hg.absoluteFlowSent(pv) >= scaling.capacity && !n.isSourceReachable(pv.pin)) {
+									v = pv.pin;
+									inc_v_it = pv.he_inc_iter;
+								}
+							}
+						}
+						if (v == invalidNode) {
+							he_it++;
+							pins_to_scan.invalidate();
+						}
+					}
+					
+					if (v == invalidNode)
+						stack.pop();
+					else {
+						if (n.isTarget(v))
+							return augmentFromTarget(cs, inc_v_it);
+						n.reach(v);
+						stack.push({ v, hg.beginIndexHyperedges(v), inc_v_it, PinIndexRange::Invalid() });
+					}
+				}
+			}
+			
 			return 0;
 		}
 
@@ -419,7 +529,9 @@ namespace whfc {
 			return scan_list;
 		}
 		
+		FlowCommons::Scaling scaling;
 	};
 	
-	 
+	using BasicDepthFirstFordFulkerson = DepthFirstFordFulkerson<false>;
+	using ScalingDepthFirstFordFulkerson = DepthFirstFordFulkerson<true>;
 }
