@@ -3,6 +3,7 @@
 #include "../io/hmetis_io.h"
 #include "../logger.h"
 #include "../algorithm/ford_fulkerson.h"
+#include "../algorithm/dinic.h"
 
 namespace whfc {
 namespace Test {
@@ -84,6 +85,7 @@ namespace Test {
 			Assert(tryFlowAlgo<ScalingEdmondsKarp>(file, expected_flow, s, t));
 			Assert(tryFlowAlgo<BasicDepthFirstFordFulkerson>(file, expected_flow, s, t));
 			Assert(tryFlowAlgo<ScalingDepthFirstFordFulkerson>(file, expected_flow, s, t));
+			Assert(tryFlowAlgo<Dinic>(file, expected_flow, s, t));
 		}
 		
 		void run() {

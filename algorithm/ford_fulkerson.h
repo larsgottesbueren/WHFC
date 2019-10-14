@@ -44,13 +44,13 @@ namespace whfc {
 		};
 	}
 	
-	template<typename ScanListType, bool capacityScaling, bool alwaysSetParent = true>
+	template<typename ScanListType, bool use_scaling, bool always_set_parent = true>
 	class FordFulkerson /* : public FlowAlgorithm */ {
 	public:
 		static constexpr bool same_traversal_as_grow_assimilated = true;
 		static constexpr bool log = true;
 		
-		using Type = FordFulkerson<ScanListType, capacityScaling, alwaysSetParent>;
+		using Type = FordFulkerson<ScanListType, use_scaling, always_set_parent>;
 		using ScanList = ScanListType;
 
 		//using ReachableNodes = BitsetReachableNodes;
@@ -88,7 +88,7 @@ namespace whfc {
 		
 		Flow recycleDatastructuresFromGrowReachablePhase(CutterState<Type> &cs) {
 			Flow flow = 0;
-			if constexpr (alwaysSetParent) {
+			if constexpr (always_set_parent) {
 				if (cs.augmentingPathAvailableFromPiercing) {
 					for (auto& s : cs.sourcePiercingNodes) {
 						if (s.isReachableFromOppositeSide) {
@@ -107,7 +107,7 @@ namespace whfc {
 			Flow flow = 0;
 			flow += recycleDatastructuresFromGrowReachablePhase(cs);
 			Flow diff = -1;
-			if constexpr (capacityScaling) {
+			if constexpr (use_scaling) {
 				while (scaling.capacity > scaling.CutOff) {
 					while (diff != 0) {
 						diff = growWithScaling(cs);
@@ -126,7 +126,7 @@ namespace whfc {
 		}
 
 		Flow growFlowOrSourceReachable(CutterState<Type>& cs) {
-			if constexpr (capacityScaling) {
+			if constexpr (use_scaling) {
 				while (scaling.capacity > scaling.CutOff) {
 					Flow flow = growWithScaling(cs);
 					if (flow != 0)
@@ -192,7 +192,7 @@ namespace whfc {
 							AssertMsg(augment_flow || !n.isTargetReachable(v), "Not augmenting flow but target side is reachable.");
 							Assert(!cs.isIsolated(v) || (augment_flow && FlowCommons::incidentToPiercingNodes(e, cs)));
 							if (!n.isSourceReachable(v)) {		//don't do VD label propagation
-								if constexpr (augment_flow || alwaysSetParent)
+								if constexpr (augment_flow || always_set_parent)
 									parent[v] = { inc_u_iter, pv.he_inc_iter };
 								if constexpr (augment_flow)
 									if (n.isTarget(v))
@@ -363,7 +363,7 @@ namespace whfc {
 			Flow bottleneckCapacity = maxFlow;
 			InHeIndex inc_v_it = inc_target_it;
 			for (int64_t stack_pointer = stack.size() - 1; stack_pointer >= 0; --stack_pointer) {
-				const StackElement& t = stack.at(stack_pointer);
+				const StackFrame& t = stack.at(stack_pointer);
 				const Flow residual = hg.residualCapacity(hg.getInHe(t.out_he_it), hg.getInHe(inc_v_it));
 				bottleneckCapacity = std::min(bottleneckCapacity, residual);
 				inc_v_it = t.parent_he_it;
@@ -374,7 +374,7 @@ namespace whfc {
 			AssertMsg(bottleneckCapacity > 0, "Bottleneck capacity not positive");
 			inc_v_it = inc_target_it;
 			while (!stack.empty()) {
-				const StackElement& t = stack.top();
+				const StackFrame& t = stack.top();
 				hg.routeFlow(hg.getInHe(t.out_he_it), hg.getInHe(inc_v_it), bottleneckCapacity);
 				inc_v_it = t.parent_he_it;
 				stack.pop();
@@ -513,7 +513,7 @@ namespace whfc {
 			return 0;
 		}
 
-		struct StackElement {
+		struct StackFrame {
 			Node u;
 			InHeIndex out_he_it;
 			InHeIndex parent_he_it;
@@ -521,7 +521,7 @@ namespace whfc {
 		};
 		
 		FlowHypergraph& hg;
-		FixedCapacityStack<StackElement> stack;
+		FixedCapacityStack<StackFrame> stack;
 		
 		using ScanList = LayeredQueue<Node>;
 		ScanList scan_list;

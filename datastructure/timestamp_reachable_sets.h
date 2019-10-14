@@ -38,8 +38,11 @@ namespace whfc {
 		void fullReset() {
 			timestamps.assign(hg.numNodes(), unreachableTS);
 			generation = initialTS;
+			sourceSettledTS = 1;
+			targetSettledTS = 2;
 			sourceReachableTS = sourceSettledTS;
 			targetReachableTS = targetSettledTS;
+			Base::fullReset();
 		}
 
 		void resetSourceReachableToSource() {
@@ -128,18 +131,17 @@ namespace whfc {
 		void resetSourceReachableToSource() {
 			if (generation == std::numeric_limits<Timestamp>::max()) {
 				for (const Hyperedge e : hg.hyperedgeIDs()) {
-					auto& ts = out[e];
-					if (ts == targetReachableTS)
-						ts = initialTS;
-					else if (ts != sourceSettledTS && ts != targetSettledTS)
-						ts = unreachableTS;
-				}
-				for (const Hyperedge e : hg.hyperedgeIDs()) {
-					auto& ts = in[e];
-					if (ts == targetReachableTS)
-						ts = initialTS;
-					else if (ts != sourceSettledTS && ts != targetSettledTS)
-						ts = unreachableTS;
+					auto& t_out = out[e];
+					if (t_out == targetReachableTS)
+						t_out = initialTS;
+					else if (t_out != sourceSettledTS && t_out != targetSettledTS)
+						t_out = unreachableTS;
+					
+					auto& t_in = in[e];
+					if (t_in == targetReachableTS)
+						t_in = initialTS;
+					else if (t_in != sourceSettledTS && t_in != targetSettledTS)
+						t_in = unreachableTS;
 				}
 				generation = initialTS + 1;
 			}
@@ -156,6 +158,8 @@ namespace whfc {
 			in.assign(hg.numHyperedges(), unreachableTS);
 			out.assign(hg.numHyperedges(), unreachableTS);
 			generation = initialTS;
+			sourceSettledTS = 1;
+			targetSettledTS = 2;
 			sourceReachableTS = sourceSettledTS;
 			targetReachableTS = targetSettledTS;
 		}

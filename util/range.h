@@ -69,7 +69,8 @@ struct mutable_index_range {
 	static Type Invalid() { return Type(Index_t(1), Index_t(0)); }
 	void invalidate() { __begin = __end + Index_t(1); }
 	void makeEmpty() { __begin = __end; }
-
+	static Type createEmpty() { return Type(); }
+	
 	inline void advance_begin() { __begin++; }
 	inline void retreat_begin() { __begin--; }
 	inline void advance_end() { __end++; }
