@@ -41,10 +41,12 @@ namespace whfc {
 				Base::flipViewDirection();
 			}
 
-			void resetSourceReachableToSource() {
+			void resetSourceReachableToSource(bool augmenting_path_available) {
 				//SR = S;
-				bitvector_copy_first_n(SR, S, hg.numNodes());
-				Base::resetSourceReachableToSource();
+				if (augmenting_path_available) {
+					bitvector_copy_first_n(SR, S, hg.numNodes());
+					Base::resetSourceReachableToSource();
+				}
 			}
 
 			void fullReset() {
@@ -100,11 +102,13 @@ namespace whfc {
 			inline void settleFlowSendingPins(const Hyperedge e) { Assert(!areFlowSendingPinsSources(e)); IN_SETTLED_S.set(e); }
 			inline void reachFlowSendingPins(const Hyperedge e) { Assert(!areFlowSendingPinsSourceReachable(e)); IN_REACHED_S.set(e); }
 
-			void resetSourceReachableToSource() {
+			void resetSourceReachableToSource(bool augmenting_path_available) {
 				//IN_REACHED_S = IN_SETTLED_S;
 				//OUT_REACHED_S = OUT_SETTLED_S;
-				bitvector_copy_first_n(IN_REACHED_S, IN_SETTLED_S, hg.numHyperedges());
-				bitvector_copy_first_n(OUT_REACHED_S, OUT_SETTLED_S, hg.numHyperedges());
+				if (augmenting_path_available) {
+					bitvector_copy_first_n(IN_REACHED_S, IN_SETTLED_S, hg.numHyperedges());
+					bitvector_copy_first_n(OUT_REACHED_S, OUT_SETTLED_S, hg.numHyperedges());
+				}
 			}
 			
 			void fullReset() {

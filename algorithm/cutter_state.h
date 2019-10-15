@@ -127,10 +127,8 @@ namespace whfc {
 		}
 
 		void clearForSearch() {
-			if (augmentingPathAvailableFromPiercing) {
-				n.resetSourceReachableToSource();
-				h.resetSourceReachableToSource();
-			}
+			n.resetSourceReachableToSource(augmentingPathAvailableFromPiercing);
+			h.resetSourceReachableToSource(augmentingPathAvailableFromPiercing);
 		}
 		
 		void reset() {

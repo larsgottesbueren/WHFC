@@ -47,7 +47,10 @@ namespace whfc {
 			Base::fullReset();
 		}
 
-		void resetSourceReachableToSource() {
+		void resetSourceReachableToSource(bool augmenting_path_available) {
+			if (!augmenting_path_available)
+				return;
+			
 			if (generation == std::numeric_limits<Timestamp>::max()) {
 				for (const Node u : hg.nodeIDs()) {
 					auto& ts = timestamps[u];
@@ -63,7 +66,7 @@ namespace whfc {
 			
 			LOGGER << "reset" << " gen=" << (int)generation << " SR=" << (int)sourceReachableTS << " TR=" << (int)targetReachableTS;
 			if (sourceReachableTS == generation || targetReachableTS == generation)	//timestamp conflict: do it again
-				resetSourceReachableToSource();
+				resetSourceReachableToSource(augmenting_path_available);
 			
 			sourceReachableTS = generation;
 			Base::resetSourceReachableToSource();
@@ -131,7 +134,10 @@ namespace whfc {
 		inline void settleFlowSendingPins(const Hyperedge e) { assert(!areFlowSendingPinsSources(e)); in[e] = sourceSettledTS; }
 		inline void reachFlowSendingPins(const Hyperedge e) { assert(!areFlowSendingPinsSourceReachable(e)); in[e] = sourceReachableTS; }
 		
-		void resetSourceReachableToSource() {
+		void resetSourceReachableToSource(bool augmenting_path_available) {
+			if (!augmenting_path_available)
+				return;
+			
 			if (generation == std::numeric_limits<Timestamp>::max()) {
 				for (const Hyperedge e : hg.hyperedgeIDs()) {
 					auto& t_out = out[e];
@@ -152,7 +158,7 @@ namespace whfc {
 				generation++;
 			
 			if (sourceReachableTS == generation || targetReachableTS == generation) {//timestamp conflict: do it again
-				resetSourceReachableToSource();
+				resetSourceReachableToSource(augmenting_path_available);
 			}
 			sourceReachableTS = generation;
 		}

@@ -74,10 +74,10 @@ namespace whfc {
 			timestamps.flipViewDirection();
 		}
 		
-		void resetSourceReachableToSource() {
+		void resetSourceReachableToSource(bool augmenting_path_available) {
 			Base::resetSourceReachableToSource();
-			bits.resetSourceReachableToSource();
-			timestamps.resetSourceReachableToSource();
+			bits.resetSourceReachableToSource(augmenting_path_available);
+			timestamps.resetSourceReachableToSource(augmenting_path_available);
 		}
 		
 		void fullReset() {
@@ -151,9 +151,9 @@ namespace whfc {
 			timestamps.reachFlowSendingPins(e);
 		}
 		
-		void resetSourceReachableToSource() {
-			bits.resetSourceReachableToSource();
-			timestamps.resetSourceReachableToSource();
+		void resetSourceReachableToSource(bool augmenting_path_available) {
+			bits.resetSourceReachableToSource(augmenting_path_available);
+			timestamps.resetSourceReachableToSource(augmenting_path_available);
 		}
 		
 		void fullReset() {
