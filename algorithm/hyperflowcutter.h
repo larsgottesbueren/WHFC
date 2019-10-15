@@ -74,8 +74,8 @@ namespace whfc {
 				return false;
 			if (cs.flowValue == upperFlowBound && cs.n.isTargetReachable(piercingNode))
 				return false;
-			LOGGER << "Piercing" << V(piercingNode);
 			setPiercingNode(piercingNode);
+			LOGGER << "Piercing" << V(piercingNode) << V(cs.augmentingPathAvailableFromPiercing);
 			return true;
 		}
 		

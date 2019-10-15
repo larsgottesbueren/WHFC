@@ -12,8 +12,8 @@
 namespace whfc {
 	void runSnapshotTester(const std::string& filename, std::string& interleaving) {
 		
-		//using FlowAlgorithm = Dinic;
-		using FlowAlgorithm = BasicEdmondsKarp;
+		using FlowAlgorithm = Dinic;
+		//using FlowAlgorithm = ScalingEdmondsKarp;
 		
 		WHFC_IO::WHFCInformation info = WHFC_IO::readAdditionalInformation(filename);
 		Node s = info.s;
@@ -46,7 +46,7 @@ int main(int argc, const char* argv[]) {
 	if (argc < 2 || argc > 3)
 		throw std::runtime_error("Usage: ./WHFC hypergraphfile interleaving-style (flowbased or cutbased)");
 	std::string hgfile = argv[1];
-	std::string interleavingstyle = "flowbased";
+	std::string interleavingstyle = "cutbased";
 	if (argc == 3)
 		interleavingstyle = argv[2];
 	whfc::runSnapshotTester(hgfile, interleavingstyle);
