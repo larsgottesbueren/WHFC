@@ -11,6 +11,7 @@ namespace whfc {
 	class Dinic {
 	public:
 		using Type = Dinic;
+		using ScanList = LayeredQueue<Node>;
 
 		using ReachableNodes = DistanceReachableNodes;	//TODO also write checkers for the distance sets
 		using ReachableHyperedges = DistanceReachableHyperedges;
@@ -20,6 +21,7 @@ namespace whfc {
 		using PinIndexRange = FlowHypergraph::PinIndexRange;
 		using DistanceT = DistanceReachableNodes::DistanceT;
 		
+		static constexpr bool same_traversal_as_grow_assimilated = true;
 		static constexpr bool log = true;
 		
 		FlowHypergraph& hg;
@@ -29,16 +31,21 @@ namespace whfc {
 			InHeIndex parent_he_it;
 		};
 		FixedCapacityStack<StackFrame> stack;
-		std::vector<PinIndexRange> pin_range;
+		std::vector<PinIndex> current_flow_sending_pin;
+		std::vector<PinIndex> current_pin;
 		std::vector<InHeIndex> current_hyperedge;
 		
 		Dinic(FlowHypergraph& hg) : hg(hg), queue(hg.numNodes()), stack(hg.numNodes()),
-									pin_range(hg.numHyperedges(), PinIndexRange::createEmpty()), current_hyperedge(hg.numNodes(), InHeIndex::Invalid())
+									current_flow_sending_pin(hg.numHyperedges(), PinIndex::Invalid()),
+									current_pin(hg.numHyperedges(), PinIndex::Invalid()),
+									current_hyperedge(hg.numNodes(), InHeIndex::Invalid())
 		{
 			
 		}
 		
-		
+		ScanList& getScanList() {
+			return queue;
+		}
 		
 		Flow exhaustFlow(CutterState<Type>& cs) {
 			Flow f = 0;
@@ -84,7 +91,6 @@ namespace whfc {
 		
 		template<bool augment_flow>
 		bool buildLayeredNetwork(CutterState<Type>& cs) {
-			LOGGER << "bfs";
 			cs.clearForSearch();
 			auto& n = cs.n;
 			auto& h = cs.h;
@@ -104,21 +110,23 @@ namespace whfc {
 					for (InHe& inc_u : hg.hyperedgesOf(u)) {
 						const Hyperedge e = inc_u.e;
 						if (!h.areAllPinsSourceReachable(e)) {
-							if (!hg.isSaturated(e) || hg.flowReceived(inc_u) > 0) {
+							const bool scanAllPins = !hg.isSaturated(e) || hg.flowReceived(inc_u) > 0;
+							if (scanAllPins) {
 								h.reachAllPins(e);
 								Assert(n.distance[u] + 1 == h.outDistance[e]);
-								pin_range[e] = hg.pinIndices(e);
-							}
-							else if (!h.areFlowSendingPinsSourceReachable(e)) {
-								h.reachFlowSendingPins(e);
-								Assert(n.distance[u] + 1 == h.inDistance[e]);
-								pin_range[e] = hg.pinsSendingFlowIndices(e);
+								current_pin[e] = hg.pinsNotSendingFlowIndices(e).begin();
+								current_flow_sending_pin[e] = hg.pinsSendingFlowIndices(e).begin();
 							}
 							else {
-								continue;
+								if (h.areFlowSendingPinsSourceReachable(e))
+									continue;
+								h.reachFlowSendingPins(e);
+								Assert(n.distance[u] + 1 == h.inDistance[e]);
+								current_flow_sending_pin[e] = hg.pinsSendingFlowIndices(e).begin();
 							}
 							
-							for (const Pin& pv : hg.pinsInRange(pin_range[e])) {
+							
+							auto visit = [&](const Pin& pv) {	//TODO scaling. and don't use hg.absoluteFlowSent(pv) if not sending flow into e. (save the lookup)
 								const Node v = pv.pin;
 								AssertMsg(augment_flow || !n.isTargetReachable(v), "Not augmenting flow but target side is reachable.");
 								Assert(!cs.isIsolated(v) || (augment_flow && FlowCommons::incidentToPiercingNodes(e, cs)));
@@ -129,7 +137,14 @@ namespace whfc {
 									queue.push(v);
 									current_hyperedge[v] = hg.beginIndexHyperedges(v);
 								}
-							}
+							};
+							
+							for (const Pin& pv : hg.pinsSendingFlowInto(e))
+								visit(pv);
+							
+							if (scanAllPins)
+								for (const Pin& pv : hg.pinsNotSendingFlowInto(e))
+									visit(pv);
 						}
 					}
 				}
@@ -139,12 +154,10 @@ namespace whfc {
 			
 			n.lockInSourceDistance(); h.lockInSourceDistance();
 			h.compareDistances(n);
-			LOGGER << V(hg.numNodes()) << V(n.sourceReachableWeight) << V(n.sourceWeight);
 			return found_target;
 		}
 		
 		Flow augmentFlowInLayeredNetwork(CutterState<Type>& cs) {
-			LOGGER << "dfs";
 			auto& n = cs.n;
 			auto& h = cs.h;
 			Flow f = 0;
@@ -155,34 +168,56 @@ namespace whfc {
 				while (!stack.empty()) {
 					const Node u = stack.top().u;
 					Node v = invalidNode;
+					InHeIndex inc_v_it = InHeIndex::Invalid();
 					DistanceT req_dist = n.distance[u] + 1;
 					Assert(!n.isDistanceStale(u));
 					Assert(stack.size() + n.sourceBaseDistance() == req_dist);
-					
 					InHeIndex& he_it = current_hyperedge[u];
 					for ( ; he_it < hg.endIndexHyperedges(u); he_it++) {
 						InHe& inc_u = hg.getInHe(he_it);
 						const Hyperedge e = inc_u.e;
 						const Flow residual = hg.residualCapacity(e) + hg.absoluteFlowReceived(inc_u);
-						const bool scanAll = req_dist == h.outDistance[e];
+						Assert((residual > 0) == (!hg.isSaturated(e) || hg.absoluteFlowReceived(inc_u) > 0));
+						const bool scanAll = req_dist == h.outDistance[e] && residual > 0;
 						const bool scanFlowSending = req_dist == h.inDistance[e];
-						if (scanAll || scanFlowSending) {	//TODO check for the appropriate ranges with the actual conditions, not the distances
-							for ( ; v == invalidNode && !pin_range[e].empty(); pin_range[e].advance_begin()) {
-								const Pin& pv = hg.getPin(pin_range[e].begin());
-								if (residual + hg.absoluteFlowSent(pv) > 0 && (n.isTarget(pv.pin) || n.distance[pv.pin] == req_dist))
+						if (scanAll || scanFlowSending) {
+							PinIndex firstInvalid = hg.pinsSendingFlowIndices(e).end();
+							Assert(v == invalidNode);
+							for ( ; current_flow_sending_pin[e] < firstInvalid; current_flow_sending_pin[e]++) {
+								const Pin& pv = hg.getPin(current_flow_sending_pin[e]);
+								if (residual + hg.absoluteFlowSent(pv) > 0 && (n.isTarget(pv.pin) || n.distance[pv.pin] == req_dist)) {
 									v = pv.pin;
+									inc_v_it = pv.he_inc_iter;
+									break;
+								}
 							}
+							
+							if (scanAll && v == invalidNode) {
+								firstInvalid = hg.pinsNotSendingFlowIndices(e).end();
+								for ( ; current_pin[e] < firstInvalid; current_pin[e]++) {
+									const Pin& pv = hg.getPin(current_pin[e]);
+									if (n.isTarget(pv.pin) || n.distance[pv.pin] == req_dist) {
+										v = pv.pin;
+										inc_v_it = pv.he_inc_iter;
+										break;
+									}
+								}
+							}
+							
 							if (v != invalidNode)
 								break;		//don't advance hyperedge iterator
 						}
 					}
 					
-					if (v == invalidNode)
+					if (v == invalidNode) {
+						Assert(current_hyperedge[u] == hg.endIndexHyperedges(u));
 						stack.pop();
+						// Note: the iteration of u's predecessor on the stack still points to u. this prevents going to u again.
+						// It is fine to destroy the reachability datastructures, since we know that this function increases the flow
+						// An alternative method would be to advance the iteration manually, which would be hacky.
+						n.distance[u] = ReachableNodes::unreachableDistance;
+					}
 					else {
-						PinIndexRange pinsOfE = pin_range[ hg.getInHe(he_it).e ];
-						pinsOfE.retreat_begin();
-						const InHeIndex inc_v_it = hg.getPin(pinsOfE.begin()).he_inc_iter;
 						if (n.isTarget(v))
 							f += augmentFromTarget(cs, inc_v_it);
 						else
@@ -196,7 +231,6 @@ namespace whfc {
 		}
 		
 		Flow augmentFromTarget(CutterState<Type>& cs, InHeIndex inc_target_it) {
-			LOGGER << "found target";
 			Flow bottleneckCapacity = maxFlow;
 			int64_t lowest_bottleneck = std::numeric_limits<int64_t>::max();
 			InHeIndex inc_v_it = inc_target_it;
@@ -209,7 +243,6 @@ namespace whfc {
 				}
 				inc_v_it = t.parent_he_it;
 			}
-			LOGGER << V(bottleneckCapacity) << V(lowest_bottleneck);
 			AssertMsg(bottleneckCapacity > 0, "Bottleneck capacity not positive");
 			inc_v_it = inc_target_it;
 			for (int64_t stack_pointer = stack.size() - 1; stack_pointer >= 0; --stack_pointer) {

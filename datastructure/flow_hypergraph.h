@@ -147,13 +147,18 @@ namespace whfc {
 		PinRange pinsInRange(const PinIndexRange pir) { return PinRange(beginPins() + pir.begin(), beginPins() + pir.end()); }
 		PinRange pinsSendingFlowInto(const Hyperedge e) { return pinsInRange(pins_sending_flow[e]); }
 		PinRange pinsReceivingFlowFrom(const Hyperedge e) { return pinsInRange(pins_receiving_flow[e]); }
-		PinRange pinsNotSendingFlowInto(const Hyperedge e) {
+		
+		PinIndexRange pinsNotSendingFlowIndices(const Hyperedge e) const {
 			if (forwardView()) {
-				return pinsInRange(PinIndexRange(pins_sending_flow[e].end(), endIndexPins(e)));
+				return PinIndexRange(pins_sending_flow[e].end(), endIndexPins(e));
 			}
 			else {
-				return pinsInRange(PinIndexRange(beginIndexPins(e), pins_sending_flow[e].begin()));
+				return PinIndexRange(beginIndexPins(e), pins_sending_flow[e].begin());
 			}
+		}
+		
+		PinRange pinsNotSendingFlowInto(const Hyperedge e) {
+			return pinsInRange(pinsNotSendingFlowIndices(e));
 		}
 		
 		PinRange pinsWithoutFlow(const Hyperedge e) {

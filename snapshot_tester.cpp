@@ -6,13 +6,14 @@
 #include "io/whfc_io.h"
 #include "util/random.h"
 #include "datastructure/flow_hypergraph_builder.h"
+#include "algorithm/dinic.h"
 
 
 namespace whfc {
 	void runSnapshotTester(const std::string& filename, std::string& interleaving) {
 		
-		//using FlowAlgorithm = BasicDepthFirstFordFulkerson;
-		using FlowAlgorithm = ScalingEdmondsKarp;
+		//using FlowAlgorithm = Dinic;
+		using FlowAlgorithm = BasicEdmondsKarp;
 		
 		WHFC_IO::WHFCInformation info = WHFC_IO::readAdditionalInformation(filename);
 		Node s = info.s;
