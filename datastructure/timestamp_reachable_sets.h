@@ -12,6 +12,7 @@ namespace whfc {
 	public:
 		using Base = ReachableNodesBase;
 		using Type = TimestampReachableNodes<Timestamp>;
+		static constexpr bool log = false;
 		
 		TimestampReachableNodes(const FlowHypergraph& hg) : Base(hg), timestamps(hg.numNodes(), unreachableTS) { }
 
@@ -30,6 +31,7 @@ namespace whfc {
 		
 		
 		void flipViewDirection() {
+			LOGGER << "flip";
 			std::swap(sourceSettledTS, targetSettledTS);
 			std::swap(sourceReachableTS, targetReachableTS);
 			Base::flipViewDirection();
@@ -49,7 +51,7 @@ namespace whfc {
 			if (generation == std::numeric_limits<Timestamp>::max()) {
 				for (const Node u : hg.nodeIDs()) {
 					auto& ts = timestamps[u];
-					if (ts == targetReachableTS)
+					if (ts == targetReachableTS && ts != targetSettledTS)
 						ts = initialTS;
 					else if (ts != sourceSettledTS && ts != targetSettledTS)
 						ts = unreachableTS;
@@ -59,6 +61,7 @@ namespace whfc {
 			else
 				generation++;
 			
+			LOGGER << "reset" << " gen=" << (int)generation << " SR=" << (int)sourceReachableTS << " TR=" << (int)targetReachableTS;
 			if (sourceReachableTS == generation || targetReachableTS == generation)	//timestamp conflict: do it again
 				resetSourceReachableToSource();
 			
@@ -132,13 +135,13 @@ namespace whfc {
 			if (generation == std::numeric_limits<Timestamp>::max()) {
 				for (const Hyperedge e : hg.hyperedgeIDs()) {
 					auto& t_out = out[e];
-					if (t_out == targetReachableTS)
+					if (t_out == targetReachableTS && t_out != targetSettledTS)
 						t_out = initialTS;
 					else if (t_out != sourceSettledTS && t_out != targetSettledTS)
 						t_out = unreachableTS;
 					
 					auto& t_in = in[e];
-					if (t_in == targetReachableTS)
+					if (t_in == targetReachableTS && t_in != targetSettledTS)
 						t_in = initialTS;
 					else if (t_in != sourceSettledTS && t_in != targetSettledTS)
 						t_in = unreachableTS;
