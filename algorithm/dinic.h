@@ -13,7 +13,7 @@ namespace whfc {
 		using Type = Dinic;
 		using ScanList = LayeredQueue<Node>;
 
-		using ReachableNodes = DistanceReachableNodes;	//TODO also write checkers for the distance sets
+		using ReachableNodes = DistanceReachableNodes;
 		using ReachableHyperedges = DistanceReachableHyperedges;
 		
 		using Pin = FlowHypergraph::Pin;
@@ -182,8 +182,6 @@ namespace whfc {
 			auto& h = cs.h;
 			Flow f = 0;
 			
-			
-			
 			for (auto& sp : cs.sourcePiercingNodes) {
 				Assert(stack.empty());
 				stack.push({ sp.node, InHeIndex::Invalid() });
@@ -272,7 +270,6 @@ namespace whfc {
 				inc_v_it = t.parent_he_it;
 			}
 			stack.popDownTo(lowest_bottleneck);
-			LOGGER << V(bottleneckCapacity);
 			return bottleneckCapacity;
 		}
 		
