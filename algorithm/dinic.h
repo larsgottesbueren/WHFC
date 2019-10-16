@@ -23,7 +23,7 @@ namespace whfc {
 		
 		static constexpr bool same_traversal_as_grow_assimilated = false;
 		static constexpr bool grow_reachable_marks_flow_sending_pins_when_marking_all_pins = true;
-		static constexpr bool log = true;
+		static constexpr bool log = false;
 		
 		FlowHypergraph& hg;
 		LayeredQueue<Node> queue;

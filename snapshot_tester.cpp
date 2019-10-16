@@ -12,8 +12,8 @@
 namespace whfc {
 	void runSnapshotTester(const std::string& filename, std::string& interleaving) {
 		
-		using FlowAlgorithm = Dinic;
-		//using FlowAlgorithm = ScalingEdmondsKarp;
+		//using FlowAlgorithm = Dinic;
+		using FlowAlgorithm = BasicEdmondsKarp;
 		
 		WHFC_IO::WHFCInformation info = WHFC_IO::readAdditionalInformation(filename);
 		Node s = info.s;

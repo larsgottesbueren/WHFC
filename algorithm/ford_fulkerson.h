@@ -19,10 +19,11 @@ namespace whfc {
 		}
 		
 		class Scaling {
-		public:
+		private:
 			static constexpr Flow DefaultInitialCapacity = 1 << 24;
 			static constexpr Flow CutOff = 4; //NOTE choose sensibly
 			Flow initialCapacity = DefaultInitialCapacity;
+		public:
 			Flow capacity = initialCapacity;
 			
 			void reduceCapacity() {
@@ -40,6 +41,10 @@ namespace whfc {
 					initialCapacity *= 2;
 				}
 				capacity = initialCapacity;
+			}
+			
+			bool use() const {
+				return capacity >= CutOff;
 			}
 		};
 	}
@@ -109,7 +114,7 @@ namespace whfc {
 			flow += recycleDatastructuresFromGrowReachablePhase(cs);
 			Flow diff = -1;
 			if constexpr (use_scaling) {
-				while (scaling.capacity > scaling.CutOff) {
+				while (scaling.use()) {
 					while (diff != 0) {
 						diff = growWithScaling(cs);
 						flow += diff;
@@ -128,7 +133,7 @@ namespace whfc {
 
 		Flow growFlowOrSourceReachable(CutterState<Type>& cs) {
 			if constexpr (use_scaling) {
-				while (scaling.capacity > scaling.CutOff) {
+				while (scaling.use()) {
 					Flow flow = growWithScaling(cs);
 					if (flow != 0)
 						return flow;
@@ -321,7 +326,7 @@ namespace whfc {
 			flow += recycleDatastructuresFromGrowReachablePhase(cs);
 			Flow diff = -1;
 			if constexpr (use_scaling) {
-				while (scaling.capacity > scaling.CutOff) {
+				while (scaling.use()) {
 					while (diff != 0) {
 						diff = growWithScaling(cs);
 						flow += diff;
@@ -341,7 +346,7 @@ namespace whfc {
 		
 		Flow growFlowOrSourceReachable(CutterState<Type>& cs) {
 			if constexpr (use_scaling) {
-				while (scaling.capacity > scaling.CutOff) {
+				while (scaling.use()) {
 					Flow flow = growWithScaling(cs);
 					if (flow != 0)
 						return flow;
