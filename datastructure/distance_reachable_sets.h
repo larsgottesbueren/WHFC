@@ -58,7 +58,6 @@ namespace whfc {
 		}
 
 		void flipViewDirection() {
-			LOGGER << "flip";
 			std::swap(sourceSettledDistance, targetSettledDistance);
 			std::swap(s,t);
 			Base::flipViewDirection();
@@ -71,9 +70,7 @@ namespace whfc {
 					Assert(!s.contains(distance[u]));
 #endif
 			}
-			LOGGER << "Reset. " << V(runningDistance);
 			if (!isBaseDistanceSafe()) {
-				LOGGER << "grand reset";
 				for (Node u(0); u < capacity(); ++u) {
 					if (isSource(u) || isTarget(u))
 						continue;

@@ -51,11 +51,8 @@ namespace whfc {
 		Flow exhaustFlow(CutterState<Type>& cs) {
 			Flow f = 0;
 			f += recycleDatastructuresFromGrowReachablePhase(cs);
-			LOGGER << "Dinic: exhaust flow.";
 			while (buildLayeredNetwork<true>(cs)) {
-				LOGGER << "start DFS";
 				f += augmentFlowInLayeredNetwork(cs);
-				LOGGER << V(f);
 			}
 			resetSourcePiercingNodeDistances(cs);
 			return f;
@@ -71,12 +68,17 @@ namespace whfc {
 		
 		
 		Flow recycleDatastructuresFromGrowReachablePhase(CutterState<Type> &cs) {
-			//cs.flipViewDirection();
-			//resetSourcePiercingNodeDistances(cs, false);
-			//Flow f = augmentFlowInLayeredNetwork(cs);
-			Flow f = 0;
-			//resetSourcePiercingNodeDistances(cs);
-			//cs.flipViewDirection();
+			if (!cs.augmentingPathAvailableFromPiercing ||
+				std::none_of(cs.sourcePiercingNodes.begin(), cs.sourcePiercingNodes.end(), [](const auto& sp) { return sp.isReachableFromOppositeSide; }))
+			{
+				return 0;
+			}
+			cs.flipViewDirection();
+			resetSourcePiercingNodeDistances(cs, false);
+			Flow f = augmentFlowInLayeredNetwork(cs);
+			//Flow f = 0;
+			resetSourcePiercingNodeDistances(cs);
+			cs.flipViewDirection();
 			return f;
 		}
 		
