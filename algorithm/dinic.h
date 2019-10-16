@@ -44,6 +44,10 @@ namespace whfc {
 			
 		}
 		
+		void reset() {
+		
+		}
+		
 		ScanList& getScanList() {
 			return queue;
 		}
