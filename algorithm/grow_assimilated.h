@@ -40,8 +40,14 @@ public:
 				if (!h.areAllPinsSources(e)) {
 					const bool scanAllPins = !hg.isSaturated(e) || hg.flowReceived(he_inc) > 0;
 					if (scanAllPins) {
-						h.settleAllPins(e);
 						Assert(h.areAllPinsSourceReachable(e));
+						h.settleAllPins(e);
+						
+						if (FlowAlgorithm::grow_reachable_marks_flow_sending_pins_when_marking_all_pins) {
+							Assert(h.areFlowSendingPinsSourceReachable(e));
+							if (!h.areFlowSendingPinsSources(e))
+								h.settleFlowSendingPins(e);
+						}
 					}
 					else {
 						if (cs.shouldBeAddedToCut(e))

@@ -21,7 +21,8 @@ namespace whfc {
 		using PinIndexRange = FlowHypergraph::PinIndexRange;
 		using DistanceT = DistanceReachableNodes::DistanceT;
 		
-		static constexpr bool same_traversal_as_grow_assimilated = true;
+		static constexpr bool same_traversal_as_grow_assimilated = false;
+		static constexpr bool grow_reachable_marks_flow_sending_pins_when_marking_all_pins = true;
 		static constexpr bool log = true;
 		
 		FlowHypergraph& hg;
@@ -109,13 +110,6 @@ namespace whfc {
 			}
 			n.hop(); h.hop(); queue.finishNextLayer();
 			
-			const bool output = n.s.base == 174;
-			struct Parent {
-				Node pn;
-				Hyperedge pe;
-			};
-			std::vector<Parent> parent(hg.numNodes(), {invalidNode, invalidHyperedge});
-			
 			while (!queue.empty()) {
 				while (!queue.currentLayerEmpty()) {
 					const Node u = queue.pop();
@@ -123,21 +117,21 @@ namespace whfc {
 						const Hyperedge e = inc_u.e;
 						if (!h.areAllPinsSourceReachable__unsafe__(e)) {
 							const bool scanAllPins = !hg.isSaturated(e) || hg.flowReceived(inc_u) > 0;
+							if (!scanAllPins && h.areFlowSendingPinsSourceReachable__unsafe__(e))
+								continue;
+							
 							if (scanAllPins) {
 								h.reachAllPins(e);
 								Assert(n.distance[u] + 1 == h.outDistance[e]);
 								current_pin[e] = hg.pinsNotSendingFlowIndices(e).begin();
-								current_flow_sending_pin[e] = hg.pinsSendingFlowIndices(e).begin();
 							}
-							else {
-								if (h.areFlowSendingPinsSourceReachable__unsafe__(e))
-									continue;
+							
+							const bool scanFlowSending = !h.areFlowSendingPinsSourceReachable__unsafe__(e);
+							if (scanFlowSending) {
 								h.reachFlowSendingPins(e);
 								Assert(n.distance[u] + 1 == h.inDistance[e]);
 								current_flow_sending_pin[e] = hg.pinsSendingFlowIndices(e).begin();
 							}
-							if (output && e == Hyperedge(231) && e == Node(0))
-								LOGGER << V(scanAllPins) << V(current_flow_sending_pin[e]) << V(current_pin[e]) << V(hg.pinCount(e));
 							
 							auto visit = [&](const Pin& pv) {	// TODO scaling. and don't use hg.absoluteFlowSent(pv) if not sending flow into e. (save the lookup)
 								const Node v = pv.pin;
@@ -146,42 +140,26 @@ namespace whfc {
 								found_target |= n.isTarget(v);
 								if (n.isTarget(v)) {
 									target_distances.insert(n.distance[u] + 1);
-									parent[v] = { u, e };
-									if (output) {
-										std::vector<Parent> path;
-										Node vc = v;
-										while (n.distance[vc] != n.s.base) {
-											path.push_back(parent[vc]);
-											vc = parent[vc].pn;
-										}
-										LOGGER_WN << "Path to target : ";
-										for (auto rit = path.rbegin(); rit != path.rend(); rit++) {
-											LOGGER_WN << rit->pn << "--" << rit->pe << "--> ";
-										}
-										LOGGER << v;
-									}
 								}
 								if (!n.isTarget(v) && !n.isSourceReachable__unsafe__(v)) {
 									n.reach(v);
 									Assert(n.distance[u] + 1 == n.distance[v]);
 									queue.push(v);
 									current_hyperedge[v] = hg.beginIndexHyperedges(v);
-									parent[v] = { u, e };
 								}
 							};
 							
 							
-							for (const Pin& pv : scanAllPins ? hg.pinsOf(e) : hg.pinsSendingFlowInto(e))	//if you do the variant below: disable same_traversal_as_grow_assimilated !!!
-								visit(pv);
-							/*
+							//for (const Pin& pv : scanAllPins ? hg.pinsOf(e) : hg.pinsSendingFlowInto(e))	//if you do the variant below: disable same_traversal_as_grow_assimilated !!!
+							//	visit(pv);
 							
-							for (const Pin& pv : hg.pinsSendingFlowInto(e))
-								visit(pv);
+							if (scanFlowSending)
+								for (const Pin& pv : hg.pinsSendingFlowInto(e))
+									visit(pv);
 							
 							if (scanAllPins)
 								for (const Pin& pv : hg.pinsNotSendingFlowInto(e))
 									visit(pv);
-							*/
 						}
 					}
 				}
@@ -204,7 +182,6 @@ namespace whfc {
 			auto& h = cs.h;
 			Flow f = 0;
 			
-			const bool output = n.s.base == 174;
 			
 			
 			for (auto& sp : cs.sourcePiercingNodes) {
@@ -212,12 +189,6 @@ namespace whfc {
 				stack.push({ sp.node, InHeIndex::Invalid() });
 				
 				while (!stack.empty()) {
-					if (output) {
-						for (size_t i = 0; i < stack.size(); ++i) {
-							LOGGER_WN << stack.at(i).u;
-						}
-						LOGGER << " ";
-					}
 					const Node u = stack.top().u;
 					Node v = invalidNode;
 					InHeIndex inc_v_it = InHeIndex::Invalid();
@@ -232,17 +203,9 @@ namespace whfc {
 						Assert((residual > 0) == (!hg.isSaturated(e) || hg.absoluteFlowReceived(inc_u) > 0));
 						const bool scanAll = req_dist == h.outDistance[e] && residual > 0;
 						const bool scanFlowSending = req_dist == h.inDistance[e];
-						if (output && e == Hyperedge(84)) {
-							LOGGER << "at" << V(e) << V(u) << V(hg.pinCount(e));
-							LOGGER << V(current_flow_sending_pin[e]) << V(hg.pinsSendingFlowIndices(e).end());
-							LOGGER << V(current_pin[e]) << V(hg.pinsNotSendingFlowIndices(e).end());
-							LOGGER << V(scanAll) << V(scanFlowSending);
-							LOGGER << V(req_dist) << V(h.inDistance[e]) << V(h.outDistance[e]) << V(n.distance[u]);
-						}
-						if (scanAll || scanFlowSending) {
-							PinIndex firstInvalid = hg.pinsSendingFlowIndices(e).end();
-							Assert(v == invalidNode);
-							for ( ; current_flow_sending_pin[e] < firstInvalid; current_flow_sending_pin[e]++) {
+						
+						if (scanFlowSending) {
+							for (const PinIndex firstInvalid = hg.pinsSendingFlowIndices(e).end(); current_flow_sending_pin[e] < firstInvalid; current_flow_sending_pin[e]++) {
 								const Pin& pv = hg.getPin(current_flow_sending_pin[e]);
 								if (residual + hg.absoluteFlowSent(pv) > 0 && (n.isTarget(pv.pin) || n.distance[pv.pin] == req_dist)) {
 									v = pv.pin;
@@ -250,27 +213,21 @@ namespace whfc {
 									break;
 								}
 							}
-							
-							if (scanAll && v == invalidNode) {
-								firstInvalid = hg.pinsNotSendingFlowIndices(e).end();
-								for ( ; current_pin[e] < firstInvalid; current_pin[e]++) {
-									const Pin& pv = hg.getPin(current_pin[e]);
-									if (n.isTarget(pv.pin) || n.distance[pv.pin] == req_dist) {
-										v = pv.pin;
-										inc_v_it = pv.he_inc_iter;
-										break;
-									}
+						}
+						
+						if (scanAll && v == invalidNode) {
+							for (const PinIndex firstInvalid = hg.pinsNotSendingFlowIndices(e).end(); current_pin[e] < firstInvalid; current_pin[e]++) {
+								const Pin& pv = hg.getPin(current_pin[e]);
+								if (n.isTarget(pv.pin) || n.distance[pv.pin] == req_dist) {
+									v = pv.pin;
+									inc_v_it = pv.he_inc_iter;
+									break;
 								}
 							}
-							
-							if (v != invalidNode)
-								break;		//don't advance hyperedge iterator
 						}
-						if (output && e == Hyperedge(84)) {
-							LOGGER << "at" << V(e) << V(u) << V(hg.pinCount(e)) << " finished scanning";
-							LOGGER << V(current_flow_sending_pin[e]) << V(hg.pinsSendingFlowIndices(e).end());
-							LOGGER << V(current_pin[e]) << V(hg.pinsNotSendingFlowIndices(e).end());
-						}
+						
+						if (v != invalidNode)
+							break;		//don't advance hyperedge iterator
 					}
 					
 					if (v == invalidNode) {

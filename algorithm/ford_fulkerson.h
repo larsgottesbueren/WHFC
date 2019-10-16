@@ -48,6 +48,7 @@ namespace whfc {
 	class FordFulkerson /* : public FlowAlgorithm */ {
 	public:
 		static constexpr bool same_traversal_as_grow_assimilated = true;
+		static constexpr bool grow_reachable_marks_flow_sending_pins_when_marking_all_pins = false;
 		static constexpr bool log = true;
 		
 		using Type = FordFulkerson<ScanListType, use_scaling, always_set_parent>;
@@ -289,6 +290,7 @@ namespace whfc {
 	class DepthFirstFordFulkerson {
 	public:
 		static constexpr bool same_traversal_as_grow_assimilated = false;
+		static constexpr bool grow_reachable_marks_flow_sending_pins_when_marking_all_pins = false;
 		static constexpr bool log = true;
 		using Type = DepthFirstFordFulkerson<use_scaling>;
 		
