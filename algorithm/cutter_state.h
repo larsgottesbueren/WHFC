@@ -57,7 +57,7 @@ namespace whfc {
 				timer(timer)
 		{
 			timer.registerCategory("Balance Check");
-			timer.registerCategory("Outpust Balanced Partition");
+			timer.registerCategory("Output Balanced Partition");
 		}
 		
 		inline bool isIsolated(const Node u) const {

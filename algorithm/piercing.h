@@ -12,7 +12,6 @@ namespace whfc {
 		explicit Piercer(FlowHypergraph& _hg) : hg(_hg), distanceFromCut(hg.numNodes(), 0) { }
 
 		bool useDistancesFromCut = false;
-		bool avoidAugmentingPaths = true;
 		int multiplier = -1;
 		
 		static constexpr bool log = true;
@@ -25,17 +24,24 @@ namespace whfc {
 			multiplier = -1;
 		}
 		
-		template<class ReachableNodes>
-		const Node findPiercingNode(ReachableNodes& n, const NodeBorder& border, const NodeWeight maxBlockWeight) {
+		template<class ReachableNodes, class NodeRange>
+		const Node findPiercingNode(ReachableNodes& n, NodeRange& candidates, const NodeWeight maxBlockWeight) {
 			Score maxScore;
-			for (const Node u : border.sourceSideBorder) {
+			HopDistance minD = std::numeric_limits<HopDistance>::max(), maxD = std::numeric_limits<HopDistance>::min();
+			for (const Node u : candidates) {
 				if (n.sourceWeight + hg.nodeWeight(u) <= maxBlockWeight) {
-					const Score score_u(doesNodeAvoidAugmentingPath(!n.isTargetReachable(u)), getHopDistanceFromCut(u), Random::randomNumber(), u);
+					const Score score_u(!n.isTargetReachable(u), getHopDistanceFromCut(u), Random::randomNumber(), u);
 					if (maxScore < score_u)
 						maxScore = score_u;
 				}
+				
+				maxD = std::max(maxD, distanceFromCut[u]);
+				minD = std::min(minD, distanceFromCut[u]);
+				
 			}
 			
+			
+			LOGGER << "piercing" << V(multiplier) << V(maxD) << V(minD) << V(distanceFromCut[maxScore.candidate]) << V(!n.isTargetReachable(maxScore.candidate));
 			return maxScore.candidate;
 		}
 		
@@ -61,15 +67,9 @@ namespace whfc {
 			}
 		};
 
-		bool distancesFromCutAvailable() const { return useDistancesFromCut; }
-
 		HopDistance getHopDistanceFromCut(const Node x) {
-														//distances of vertices on opposite side are negative --> throw away
-			return distancesFromCutAvailable() ? std::max(multiplier * distanceFromCut[x], 0) : 0;
-		}
-
-		bool doesNodeAvoidAugmentingPath(const bool does_it) {
-			return avoidAugmentingPaths ? does_it : false;
+												//distances of vertices on opposite side are negative --> throw away
+			return useDistancesFromCut ? std::max(multiplier * distanceFromCut[x], 0) : 0;
 		}
 
 		FlowHypergraph& hg;
