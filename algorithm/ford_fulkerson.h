@@ -21,10 +21,11 @@ namespace whfc {
 		class Scaling {
 		private:
 			static constexpr Flow DefaultInitialCapacity = 1 << 24;
-			static constexpr Flow CutOff = 4; //NOTE choose sensibly
 			Flow initialCapacity = DefaultInitialCapacity;
-		public:
 			Flow capacity = initialCapacity;
+			Flow CutOff = 3; //NOTE choose sensibly
+			bool enabled = true;
+		public:
 			
 			void reduceCapacity() {
 				capacity /= 2;
@@ -33,18 +34,31 @@ namespace whfc {
 			void reset() {
 				capacity = initialCapacity;
 			}
+
+			Flow getCapacity() const {
+				return use() ? capacity : 1;
+			}
 			
-			void initialize(Flow cap) {
-				cap = std::min(DefaultInitialCapacity, cap);
+			void initialize(Flow maxScalingCap) {
+				maxScalingCap = std::min(DefaultInitialCapacity, maxScalingCap);
+				std::cout << "max scaling cap " << maxScalingCap << std::endl;
 				initialCapacity = 1;
-				while (2 * initialCapacity <= cap) {
+				while (2 * initialCapacity <= maxScalingCap) {
 					initialCapacity *= 2;
 				}
 				capacity = initialCapacity;
 			}
 			
+			void enable() {
+				enabled = true;
+			}
+			
+			void disable() {
+				enabled = false;
+			}
+			
 			bool use() const {
-				return capacity >= CutOff;
+				return enabled && capacity > CutOff;
 			}
 		};
 	}
@@ -218,8 +232,9 @@ namespace whfc {
 		 * Note: capacity scaling is implemented separately from search without capacity scaling, as capacity scaling pruning requires more memory accesses than plain search
 		 */
 		Flow growWithScaling(CutterState<Type>& cs) {
-			LOGGER << "Grow with scaling " << V(scaling.capacity);
-			AssertMsg(scaling.capacity > 1, "Don't call this method with ScalingCapacity <= 1. Use growWithoutScaling instead.");
+			const Flow scaling_capacity = scaling.getCapacity();
+			LOGGER << "Grow with scaling " << V(scaling.getCapacity());
+			AssertMsg(scaling.getCapacity() > 1, "Don't call this method with ScalingCapacity <= 1. Use growWithoutScaling instead.");
 			cs.clearForSearch();
 			ReachableNodes& n = cs.n;
 			ReachableHyperedges& h = cs.h;
@@ -235,14 +250,14 @@ namespace whfc {
 					//can push at most flow(e) back into flow-sending pin and at most residual(e) = capacity(e) - flow(e) further flow.
 					//other pins can receive at most residual(e) <= capacity(e). so checking capacity(e) < scalingCapacity is a good pruning rule
 					//Note that this is not residual capacity
-					if (hg.capacity(e) < scaling.capacity)
+					if (hg.capacity(e) < scaling_capacity)
 						continue;
 
 					Flow residualCapacity = hg.absoluteFlowReceived(inc_u) + hg.residualCapacity(e);
 					if (!h.areFlowSendingPinsSourceReachable(e)) {
 						h.reachFlowSendingPins(e);		//Note: this is only fine because we're not using growWithScaling to determine the reachable sets!
 						for (const Pin& pv : hg.pinsSendingFlowInto(e)) {
-							if (residualCapacity + hg.absoluteFlowSent(pv) >= scaling.capacity) {//residual = flow received by u + residual(e) + flow sent by v
+							if (residualCapacity + hg.absoluteFlowSent(pv) >= scaling_capacity) {//residual = flow received by u + residual(e) + flow sent by v
 								const Node v = pv.pin;
 								Assert(!cs.isIsolated(v) || FlowCommons::incidentToPiercingNodes(e, cs));
 								if (!n.isSourceReachable(v)) {
@@ -256,7 +271,7 @@ namespace whfc {
 						}
 					}
 
-					if (residualCapacity >= scaling.capacity && !h.areAllPinsSourceReachable(e) && (!hg.isSaturated(e) || hg.flowReceived(inc_u) > 0)) {
+					if (residualCapacity >= scaling_capacity && !h.areAllPinsSourceReachable(e) && (!hg.isSaturated(e) || hg.flowReceived(inc_u) > 0)) {
 						h.reachAllPins(e);
 						for (const Pin& pv : hg.pinsNotSendingFlowInto(e)) {
 							const Node v = pv.pin;
@@ -458,6 +473,7 @@ namespace whfc {
 		}
 		
 		Flow growWithScaling(CutterState<Type>& cs) {
+			const Flow scaling_capacity = scaling.getCapacity();
 			cs.clearForSearch();
 			ReachableNodes& n = cs.n;
 			ReachableHyperedges& h = cs.h;
@@ -476,12 +492,12 @@ namespace whfc {
 					while (he_it < hg.endIndexHyperedges(u) && v == invalidNode) {
 						auto& inc_u = hg.getInHe(he_it);
 						const Hyperedge e = inc_u.e;
-						if (hg.capacity(e) >= scaling.capacity) {
+						if (hg.capacity(e) >= scaling_capacity) {
 							Flow residualCapacity = hg.residualCapacity(e) + hg.absoluteFlowReceived(inc_u);
 							if (pins_to_scan.isInvalid()) {		//start new hyperedge
 								pins_to_scan = PinIndexRange();		//empty
 								if (!h.areAllPinsSourceReachable(e)) {
-									if (residualCapacity >= scaling.capacity && (!hg.isSaturated(e) || hg.flowReceived(inc_u) > 0)) {
+									if (residualCapacity >= scaling_capacity && (!hg.isSaturated(e) || hg.flowReceived(inc_u) > 0)) {
 										h.reachAllPins(e);
 										pins_to_scan = hg.pinIndices(e);
 									}
@@ -494,7 +510,7 @@ namespace whfc {
 							
 							for ( ; v == invalidNode && !pins_to_scan.empty(); pins_to_scan.advance_begin()) {
 								const Pin& pv = hg.getPin(pins_to_scan.begin());
-								if (residualCapacity + hg.absoluteFlowSent(pv) >= scaling.capacity && !n.isSourceReachable(pv.pin)) {
+								if (residualCapacity + hg.absoluteFlowSent(pv) >= scaling_capacity && !n.isSourceReachable(pv.pin)) {
 									v = pv.pin;
 									inc_v_it = pv.he_inc_iter;
 								}
