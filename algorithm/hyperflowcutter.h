@@ -169,53 +169,60 @@ namespace whfc {
 				has_balanced_cut = cs.hasCut && cs.isBalanced(); //no cut ==> run and don't check for balance.
 			}
 			
-			if (find_most_balanced && has_balanced_cut && cs.flowValue <= upperFlowBound) {
-				timer.start("MBMC");
-				// Options:
-				// 1) save the state every time we would flip the search direction.
-				// starting with the first time flipping, this would probably just alternate. so that's expensive
-				//
-				// 2) save before the first flip and again at the end.
-				// 3) make fully dynamic, i.e. store only deltas and then roll back. this is quite nasty
-				
-				//This implements option 2) from above. not so pretty.
-				
-				auto saved_state = cs.saveState();
-				std::vector<typename CutterState<FlowAlgorithm>::SolutionState> solutions;
-				size_t restore_to = 0;
-				NodeWeight bwd_at_first_partition = saveStateOutputPartitionRestore(solutions);
-				
-				if (bwd_at_first_partition > 0) {
-					bool changed = false;
-					int dir = cs.currentViewDirection();
-					while (cs.currentViewDirection() == dir && advanceOneFlowIteration(true /* reject piercing if it creates an augmenting path */))
-						changed = true;
-					
-					if (changed && cs.isBalanced()) {
-						NodeWeight bwd_at_first_flip = saveStateOutputPartitionRestore(solutions);
-						if (bwd_at_first_flip < bwd_at_first_partition)
-							restore_to = 1;
-						
-						changed = false;
-						while (advanceOneFlowIteration(true))
-							changed = true;
-						
-						if (changed && cs.isBalanced()) {
-							NodeWeight end_bwd = saveStateOutputPartitionRestore(solutions);	//one state save too many. probably not problematic
-							if (end_bwd < std::min(bwd_at_first_partition, bwd_at_first_flip))
-								restore_to = 2;
-						}
-					}
-				}
-				cs.restoreState(solutions[restore_to]);
-				timer.stop("MBMC");
+			if (has_balanced_cut && cs.flowValue <= upperFlowBound) {
+				if (find_most_balanced)
+					mostBalancedMinimumCut();
+				else
+					cs.outputMostBalancedPartition();
 			}
 			
 			Assert(!cs.hasCut || cs.isBalanced() || cs.flowValue > upperFlowBound);
 			return !piercingFailedOrFlowBoundReachedWithNonAAPPiercingNode && cs.flowValue <= upperFlowBound && has_balanced_cut;
 		}
 		
-		NodeWeight saveStateOutputPartitionRestore(std::vector<typename CutterState<FlowAlgorithm>::SolutionState>& solutions) {
+		void mostBalancedMinimumCut() {
+			timer.start("MBMC");
+			// Options:
+			// 1) save the state every time we would flip the search direction.
+			// starting with the first time flipping, this would probably just alternate. so that's expensive
+			//
+			// 2) save before the first flip and again at the end.
+			// 3) make fully dynamic, i.e. store only deltas and then roll back. this is quite nasty
+			
+			//This implements option 2) from above. not so pretty.
+			
+			auto saved_state = cs.saveState();
+			std::vector<typename CutterState<FlowAlgorithm>::SolutionState> solutions;
+			size_t restore_to = 0;
+			NodeWeight bwd_at_first_partition = saveState_OutputPartition_Restore(solutions);
+			
+			if (bwd_at_first_partition > 0) {
+				bool changed = false;
+				int dir = cs.currentViewDirection();
+				while (cs.currentViewDirection() == dir && advanceOneFlowIteration(true /* reject piercing if it creates an augmenting path */))
+					changed = true;
+				
+				if (changed && cs.isBalanced()) {
+					NodeWeight bwd_at_first_flip = saveState_OutputPartition_Restore(solutions);
+					if (bwd_at_first_flip < bwd_at_first_partition)
+						restore_to = 1;
+					
+					changed = false;
+					while (advanceOneFlowIteration(true))
+						changed = true;
+					
+					if (changed && cs.isBalanced()) {
+						NodeWeight end_bwd = saveState_OutputPartition_Restore(solutions);    //one state save too many. probably not problematic
+						if (end_bwd < std::min(bwd_at_first_partition, bwd_at_first_flip))
+							restore_to = 2;
+					}
+				}
+			}
+			cs.restoreState(solutions[restore_to]);
+			timer.stop("MBMC");
+		}
+		
+		NodeWeight saveState_OutputPartition_Restore(std::vector<typename CutterState<FlowAlgorithm>::SolutionState>& solutions) {
 			auto saved = cs.saveState();
 			NodeWeight bwd = cs.outputMostBalancedPartition();
 			solutions.emplace_back(cs.saveState());
