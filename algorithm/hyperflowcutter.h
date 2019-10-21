@@ -17,8 +17,9 @@ namespace whfc {
 		FlowAlgorithm flow_algo;	// = SearchAlgorithm
 		Flow upperFlowBound;
 		Piercer piercer;
+		bool find_most_balanced = true;
 
-		static constexpr bool log = true;
+		static constexpr bool log = false;
 		HyperFlowCutter(FlowHypergraph& hg, NodeWeight maxBlockWeight) : timer(algo_name), hg(hg), cs(hg, maxBlockWeight, timer), flow_algo(hg), upperFlowBound(maxFlow), piercer(hg)
 		{
 		
@@ -64,13 +65,13 @@ namespace whfc {
 			cs.hasCut = false;
 		}
 		
-		bool pierce() {
+		bool pierce(bool reject_piercing_if_it_creates_an_augmenting_path = false) {
 			timer.start("Piercing");
 			Node piercingNode = selectPiercingNode();
 			timer.stop("Piercing");
 			if (piercingNode == invalidNode)
 				return false;
-			if (cs.flowValue == upperFlowBound && cs.n.isTargetReachable(piercingNode))
+			if (reject_piercing_if_it_creates_an_augmenting_path && cs.n.isTargetReachable(piercingNode))
 				return false;
 			setPiercingNode(piercingNode);
 			LOGGER << "Piercing" << V(piercingNode) << V(cs.augmentingPathAvailableFromPiercing);
@@ -111,10 +112,10 @@ namespace whfc {
 		}
 
 		//for flow-based interleaving
-		bool advanceOneFlowIteration() {
+		bool advanceOneFlowIteration(bool reject_piercing_if_it_creates_an_augmenting_path = false) {
 			const bool pierceInThisIteration = cs.hasCut;
 			if (pierceInThisIteration)
-				if (!pierce())
+				if (!pierce(reject_piercing_if_it_creates_an_augmenting_path))
 					return false;
 			
 			timer.start("Flow");
@@ -159,7 +160,6 @@ namespace whfc {
 		}
 
 		bool runUntilBalancedOrFlowBoundExceeded(const Node s, const Node t) {
-			//TODO add most balanced minimum cut, once is_balanced becomes true
 			cs.initialize(s,t);
 			bool piercingFailedOrFlowBoundReachedWithNonAAPPiercingNode = false;
 			bool has_balanced_cut = false;
@@ -169,6 +169,33 @@ namespace whfc {
 				if (piercingFailedOrFlowBoundReachedWithNonAAPPiercingNode)
 					break;
 				has_balanced_cut = cs.hasCut && cs.isBalanced(); //no cut ==> run and don't check for balance.
+			}
+			
+			static constexpr bool log = true;
+			
+			if (find_most_balanced && has_balanced_cut && cs.flowValue <= upperFlowBound) {
+				auto saved_state = cs.saveState();
+				NodeWeight bwd = cs.outputMostBalancedPartition();
+				LOGGER << "find most balanced and has balanced cut." << V(cs.flowValue) << V(upperFlowBound) << V(bwd);
+				if (bwd > 0) {	//TODO replace by a more suitable choice
+					auto saved_first_partition = cs.saveState();
+					cs.restoreState(saved_state);
+					cs.partitionWrittenToNodeSet = false;
+					
+					bool changed = false;
+					while (advanceOneFlowIteration(true /* reject piercing if it creates an augmenting path */))
+						changed = true;
+					
+					LOGGER << V(changed);
+					if (!changed || !cs.isBalanced() || cs.outputMostBalancedPartition() > bwd) {
+						cs.restoreState(saved_first_partition);
+						cs.partitionWrittenToNodeSet = true;
+						LOGGER << "restore first partition";
+					}
+					else {
+						LOGGER << "mbmc worked";
+					}
+				}
 			}
 			
 			Assert(!cs.hasCut || cs.isBalanced() || cs.flowValue > upperFlowBound);

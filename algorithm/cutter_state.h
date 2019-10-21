@@ -229,9 +229,8 @@ namespace whfc {
 
 		/*
 		 * Settles all nodes to their respective sides in the output partition
-		 * maybe a different interface is better?
 		 */
-		void outputMostBalancedPartition() {
+		NodeWeight outputMostBalancedPartition() {
 			timer.start("Output Balanced Partition");
 			AssertMsg(isolatedNodes.isDPTableUpToDate(), "DP Table not up to date");
 			AssertMsg(isBalanced(), "Not balanced yet");
@@ -342,6 +341,18 @@ namespace whfc {
 			Assert(n.sourceSize + n.targetSize == hg.numNodes() && n.sourceWeight + n.targetWeight == hg.totalNodeWeight());
 			partitionWrittenToNodeSet = true;
 			timer.stop("Output Balanced Partition");
+			
+			return blockWeightDiff;
+		}
+		
+		std::pair<int, ReachableNodes> saveState() {
+			return std::make_pair(currentViewDirection(), n);
+		};
+		
+		void restoreState(std::pair<int, ReachableNodes>& state) {
+			if (currentViewDirection() != state.first)
+				flipViewDirection();
+			n = std::move(state.second);
 		}
 		
 		std::string toString() {

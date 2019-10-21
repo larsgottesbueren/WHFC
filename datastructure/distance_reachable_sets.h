@@ -27,6 +27,8 @@ namespace whfc {
 		DistanceReachableNodes(const FlowHypergraph& hg) : Base(hg), distance(hg.numNodes(), unreachableDistance), s(sourceSettledDistance), t(targetSettledDistance) {
 			Assert(4 + hg.numNodes() * 2 < std::numeric_limits<DistanceT>::max());
 		}
+
+		DistanceReachableNodes& operator=(DistanceReachableNodes&& o) = default;
 		
 		inline size_t capacity() const { return distance.size(); }
 		
@@ -118,19 +120,21 @@ namespace whfc {
 			// subset by default
 		}
 		
-		std::vector<DistanceT> distance;
-		
 		DistanceT sourceBaseDistance() const {
 			return s.base;
 		}
 		
-		inline bool isBaseDistanceSafe() const { return hg.numNodes() + static_cast<size_t>(runningDistance) < static_cast<size_t>(std::numeric_limits<DistanceT>::max()) ; }
+		inline bool isBaseDistanceSafe() const {
+			return hg.numNodes() + static_cast<size_t>(runningDistance) < static_cast<size_t>(std::numeric_limits<DistanceT>::max());
+		}
+		
+		std::vector<DistanceT> distance;
+		
 		static constexpr DistanceT unreachableDistance = 0;
 		DistanceT sourceSettledDistance = 1, targetSettledDistance = 2;
 		static constexpr DistanceT resetBaseDistance = 3;
 		DistanceT runningDistance = resetBaseDistance;
 		DistanceRange s, t;
-		
 	};
 
 	class DistanceReachableHyperedges {
