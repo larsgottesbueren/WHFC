@@ -28,8 +28,6 @@ namespace whfc {
 			Assert(4 + hg.numNodes() * 2 < std::numeric_limits<DistanceT>::max());
 		}
 
-		DistanceReachableNodes& operator=(DistanceReachableNodes&& o) = default;
-		
 		inline size_t capacity() const { return distance.size(); }
 		
 		inline bool isSource(const Node u) const { return distance[u] == sourceSettledDistance; }

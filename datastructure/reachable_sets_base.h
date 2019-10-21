@@ -7,40 +7,54 @@ namespace whfc {
 	class ReachableNodesBase {
 	public:
 		explicit ReachableNodesBase(const FlowHypergraph& _hg) : hg(_hg) { }
+		
+		// boilerplaty stuff because of the const ref flow_hg. which we don't want to ever change.
+		
+		ReachableNodesBase(const ReachableNodesBase& o) : hg(o.hg) {
+			copy_const_ref(o);
+		}
+		
+		ReachableNodesBase& operator=(ReachableNodesBase&& o) {
+			copy_const_ref(o);	//this cast works surprisingly.
+			return *this;
+		}
+		
+		ReachableNodesBase& operator=(const ReachableNodesBase& o) {
+			copy_const_ref(o);
+			return *this;
+		}
+
 		inline void reach(const Node u) {
-			sourceReachableWeight += hg.nodeWeight(u); sourceReachableSize++;
+			sourceReachableWeight += hg.nodeWeight(u);
 		}
 
 		inline void unreachSource(const Node u) {
-			sourceReachableWeight -= hg.nodeWeight(u); sourceReachableSize--;
+			sourceReachableWeight -= hg.nodeWeight(u);
 		}
 
 		inline void unreachTarget(const Node u) {
-			targetReachableWeight -= hg.nodeWeight(u); targetReachableSize--;
+			targetReachableWeight -= hg.nodeWeight(u);
 		}
 
 		inline void settle(const Node u) {
-			sourceWeight += hg.nodeWeight(u); sourceSize++;
+			sourceWeight += hg.nodeWeight(u);
 		}
 		
 		inline void reachTarget(const Node u) {
-			targetReachableWeight += hg.nodeWeight(u); targetReachableSize++;
+			targetReachableWeight += hg.nodeWeight(u);
 		}
 		
 		inline void settleTarget(const Node u) {
-			targetWeight += hg.nodeWeight(u); targetSize++;
+			targetWeight += hg.nodeWeight(u);
 		}
 
 		void resetSourceReachableToSource() {
 			sourceReachableWeight = sourceWeight;
-			sourceReachableSize = sourceSize;
 		}
 
 		void flipViewDirection() {
 			std::swap(sourceReachableWeight, targetReachableWeight);
 			std::swap(sourceWeight, targetWeight);
-			std::swap(sourceReachableSize, targetReachableSize);
-			std::swap(sourceSize, targetSize);
 		}
 		
 		void fullReset() {
@@ -48,27 +62,19 @@ namespace whfc {
 			sourceWeight = NodeWeight(0);
 			targetReachableWeight = NodeWeight(0);
 			targetWeight = NodeWeight(0);
-			
-			sourceReachableSize = NodeIndex(0);
-			sourceSize = NodeIndex(0);
-			targetReachableSize = NodeIndex(0);
-			targetSize = NodeIndex(0);
 		}
 
 		NodeWeight sourceReachableWeight = NodeWeight(0), sourceWeight = NodeWeight(0), targetReachableWeight = NodeWeight(0), targetWeight = NodeWeight(0);
 		
-		//TODO assess whether we need these
-		NodeIndex sourceReachableSize = NodeIndex(0), sourceSize = NodeIndex(0), targetReachableSize = NodeIndex(0), targetSize = NodeIndex(0);
-
 	protected:
 		const FlowHypergraph& hg;
+		
+		void copy_const_ref(const ReachableNodesBase& o) {
+			sourceReachableWeight = o.sourceReachableWeight;
+			targetReachableWeight = o.targetReachableWeight;
+			sourceWeight = o.sourceWeight;
+			targetWeight = o.targetWeight;
+		}
 
 	};
-
-
-	//ReachableHyperedgesInterface
-	//bool allPinsReachable(const Hyperedge e)
-	//bool flowSendingPinsReachable(const Hyperedge e)
-	//bool reachAllPins(const Hyperedge e)
-	//bool reachFlowSendingPins(const Hyperedge e)
 }

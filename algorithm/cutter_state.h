@@ -246,6 +246,7 @@ namespace whfc {
 					suw = sw + uw,
 					tuw = tw + uw;
 
+			
 			bool assignUnclaimedToSource = true;
 			bool assignTrackedIsolatedWeightToSource = true;
 			NodeWeight trackedIsolatedWeight = NodeWeight::Invalid();
@@ -253,10 +254,11 @@ namespace whfc {
 			NodeWeight blockWeightDiff = NodeWeight::Invalid();
 
 			for (const IsolatedNodes::SummableRange& sr : isolatedNodes.getSumRanges()) {
-
+				
 				{
 					auto a = isolatedWeightAssignmentToFirst(suw, tw, sr);
 					if (a.second < blockWeightDiff) {
+						blockWeightDiff = a.second;
 						assignUnclaimedToSource = true;
 						assignTrackedIsolatedWeightToSource = true;
 						trackedIsolatedWeight = a.first;
@@ -266,6 +268,7 @@ namespace whfc {
 				{
 					auto b = isolatedWeightAssignmentToFirst(tw, suw, sr);
 					if (b.second < blockWeightDiff) {
+						blockWeightDiff = b.second;
 						assignUnclaimedToSource = true;
 						assignTrackedIsolatedWeightToSource = false;
 						trackedIsolatedWeight = b.first;
@@ -275,6 +278,7 @@ namespace whfc {
 				{
 					auto c = isolatedWeightAssignmentToFirst(sw, tuw, sr);
 					if (c.second < blockWeightDiff) {
+						blockWeightDiff = c.second;
 						assignUnclaimedToSource = false;
 						assignTrackedIsolatedWeightToSource = true;
 						trackedIsolatedWeight = c.first;
@@ -284,6 +288,7 @@ namespace whfc {
 				{
 					auto d = isolatedWeightAssignmentToFirst(tuw, sw, sr);
 					if (d.second < blockWeightDiff) {
+						blockWeightDiff = d.second;
 						assignUnclaimedToSource = false;
 						assignTrackedIsolatedWeightToSource = false;
 						trackedIsolatedWeight = d.first;
@@ -291,7 +296,7 @@ namespace whfc {
 				}
 
 			}
-
+			
 #ifndef NDEBUG
 			const NodeWeight iso = isolatedNodes.weight;
 			NodeWeight s = (assignUnclaimedToSource ? sw : suw) + (assignTrackedIsolatedWeightToSource ? trackedIsolatedWeight : iso - trackedIsolatedWeight);
@@ -330,10 +335,10 @@ namespace whfc {
 				
 				if (isIsolated(u)) {
 					if (assignTrackedIsolatedWeightToSource) {
-						n.reachTarget(u); n.settleTarget(u);
+						n.reach(u); n.settle(u);
 					}
 					else {
-						n.reach(u); n.settle(u);
+						n.reachTarget(u); n.settleTarget(u);
 					}
 				}
 			}
@@ -345,14 +350,19 @@ namespace whfc {
 			return blockWeightDiff;
 		}
 		
-		std::pair<int, ReachableNodes> saveState() {
-			return std::make_pair(currentViewDirection(), n);
+		struct SolutionState {
+			int direction;
+			ReachableNodes reachableNodes;
 		};
 		
-		void restoreState(std::pair<int, ReachableNodes>& state) {
-			if (currentViewDirection() != state.first)
+		SolutionState saveState() {
+			return SolutionState { currentViewDirection(), n };
+		};
+		
+		void restoreState(SolutionState& state) {
+			if (currentViewDirection() != state.direction)
 				flipViewDirection();
-			n = std::move(state.second);
+			n = std::move(state.reachableNodes);
 		}
 		
 		std::string toString() {

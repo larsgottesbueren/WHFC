@@ -17,9 +17,9 @@ namespace whfc {
 		FlowAlgorithm flow_algo;	// = SearchAlgorithm
 		Flow upperFlowBound;
 		Piercer piercer;
-		bool find_most_balanced = true;
+		bool find_most_balanced = false;
 
-		static constexpr bool log = false;
+		static constexpr bool log = true;
 		HyperFlowCutter(FlowHypergraph& hg, NodeWeight maxBlockWeight) : timer(algo_name), hg(hg), cs(hg, maxBlockWeight, timer), flow_algo(hg), upperFlowBound(maxFlow), piercer(hg)
 		{
 		
@@ -50,7 +50,6 @@ namespace whfc {
 			
 			Node piercingNode = piercer.findPiercingNode(cs, cs.borderNodes.sourceSideBorder, cs.maxBlockWeight);
 			if (piercingNode == invalidNode) {
-				LOGGER << "piercing fallback";
 				auto allNodes = hg.nodeIDs();
 				piercingNode = piercer.findPiercingNode(cs, allNodes, cs.maxBlockWeight);
 			}
@@ -74,7 +73,6 @@ namespace whfc {
 			if (reject_piercing_if_it_creates_an_augmenting_path && cs.n.isTargetReachable(piercingNode))
 				return false;
 			setPiercingNode(piercingNode);
-			LOGGER << "Piercing" << V(piercingNode) << V(cs.augmentingPathAvailableFromPiercing);
 			return true;
 		}
 		
@@ -171,35 +169,59 @@ namespace whfc {
 				has_balanced_cut = cs.hasCut && cs.isBalanced(); //no cut ==> run and don't check for balance.
 			}
 			
-			static constexpr bool log = true;
-			
 			if (find_most_balanced && has_balanced_cut && cs.flowValue <= upperFlowBound) {
+				timer.start("MBMC");
+				// Options:
+				// 1) save the state every time we would flip the search direction.
+				// starting with the first time flipping, this would probably just alternate. so that's expensive
+				//
+				// 2) save before the first flip and again at the end.
+				// 3) make fully dynamic, i.e. store only deltas and then roll back. this is quite nasty
+				
+				//This implements option 2) from above. not so pretty.
+				
 				auto saved_state = cs.saveState();
-				NodeWeight bwd = cs.outputMostBalancedPartition();
-				LOGGER << "find most balanced and has balanced cut." << V(cs.flowValue) << V(upperFlowBound) << V(bwd);
-				if (bwd > 0) {	//TODO replace by a more suitable choice
-					auto saved_first_partition = cs.saveState();
-					cs.restoreState(saved_state);
-					cs.partitionWrittenToNodeSet = false;
-					
+				std::vector<typename CutterState<FlowAlgorithm>::SolutionState> solutions;
+				size_t restore_to = 0;
+				NodeWeight bwd_at_first_partition = saveStateOutputPartitionRestore(solutions);
+				
+				if (bwd_at_first_partition > 0) {
 					bool changed = false;
-					while (advanceOneFlowIteration(true /* reject piercing if it creates an augmenting path */))
+					int dir = cs.currentViewDirection();
+					while (cs.currentViewDirection() == dir && advanceOneFlowIteration(true /* reject piercing if it creates an augmenting path */))
 						changed = true;
 					
-					LOGGER << V(changed);
-					if (!changed || !cs.isBalanced() || cs.outputMostBalancedPartition() > bwd) {
-						cs.restoreState(saved_first_partition);
-						cs.partitionWrittenToNodeSet = true;
-						LOGGER << "restore first partition";
-					}
-					else {
-						LOGGER << "mbmc worked";
+					if (changed && cs.isBalanced()) {
+						NodeWeight bwd_at_first_flip = saveStateOutputPartitionRestore(solutions);
+						if (bwd_at_first_flip < bwd_at_first_partition)
+							restore_to = 1;
+						
+						changed = false;
+						while (advanceOneFlowIteration(true))
+							changed = true;
+						
+						if (changed && cs.isBalanced()) {
+							NodeWeight end_bwd = saveStateOutputPartitionRestore(solutions);	//one state save too many. probably not problematic
+							if (end_bwd < std::min(bwd_at_first_partition, bwd_at_first_flip))
+								restore_to = 2;
+						}
 					}
 				}
+				cs.restoreState(solutions[restore_to]);
+				timer.stop("MBMC");
 			}
 			
 			Assert(!cs.hasCut || cs.isBalanced() || cs.flowValue > upperFlowBound);
-			return !piercingFailedOrFlowBoundReachedWithNonAAPPiercingNode && cs.flowValue <= upperFlowBound && cs.hasCut && has_balanced_cut;
+			return !piercingFailedOrFlowBoundReachedWithNonAAPPiercingNode && cs.flowValue <= upperFlowBound && has_balanced_cut;
+		}
+		
+		NodeWeight saveStateOutputPartitionRestore(std::vector<typename CutterState<FlowAlgorithm>::SolutionState>& solutions) {
+			auto saved = cs.saveState();
+			NodeWeight bwd = cs.outputMostBalancedPartition();
+			solutions.emplace_back(cs.saveState());
+			cs.restoreState(saved);
+			cs.partitionWrittenToNodeSet = false;
+			return bwd;
 		}
 		
 		void findCutsUntilBalancedOrFlowBoundExceeded(const Node s, const Node t) {
