@@ -229,7 +229,7 @@ namespace whfc {
 					}
 					else {
 						if (n.isTarget(v))
-							f += augmentFromTarget(cs, inc_v_it);
+							f += augmentFromTarget(inc_v_it);
 						else
 							stack.push( { v, inc_v_it } );
 					}
@@ -242,7 +242,7 @@ namespace whfc {
 		
 		
 		
-		Flow augmentFromTarget(CutterState<Type>& cs, InHeIndex inc_target_it) {
+		Flow augmentFromTarget(InHeIndex inc_target_it) {
 			Flow bottleneckCapacity = maxFlow;
 			int64_t lowest_bottleneck = std::numeric_limits<int64_t>::max();
 			InHeIndex inc_v_it = inc_target_it;
@@ -506,7 +506,7 @@ namespace whfc {
 					}
 					else {
 						if (n.isTarget(v))
-							f += augmentFromTarget(cs, inc_v_it);
+							f += augmentFromTarget(inc_v_it);
 						else
 							stack.push( { v, inc_v_it } );
 					}
@@ -517,7 +517,7 @@ namespace whfc {
 			return f;
 		}
 		
-		Flow augmentFromTarget(CutterState<Type>& cs, InHeIndex inc_target_it) {
+		Flow augmentFromTarget(InHeIndex inc_target_it) {
 			Flow bottleneckCapacity = maxFlow;
 			int64_t lowest_bottleneck = std::numeric_limits<int64_t>::max();
 			InHeIndex inc_v_it = inc_target_it;

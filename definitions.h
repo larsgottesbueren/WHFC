@@ -43,8 +43,7 @@ namespace whfc {
 	static_assert(sizeof(PinIndex) == sizeof(uint32_t));
 	static_assert(sizeof(HyperedgeIncidenceIndex) == sizeof(uint32_t));
 	
-	using HopDistance = int32_t;	//TODO make HopDistance unsigned again for use in distance_reachable_sets. For piercing we need signed. Use different name for that
-	static constexpr HopDistance maxHopDistance = std::numeric_limits<HopDistance>::max();
+	using HopDistance = int32_t;
 
 	using Index = uint32_t;
 	static constexpr Index invalidIndex = std::numeric_limits<uint32_t>::max();

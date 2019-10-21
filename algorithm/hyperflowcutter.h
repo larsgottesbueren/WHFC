@@ -47,11 +47,11 @@ namespace whfc {
 			cs.cleanUpBorder();
 			cs.verifyCutPostConditions();
 			
-			Node piercingNode = piercer.findPiercingNode(cs.n, cs.borderNodes.sourceSideBorder, cs.maxBlockWeight);
+			Node piercingNode = piercer.findPiercingNode(cs, cs.borderNodes.sourceSideBorder, cs.maxBlockWeight);
 			if (piercingNode == invalidNode) {
 				LOGGER << "piercing fallback";
 				auto allNodes = hg.nodeIDs();
-				piercingNode = piercer.findPiercingNode(cs.n, allNodes, cs.maxBlockWeight);
+				piercingNode = piercer.findPiercingNode(cs, allNodes, cs.maxBlockWeight);
 			}
 			return piercingNode;
 		}

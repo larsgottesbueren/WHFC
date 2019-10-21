@@ -24,24 +24,16 @@ namespace whfc {
 			multiplier = -1;
 		}
 		
-		template<class ReachableNodes, class NodeRange>
-		const Node findPiercingNode(ReachableNodes& n, NodeRange& candidates, const NodeWeight maxBlockWeight) {
+		template<class CutterState, class NodeRange>
+		const Node findPiercingNode(CutterState& cs, NodeRange& candidates, const NodeWeight maxBlockWeight) {
 			Score maxScore;
-			HopDistance minD = std::numeric_limits<HopDistance>::max(), maxD = std::numeric_limits<HopDistance>::min();
 			for (const Node u : candidates) {
-				if (n.sourceWeight + hg.nodeWeight(u) <= maxBlockWeight) {
-					const Score score_u(!n.isTargetReachable(u), getHopDistanceFromCut(u), Random::randomNumber(), u);
+				if (cs.canBeSettled(u) && cs.n.sourceWeight + hg.nodeWeight(u) <= maxBlockWeight) {		//the check is necessary for the fallback
+					const Score score_u(!cs.n.isTargetReachable(u), getHopDistanceFromCut(u), Random::randomNumber(), u);
 					if (maxScore < score_u)
 						maxScore = score_u;
 				}
-				
-				maxD = std::max(maxD, distanceFromCut[u]);
-				minD = std::min(minD, distanceFromCut[u]);
-				
 			}
-			
-			
-			LOGGER << "piercing" << V(multiplier) << V(maxD) << V(minD) << V(distanceFromCut[maxScore.candidate]) << V(!n.isTargetReachable(maxScore.candidate));
 			return maxScore.candidate;
 		}
 		
@@ -49,7 +41,8 @@ namespace whfc {
 
 		struct Score {
 			bool avoidsAugmentingPaths = false;
-			Util::InvertComparison<HopDistance> hopDistance = Util::InvertComparison<HopDistance>(maxHopDistance);
+			/* Util::InvertComparison<HopDistance> hopDistance = Util::InvertComparison<HopDistance>(maxHopDistance); */
+			HopDistance hopDistance = std::numeric_limits<HopDistance>::min();
 			uint32_t randomScore = 0;
 			Node candidate = invalidNode;
 

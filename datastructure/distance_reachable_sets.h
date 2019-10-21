@@ -215,6 +215,7 @@ namespace whfc {
 		}
 		
 		void compareDistances(DistanceReachableNodes& n) {
+			unused(n);
 			Assert(n.sourceSettledDistance == sourceSettledDistance);//same direction?
 			Assert(n.runningDistance == runningDistance);
 			Assert(n.s == s);
