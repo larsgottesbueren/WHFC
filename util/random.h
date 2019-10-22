@@ -20,30 +20,42 @@ namespace whfc {
 		}
 
 		static bool coinToss() {
-			return static_cast<bool>(instance()._bool_dist(instance()._gen));
+			return static_cast<bool>(instance().bool_dist(instance().gen));
 		}
 
 		static uint32_t randomNumber() {
-			return instance().uint_distribution(instance()._gen);
+			return instance().uint_dist(instance().gen);
 		}
 
+		static uint32_t randomNumber(const uint32_t a, const uint32_t b) {
+			return instance().uint_dist(instance().gen, std::uniform_int_distribution<uint32_t>::param_type(a,b));
+		}
+		
+		template<class T>
+		static T selectRandomElement(std::vector<T>& range) {
+			if (range.empty())
+				return T::Invalid();
+			uint32_t index = randomNumber(0, range.size() - 1);
+			return range[index];
+		}
+		
 		static void setSeed(int seed) {
-			instance()._gen.seed(seed);
+			instance().gen.seed(seed);
 		}
 
 		std::mt19937& getGenerator() {
-			return _gen;
+			return gen;
 		}
 
 	protected:
 		Random() :
-				_gen(),
-				_bool_dist(0, 1),
-				uint_distribution(0, std::numeric_limits<uint32_t>::max())
+				gen(),
+				bool_dist(0, 1),
+				uint_dist(0, std::numeric_limits<uint32_t>::max())
 		{ }
 
-		std::mt19937 _gen;
-		std::uniform_int_distribution<int> _bool_dist;
-		std::uniform_int_distribution<uint32_t> uint_distribution;
+		std::mt19937 gen;
+		std::uniform_int_distribution<int> bool_dist;
+		std::uniform_int_distribution<uint32_t> uint_dist;
 	};
 }

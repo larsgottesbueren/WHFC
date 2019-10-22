@@ -25,7 +25,8 @@ namespace whfc {
 		if (s >= hg.numNodes() || t >= hg.numNodes())
 			throw std::runtime_error("s or t not within node id range");
 		
-		HyperFlowCutter<FlowAlgorithm> hfc(hg, mbw);
+		int seed = 42;
+		HyperFlowCutter<FlowAlgorithm> hfc(hg, mbw, seed);
 		hfc.upperFlowBound = info.upperFlowBound;
 		
 		hfc.timer.start();
@@ -42,7 +43,6 @@ namespace whfc {
 }
 
 int main(int argc, const char* argv[]) {
-	whfc::Random::setSeed(42);
 	if (argc < 2 || argc > 3)
 		throw std::runtime_error("Usage: ./WHFC hypergraphfile interleaving-style (flowbased or cutbased)");
 	std::string hgfile = argv[1];

@@ -3,13 +3,14 @@
 #include "../definitions.h"
 #include "../util/random.h"
 #include "../util/comparison.h"
-#include "../datastructure/flow_hypergraph.h"
-#include "../datastructure/border.h"
+#include "cutter_state.h"
 
 namespace whfc {
+	
+	template<class FlowAlgorithm>
 	class Piercer {
 	public:
-		explicit Piercer(FlowHypergraph& _hg) : hg(_hg), distanceFromCut(hg.numNodes(), 0) { }
+		explicit Piercer(FlowHypergraph& hg, CutterState<FlowAlgorithm>& cs) : hg(hg), cs(cs), distanceFromCut(hg.numNodes(), 0) { }
 
 		bool useDistancesFromCut = false;
 		int multiplier = -1;
@@ -24,24 +25,32 @@ namespace whfc {
 			multiplier = -1;
 		}
 		
-		template<class CutterState, class NodeRange>
-		const Node findPiercingNode(CutterState& cs, NodeRange& candidates, const NodeWeight maxBlockWeight) {
-			Score maxScore;
-			for (const Node u : candidates) {
-				if (cs.canBeSettled(u) && cs.n.sourceWeight + hg.nodeWeight(u) <= maxBlockWeight) {		//the check is necessary for the fallback
-					const Score score_u(!cs.n.isTargetReachable(u), getHopDistanceFromCut(u), Random::randomNumber(), u);
-					if (maxScore < score_u)
-						maxScore = score_u;
-				}
+		const Node findPiercingNode() {
+			if (cs.notSettledNodeWeight() == 0)
+				return invalidNode;
+			
+			Assert(cs.n.sourceWeight == cs.n.sourceReachableWeight);
+			Assert(cs.n.sourceReachableWeight <= cs.n.targetReachableWeight);
+			cs.cleanUpCut();
+			cs.verifyCutPostConditions();
+			
+			if (!cs.mostBalancedMinimumCutMode) {
+				cs.cleanUpBorder();
+				Score first_try = checkAllCandidates(cs.borderNodes.sourceSideBorder);
+				if (first_try.candidate != invalidNode)
+					return first_try.candidate;
+				auto allNodes = hg.nodeIDs();
+				Score second_try = checkAllCandidates(allNodes);
+				return second_try.candidate;
 			}
-			return maxScore.candidate;
+			else {
+				return selectRandomAAPNodeAndRemoveNonAAPNodes();
+			}
 		}
 		
 	private:
-
 		struct Score {
 			bool avoidsAugmentingPaths = false;
-			/* Util::InvertComparison<HopDistance> hopDistance = Util::InvertComparison<HopDistance>(maxHopDistance); */
 			HopDistance hopDistance = std::numeric_limits<HopDistance>::min();
 			uint32_t randomScore = 0;
 			Node candidate = invalidNode;
@@ -61,11 +70,40 @@ namespace whfc {
 		};
 
 		HopDistance getHopDistanceFromCut(const Node x) {
-												//distances of vertices on opposite side are negative --> throw away
-			return useDistancesFromCut ? std::max(multiplier * distanceFromCut[x], 0) : 0;
+			return useDistancesFromCut ? std::max(multiplier * distanceFromCut[x], 0) : 0; // distances of vertices on opposite side are negative --> throw away
+		}
+		
+		Node selectRandomAAPNodeAndRemoveNonAAPNodes() {
+			std::vector<Node>& b = cs.borderNodes.sourceSideBorder;
+			while (!b.empty()) {
+				uint32_t index = Random::randomNumber(0, b.size() - 1);
+				const Node u = b[index];
+				
+				// remove u
+				b[index] = b.back();
+				b.pop_back();
+				
+				if (!cs.canBeSettled(u) && !cs.n.isTargetReachable(u))
+					return u;
+			}
+			return invalidNode;
+		}
+		
+		template<class NodeRange>
+		Score checkAllCandidates(NodeRange& candidates) {
+			Score maxScore;
+			for (const Node u : candidates) {
+				if (cs.canBeSettled(u) && cs.n.sourceWeight + hg.nodeWeight(u) <= cs.maxBlockWeight) {		//the canBeSettled(u) check is necessary for the fallback
+					const Score score_u(!cs.n.isTargetReachable(u), getHopDistanceFromCut(u), Random::randomNumber(), u);
+					if (maxScore < score_u)
+						maxScore = score_u;
+				}
+			}
+			return maxScore;
 		}
 
 		FlowHypergraph& hg;
+		CutterState<FlowAlgorithm>& cs;
 		
 	public:
 		//negative entries for original source-side, positive entries for original target-side. start counting at -1/1

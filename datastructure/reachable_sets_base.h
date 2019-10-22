@@ -8,7 +8,7 @@ namespace whfc {
 	public:
 		explicit ReachableNodesBase(const FlowHypergraph& _hg) : hg(_hg) { }
 		
-		// boilerplaty stuff because of the const ref flow_hg. which we don't want to ever change.
+		// boilerplatey constructor and assignment operator stuff because of the const ref flow_hg. which we don't want to ever change.
 		
 		ReachableNodesBase(const ReachableNodesBase& o) : hg(o.hg) {
 			copy_const_ref(o);

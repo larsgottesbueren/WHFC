@@ -57,10 +57,16 @@ namespace whfc {
 
 	using NodeBorder = Border<Node, true>;
 
+	//track hyperedges only for assertions in debug mode
+#ifndef NDEBUG
+	using HyperedgeCutBase = Border<Hyperedge, true>;
+#else
+	using HyperedgeCutBase = Border<Hyperedge, false>;
+#endif
 	
-	class HyperedgeCut : public Border<Hyperedge, true> {
+	class HyperedgeCut : public HyperedgeCutBase {
 	public:
-		using Base = Border<Hyperedge, true>;
+		using Base = HyperedgeCutBase;
 		explicit HyperedgeCut(const size_t nHyperedges) : Base(nHyperedges), hasSettledSourcePins(nHyperedges), hasSettledTargetPins(nHyperedges) { }
 		BitVector hasSettledSourcePins, hasSettledTargetPins;	//set in CutterState::settleNode //TODO check if hasSettledSourcePins == ReachableHyperedges::areFlowSendingPinsSources()
 
@@ -77,14 +83,6 @@ namespace whfc {
 			}
 			return w;
 		}
-		
-		//Note: we don't need this for the production version. just for checking assertions
-		//HyperedgeSet = FlowAlgorithm::ReachableHyperedges.
-		template<class HyperedgeSet>
-		void deleteNonCutHyperedges(const HyperedgeSet& h) {
-			cleanUp([&](const Hyperedge& e) { return h.areAllPinsSources(e); });
-		}
-
 
 		void flipViewDirection() {
 			Base::flipViewDirection();

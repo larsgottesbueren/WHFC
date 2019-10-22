@@ -39,6 +39,7 @@ namespace whfc {
 		
 		bool augmentingPathAvailableFromPiercing = true;
 		bool hasCut = false;
+		bool mostBalancedMinimumCutMode = false;
 		HyperedgeCut cut;
 		NodeBorder borderNodes;
 		NodeWeight maxBlockWeight;
@@ -138,6 +139,7 @@ namespace whfc {
 			sourcePiercingNodes.clear(); targetPiercingNodes.clear();
 			augmentingPathAvailableFromPiercing = true;
 			hasCut = false;
+			mostBalancedMinimumCutMode = false;
 			cut.reset(hg.numHyperedges());			//this requires that FlowHypergraph is reset before resetting the CutterState
 			borderNodes.reset(hg.numNodes());
 			isolatedNodes.reset();
@@ -155,11 +157,12 @@ namespace whfc {
 		}
 		
 		void cleanUpBorder() {
-			borderNodes.cleanUp([&](const Node& x) { return !canBeSettled(x); });
+			if (!mostBalancedMinimumCutMode)
+				borderNodes.cleanUp([&](const Node& x) { return !canBeSettled(x); });
 		}
 
 		void cleanUpCut() {
-			cut.deleteNonCutHyperedges(h);
+			cut.cleanUp([&](const Hyperedge& e) { return h.areAllPinsSources(e); });
 		}
 		
 		bool isBalanced() {
@@ -226,15 +229,20 @@ namespace whfc {
 			return balanced;
 		}
 
+		// TODO consolidate isBalanced() and mostBalancedIsolatedNodesAssignment(). they do the same thing with slightly different purposes
+		// still provide two functions that use the same core
+		// e.g. mostBalancedNodesAssignment with a bound on the node weight diff as parameter
+		// which is set to 0 when finding the best assignment and set to 2 * maxBlockWeight - hg.totalNodeWeight() when checking balance
+		// stops searching when a solution lies below that bound
 
 		/*
-		 * Settles all nodes to their respective sides in the output partition
+		 * Settles all nodes to their respective sides in the output partition if writePartition = true
+		 * returns the smallest possible block weight difference with the current reachable sets
 		 */
-		NodeWeight outputMostBalancedPartition() {
-			timer.start("Output Balanced Partition");
-			AssertMsg(isolatedNodes.isDPTableUpToDate(), "DP Table not up to date");
-			AssertMsg(isBalanced(), "Not balanced yet");
-			AssertMsg(!partitionWrittenToNodeSet, "Partition was already written");
+		NodeWeight mostBalancedIsolatedNodesAssignment(bool write_partition = true) {
+			timer.start("Assign Isolated Nodes");
+			
+			isolatedNodes.updateDPTable();
 			
 			if (currentViewDirection() != 0)
 				flipViewDirection();
@@ -306,6 +314,21 @@ namespace whfc {
 			AssertMsg(isolatedNodes.isSummable(trackedIsolatedWeight), "isolated weight is not summable");
 #endif
 			
+			if (write_partition) {
+				writePartition(trackedIsolatedWeight, assignTrackedIsolatedWeightToSource, assignUnclaimedToSource);
+			}
+			
+			timer.stop("Assign Isolated Nodes");
+			
+			return blockWeightDiff;
+		}
+		
+		
+		// takes the information from mostBalancedIsolatedNodesAssignment()
+		// can be an old run, since trackedIsolatedWeight
+		void writePartition(const NodeWeight trackedIsolatedWeight, const bool assignTrackedIsolatedWeightToSource, const bool assignUnclaimedToSource) {
+			AssertMsg(isBalanced(), "Not balanced yet");
+			AssertMsg(!partitionWrittenToNodeSet, "Partition was already written");
 			auto isoSubset = isolatedNodes.extractSubset(trackedIsolatedWeight);
 			for (const Node u : isoSubset) {
 				Assert(!n.isSourceReachable(u) && !n.isTargetReachable(u) && isIsolated(u));
@@ -343,11 +366,8 @@ namespace whfc {
 				}
 			}
 			
-			Assert(n.sourceSize + n.targetSize == hg.numNodes() && n.sourceWeight + n.targetWeight == hg.totalNodeWeight());
+			Assert(n.sourceWeight + n.targetWeight == hg.totalNodeWeight());
 			partitionWrittenToNodeSet = true;
-			timer.stop("Output Balanced Partition");
-			
-			return blockWeightDiff;
 		}
 		
 		struct SolutionState {

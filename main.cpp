@@ -18,7 +18,8 @@ namespace whfc {
 		if (s >= hg.numNodes() || t >= hg.numNodes())
 			throw std::runtime_error("s or t not within node id range");
 		
-		HyperFlowCutter<BasicEdmondsKarp> hfc(hg, mbw);
+		int seed = 42;
+		HyperFlowCutter<BasicEdmondsKarp> hfc(hg, mbw, seed);
 		
 		hfc.findCutsUntilBalancedOrFlowBoundExceeded(s, t);
 		hfc.timer.report(std::cout);
@@ -26,7 +27,6 @@ namespace whfc {
 }
 
 int main(int argc, const char* argv[]) {
-	whfc::Random::setSeed(42);
 	if (argc != 4)
 		throw std::runtime_error("Usage: ./WHFC hypergraphfile s t");
 	std::string hgfile = argv[1];

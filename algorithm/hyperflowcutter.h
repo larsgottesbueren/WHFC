@@ -16,13 +16,19 @@ namespace whfc {
 		CutterState<FlowAlgorithm> cs;
 		FlowAlgorithm flow_algo;	// = SearchAlgorithm
 		Flow upperFlowBound;
-		Piercer piercer;
-		bool find_most_balanced = false;
+		Piercer<FlowAlgorithm> piercer;
+		bool find_most_balanced = true;
 
 		static constexpr bool log = true;
-		HyperFlowCutter(FlowHypergraph& hg, NodeWeight maxBlockWeight) : timer(algo_name), hg(hg), cs(hg, maxBlockWeight, timer), flow_algo(hg), upperFlowBound(maxFlow), piercer(hg)
+		HyperFlowCutter(FlowHypergraph& hg, NodeWeight maxBlockWeight, int seed) :
+				timer(algo_name),
+				hg(hg),
+				cs(hg, maxBlockWeight, timer),
+				flow_algo(hg),
+				upperFlowBound(maxFlow),
+				piercer(hg, cs)
 		{
-		
+			Random::setSeed(seed);
 		}
 
 		void reset() {
@@ -38,23 +44,7 @@ namespace whfc {
 			piercer.flipViewDirection();
 		}
 
-		Node selectPiercingNode() {
-			if (cs.notSettledNodeWeight() == 0)
-				return invalidNode;
-			
-			Assert(cs.n.sourceWeight == cs.n.sourceReachableWeight);
-			Assert(cs.n.sourceReachableWeight <= cs.n.targetReachableWeight);
-			cs.cleanUpCut();
-			cs.cleanUpBorder();
-			cs.verifyCutPostConditions();
-			
-			Node piercingNode = piercer.findPiercingNode(cs, cs.borderNodes.sourceSideBorder, cs.maxBlockWeight);
-			if (piercingNode == invalidNode) {
-				auto allNodes = hg.nodeIDs();
-				piercingNode = piercer.findPiercingNode(cs, allNodes, cs.maxBlockWeight);
-			}
-			return piercingNode;
-		}
+		
 
 		void setPiercingNode(const Node piercingNode) {
 			cs.augmentingPathAvailableFromPiercing = cs.n.isTargetReachable(piercingNode);
@@ -66,7 +56,7 @@ namespace whfc {
 		
 		bool pierce(bool reject_piercing_if_it_creates_an_augmenting_path = false) {
 			timer.start("Piercing");
-			Node piercingNode = selectPiercingNode();
+			Node piercingNode = piercer.findPiercingNode();
 			timer.stop("Piercing");
 			if (piercingNode == invalidNode)
 				return false;
@@ -163,17 +153,20 @@ namespace whfc {
 			bool has_balanced_cut = false;
 			
 			while (cs.flowValue <= upperFlowBound && !has_balanced_cut) {
-				piercingFailedOrFlowBoundReachedWithNonAAPPiercingNode = !advanceOneFlowIteration();
+				piercingFailedOrFlowBoundReachedWithNonAAPPiercingNode = !advanceOneFlowIteration(cs.flowValue == upperFlowBound);
 				if (piercingFailedOrFlowBoundReachedWithNonAAPPiercingNode)
 					break;
 				has_balanced_cut = cs.hasCut && cs.isBalanced(); //no cut ==> run and don't check for balance.
 			}
 			
 			if (has_balanced_cut && cs.flowValue <= upperFlowBound) {
-				if (find_most_balanced)
+				// S + U + ISO <= T ==> will always add U and ISO completely to S
+				const bool better_balance_impossible = hg.totalNodeWeight() - cs.n.targetReachableWeight <= cs.n.targetReachableWeight;
+				LOGGER << V(better_balance_impossible);
+				if (find_most_balanced && !better_balance_impossible)
 					mostBalancedMinimumCut();
 				else
-					cs.outputMostBalancedPartition();
+					cs.mostBalancedIsolatedNodesAssignment();
 			}
 			
 			Assert(!cs.hasCut || cs.isBalanced() || cs.flowValue > upperFlowBound);
@@ -182,6 +175,20 @@ namespace whfc {
 		
 		void mostBalancedMinimumCut() {
 			timer.start("MBMC");
+			
+			//settle target reachable nodes, so we don't have to track them in the moves
+			flipViewDirection();
+			timer.start("Grow Assimilated");
+			GrowAssimilated<FlowAlgorithm>::grow(cs, flow_algo.getScanList());
+			timer.stop("Grow Assimilated");
+			flipViewDirection();
+			
+			NodeWeight best_bwd = cs.mostBalancedIsolatedNodesAssignment(false);
+			cs.mostBalancedMinimumCutMode = true;	//enables move tracker
+			
+			// Option 1: implement MBMC as KaHyPar does. always grow only one side. they do target side because of reverse topo sweep. we could do either.
+			// Option 2:
+			
 			// Options:
 			// 1) save the state every time we would flip the search direction.
 			// starting with the first time flipping, this would probably just alternate. so that's expensive
@@ -189,7 +196,11 @@ namespace whfc {
 			// 2) save before the first flip and again at the end.
 			// 3) make fully dynamic, i.e. store only deltas and then roll back. this is quite nasty
 			
-			//This implements option 2) from above. not so pretty.
+			// This implements option 2) from above. not so pretty.
+			
+			// Option 2) is still too slow (slower than computing flow) --> so think about how to make it fully dynamic or find cases where we can output less often
+			
+			// instead of the partition saved in ReachableNodes : provide a set of node moves.
 			
 			auto saved_state = cs.saveState();
 			std::vector<typename CutterState<FlowAlgorithm>::SolutionState> solutions;
@@ -224,7 +235,7 @@ namespace whfc {
 		
 		NodeWeight saveState_OutputPartition_Restore(std::vector<typename CutterState<FlowAlgorithm>::SolutionState>& solutions) {
 			auto saved = cs.saveState();
-			NodeWeight bwd = cs.outputMostBalancedPartition();
+			NodeWeight bwd = cs.mostBalancedIsolatedNodesAssignment();
 			solutions.emplace_back(cs.saveState());
 			cs.restoreState(saved);
 			cs.partitionWrittenToNodeSet = false;
