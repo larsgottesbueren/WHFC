@@ -32,9 +32,19 @@ namespace whfc {
 		};
 		std::vector<PiercingNode> sourcePiercingNodes, targetPiercingNodes;
 		
+		
+		struct Move {
+			enum class Type : uint8_t { Isolate, Settle };
+			Node node;
+			int current_direction;
+			Type t;
+			Move(Node node, int dir, Type t) : node(node), current_direction(dir), t(t) { }
+		};
+		std::vector<Move> trackedMoves;
+		
 		bool augmentingPathAvailableFromPiercing = true;
 		bool hasCut = false;
-		bool mostBalancedMinimumCutMode = false;
+		bool mostBalancedCutMode = false;
 		HyperedgeCut cut;
 		NodeBorder borderNodes;
 		NodeWeight maxBlockWeight;
@@ -82,6 +92,9 @@ namespace whfc {
 				n.reach(u);
 			n.settle(u);
 
+			if (mostBalancedCutMode)
+				trackedMoves.emplace_back(u, Move::Type::Settle, currentViewDirection());
+			
 			for (const auto& he_inc : hg.hyperedgesOf(u)) {
 				const Hyperedge e = he_inc.e;
 				if (!hasSourcePin(e)) {
@@ -96,6 +109,8 @@ namespace whfc {
 									n.unreachSource(p);
 								if (n.isTargetReachable(p))
 									n.unreachTarget(p);
+								if (mostBalancedCutMode)
+									trackedMoves.emplace_back(u, Move::Type::Isolate, currentViewDirection());
 							}
 						}
 					}
@@ -132,9 +147,10 @@ namespace whfc {
 			n.fullReset();
 			h.fullReset();
 			sourcePiercingNodes.clear(); targetPiercingNodes.clear();
+			trackedMoves.clear();
 			augmentingPathAvailableFromPiercing = true;
 			hasCut = false;
-			mostBalancedMinimumCutMode = false;
+			mostBalancedCutMode = false;
 			cut.reset(hg.numHyperedges());			//this requires that FlowHypergraph is reset before resetting the CutterState
 			borderNodes.reset(hg.numNodes());
 			isolatedNodes.reset();

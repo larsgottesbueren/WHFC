@@ -162,16 +162,16 @@ namespace whfc {
 				const bool better_balance_impossible = hg.totalNodeWeight() - cs.n.targetReachableWeight <= cs.n.targetReachableWeight;
 				LOGGER << V(better_balance_impossible);
 				if (find_most_balanced && !better_balance_impossible)
-					mostBalancedMinimumCut();
+					mostBalancedCut();
 				else
-					cs.mostBalancedIsolatedNodesAssignment();
+					cs.mostBalancedIsolatedNodesAssignment(true);
 			}
 			
 			Assert(!cs.hasCut || cs.isBalanced() || cs.flowValue > upperFlowBound);
 			return !piercingFailedOrFlowBoundReachedWithNonAAPPiercingNode && cs.flowValue <= upperFlowBound && has_balanced_cut;
 		}
 		
-		void mostBalancedMinimumCut() {
+		void mostBalancedCut() {
 			timer.start("MBMC");
 			
 			//settle target reachable nodes, so we don't have to track them in the moves
@@ -182,10 +182,18 @@ namespace whfc {
 			flipViewDirection();
 			
 			NodeWeight best_bwd = cs.mostBalancedIsolatedNodesAssignment(false);
-			cs.mostBalancedMinimumCutMode = true;	//enables move tracker
+			cs.mostBalancedCutMode = true;	//enables move tracker
+			
+			// the whole process works one time, when we isolate nodes.
+			// we can "un-isolate" them once in the mixed hyperedge counters, thereby destroying that datastructure
+			// further we track the isoWeight for every stage we might want to revert to. even if further nodes are isolated,
+			// the then used solution is still valid and the DP will only extract nodes used then.
+			// however, the DP datastructures are "stained" for further tries. the only option is to make a copy, or ignore isolated nodes in further tries
+			// if we didn't isolate nodes (which isn't too unlikely) we can go again without any changes
+			NodeWeight isoWeightAtFirst = cs.isolatedNodes.weight;
 			
 			// Option 1: implement MBMC as KaHyPar does. always grow only one side. they do target side because of reverse topo sweep. we could do either.
-			// Option 2:
+			// Option 2: use our growReachable and growAssimilated stuff
 			
 			// Options:
 			// 1) save the state every time we would flip the search direction.

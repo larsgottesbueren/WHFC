@@ -34,7 +34,7 @@ namespace whfc {
 			cs.cleanUpCut();
 			cs.verifyCutPostConditions();
 			
-			if (!cs.mostBalancedMinimumCutMode) {
+			if (!cs.mostBalancedCutMode) {
 				cs.cleanUpBorder();
 				Score first_try = checkAllCandidates(cs.borderNodes.sourceSideBorder);
 				if (first_try.candidate != invalidNode)
