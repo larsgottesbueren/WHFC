@@ -33,6 +33,8 @@ namespace whfc {
 			
 			inline void unreachSource(const Node u) { Assert(isSourceReachable(u)); SR.reset(u); Base::unreachSource(u); }
 			inline void unreachTarget(const Node u) { Assert(isTargetReachable(u)); TR.reset(u); Base::unreachTarget(u); }
+			inline void unsettleSource(const Node u) { Assert(isSource(u)); Base::unsettleSource(u); S.reset(u); unreachSource(u); }
+			inline void unsettleTarget(const Node u) { Assert(isTarget(u)); Base::unsettleTarget(u); T.reset(u); unreachTarget(u); }
 
 
 			void flipViewDirection() {

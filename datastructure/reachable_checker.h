@@ -67,6 +67,17 @@ namespace whfc {
 			timestamps.unreachTarget(u);
 		}
 		
+		inline void unsettleSource(const Node u) {
+			Assert(isSource(u)); Base::unsettleSource(u);
+			bits.unsettleTarget(u);
+			timestamps.unsettleTarget(u);
+		}
+		inline void unsettleTarget(const Node u) {
+			Assert(isTarget(u)); Base::unsettleTarget(u);
+			bits.unsettleTarget(u);
+			timestamps.unsettleTarget(u);
+		}
+		
 		
 		void flipViewDirection() {
 			Base::flipViewDirection();

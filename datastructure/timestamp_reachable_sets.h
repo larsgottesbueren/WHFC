@@ -28,7 +28,8 @@ namespace whfc {
 		
 		inline void unreachSource(const Node u) { Assert(isSourceReachable(u) && !isTargetReachable(u)); timestamps[u] = unreachableTS; Base::unreachSource(u); }
 		inline void unreachTarget(const Node u) { Assert(isTargetReachable(u) && !isSourceReachable(u)); timestamps[u] = unreachableTS; Base::unreachTarget(u); }
-		
+		inline void unsettleSource(const Node u) { Assert(isSource(u)); Base::unsettleSource(u); unreachSource(u); }
+		inline void unsettleTarget(const Node u) { Assert(isTarget(u)); Base::unsettleTarget(u); unreachTarget(u); }
 		
 		void flipViewDirection() {
 			LOGGER << "flip";

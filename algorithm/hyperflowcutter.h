@@ -44,8 +44,6 @@ namespace whfc {
 			piercer.flipViewDirection();
 		}
 
-		
-
 		void setPiercingNode(const Node piercingNode) {
 			cs.augmentingPathAvailableFromPiercing = cs.n.isTargetReachable(piercingNode);
 			cs.sourcePiercingNodes.clear();

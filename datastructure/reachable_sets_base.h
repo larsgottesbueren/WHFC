@@ -35,6 +35,14 @@ namespace whfc {
 		inline void unreachTarget(const Node u) {
 			targetReachableWeight -= hg.nodeWeight(u);
 		}
+		
+		inline void unsettleSource(const Node u) {
+			sourceWeight -= hg.nodeWeight(u);
+		}
+		
+		inline void unsettleTarget(const Node u) {
+			targetWeight -= hg.nodeWeight(u);
+		}
 
 		inline void settle(const Node u) {
 			sourceWeight += hg.nodeWeight(u);

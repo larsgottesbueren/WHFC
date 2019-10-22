@@ -41,7 +41,8 @@ namespace whfc {
 		inline void settleTarget(const Node u) { Assert(!isSourceReachable(u) && isTargetReachable(u)); distance[u] = targetSettledDistance; Base::settleTarget(u); }
 		inline void unreachSource(const Node u) { Assert(isSourceReachable(u) && !isTargetReachable(u)); distance[u] = unreachableDistance; Base::unreachSource(u); }
 		inline void unreachTarget(const Node u) { Assert(isTargetReachable(u) && !isSourceReachable(u)); distance[u] = unreachableDistance; Base::unreachTarget(u); }
-		
+		inline void unsettleSource(const Node u) { Assert(isSource(u)); Base::unsettleSource(u); unreachSource(u); }
+		inline void unsettleTarget(const Node u) { Assert(isTarget(u)); Base::unsettleTarget(u); unreachTarget(u); }
 		
 		void fullReset() {
 			distance.assign(hg.numNodes(), unreachableDistance);
