@@ -81,7 +81,7 @@ namespace whfc {
 				b[index] = b.back();
 				b.pop_back();
 				
-				if (!cs.canBeSettled(u) && !cs.n.isTargetReachable(u))
+				if (cs.canBeSettled(u) && !cs.n.isTargetReachable(u))
 					return u;
 			}
 			return invalidNode;
