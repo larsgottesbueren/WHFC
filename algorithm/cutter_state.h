@@ -9,7 +9,30 @@
 #include "../util/math.h"
 
 namespace whfc {
-
+	
+	struct SimulatedIsolatedNodesAssignment {
+		bool assignUnclaimedToSource = true;
+		bool assignTrackedIsolatedWeightToSource = true;
+		NodeWeight trackedIsolatedWeight = NodeWeight::Invalid();
+		NodeWeight blockWeightDiff = NodeWeight::Invalid();
+		size_t numberOfTrackedMoves = 0;
+		int direction;
+	};
+	
+	struct Move {
+		enum class Type : uint8_t { Isolate, Settle };
+		Node node;
+		int direction;
+		Type t;
+		Move(Node node, int dir, Type t) : node(node), direction(dir), t(t) { }
+	};
+	
+	struct PiercingNode {
+		Node node;
+		bool isReachableFromOppositeSide;
+		PiercingNode(const Node node, bool isReachableFromOppositeSide) : node(node), isReachableFromOppositeSide(isReachableFromOppositeSide) { }
+	};
+	
 	template<typename FlowAlgorithm>
 	class CutterState {
 	public:
@@ -24,27 +47,13 @@ namespace whfc {
 		using ReachableHyperedges = typename FlowAlgorithm::ReachableHyperedges;
 		ReachableNodes n;
 		ReachableHyperedges h;
-		
-		struct PiercingNode {
-			Node node;
-			bool isReachableFromOppositeSide;
-			PiercingNode(const Node node, bool isReachableFromOppositeSide) : node(node), isReachableFromOppositeSide(isReachableFromOppositeSide) { }
-		};
 		std::vector<PiercingNode> sourcePiercingNodes, targetPiercingNodes;
-		
-		
-		struct Move {
-			enum class Type : uint8_t { Isolate, Settle };
-			Node node;
-			int current_direction;
-			Type t;
-			Move(Node node, int dir, Type t) : node(node), current_direction(dir), t(t) { }
-		};
 		std::vector<Move> trackedMoves;
 		
 		bool augmentingPathAvailableFromPiercing = true;
 		bool hasCut = false;
 		bool mostBalancedCutMode = false;
+		bool prohibitIsolation = false;
 		HyperedgeCut cut;
 		NodeBorder borderNodes;
 		NodeWeight maxBlockWeight;
@@ -93,7 +102,10 @@ namespace whfc {
 			n.settle(u);
 
 			if (mostBalancedCutMode)
-				trackedMoves.emplace_back(u, Move::Type::Settle, currentViewDirection());
+				trackedMoves.emplace_back(u, currentViewDirection(), Move::Type::Settle);
+			
+			if (prohibitIsolation)
+				return;
 			
 			for (const auto& he_inc : hg.hyperedgesOf(u)) {
 				const Hyperedge e = he_inc.e;
@@ -110,7 +122,7 @@ namespace whfc {
 								if (n.isTargetReachable(p))
 									n.unreachTarget(p);
 								if (mostBalancedCutMode)
-									trackedMoves.emplace_back(u, Move::Type::Isolate, currentViewDirection());
+									trackedMoves.emplace_back(u, currentViewDirection(), Move::Type::Isolate);
 							}
 						}
 					}
@@ -151,6 +163,7 @@ namespace whfc {
 			augmentingPathAvailableFromPiercing = true;
 			hasCut = false;
 			mostBalancedCutMode = false;
+			prohibitIsolation = false;
 			cut.reset(hg.numHyperedges());			//this requires that FlowHypergraph is reset before resetting the CutterState
 			borderNodes.reset(hg.numNodes());
 			isolatedNodes.reset();
@@ -245,17 +258,16 @@ namespace whfc {
 		// which is set to 0 when finding the best assignment and set to 2 * maxBlockWeight - hg.totalNodeWeight() when checking balance
 		// stops searching when a solution lies below that bound
 
+		
 		/*
-		 * Settles all nodes to their respective sides in the output partition if writePartition = true
-		 * returns the smallest possible block weight difference with the current reachable sets
+		 * Simulates settling all isolated and unclaimed nodes to achieve the most balanced partition possible with the current sides
+		 * Write that assignment to ReachableNodes if write_partition = true
+		 * returns the smallest possible block weight difference and the necessary assignment information
 		 */
-		NodeWeight mostBalancedIsolatedNodesAssignment(bool write_partition = true) {
+		SimulatedIsolatedNodesAssignment mostBalancedIsolatedNodesAssignment() {
 			timer.start("Assign Isolated Nodes");
 			
 			isolatedNodes.updateDPTable();
-			
-			if (currentViewDirection() != 0)
-				flipViewDirection();
 
 			const NodeWeight
 					sw = n.sourceReachableWeight,
@@ -268,51 +280,42 @@ namespace whfc {
 			bool assignUnclaimedToSource = true;
 			bool assignTrackedIsolatedWeightToSource = true;
 			NodeWeight trackedIsolatedWeight = NodeWeight::Invalid();
-
 			NodeWeight blockWeightDiff = NodeWeight::Invalid();
 
 			for (const IsolatedNodes::SummableRange& sr : isolatedNodes.getSumRanges()) {
+
+				auto a = isolatedWeightAssignmentToFirst(suw, tw, sr);
+				if (a.second < blockWeightDiff) {
+					blockWeightDiff = a.second;
+					assignUnclaimedToSource = true;
+					assignTrackedIsolatedWeightToSource = true;
+					trackedIsolatedWeight = a.first;
+				}
+
+				auto b = isolatedWeightAssignmentToFirst(tw, suw, sr);
+				if (b.second < blockWeightDiff) {
+					blockWeightDiff = b.second;
+					assignUnclaimedToSource = true;
+					assignTrackedIsolatedWeightToSource = false;
+					trackedIsolatedWeight = b.first;
+				}
+
+				auto c = isolatedWeightAssignmentToFirst(sw, tuw, sr);
+				if (c.second < blockWeightDiff) {
+					blockWeightDiff = c.second;
+					assignUnclaimedToSource = false;
+					assignTrackedIsolatedWeightToSource = true;
+					trackedIsolatedWeight = c.first;
+				}
+
+				auto d = isolatedWeightAssignmentToFirst(tuw, sw, sr);
+				if (d.second < blockWeightDiff) {
+					blockWeightDiff = d.second;
+					assignUnclaimedToSource = false;
+					assignTrackedIsolatedWeightToSource = false;
+					trackedIsolatedWeight = d.first;
+				}
 				
-				{
-					auto a = isolatedWeightAssignmentToFirst(suw, tw, sr);
-					if (a.second < blockWeightDiff) {
-						blockWeightDiff = a.second;
-						assignUnclaimedToSource = true;
-						assignTrackedIsolatedWeightToSource = true;
-						trackedIsolatedWeight = a.first;
-					}
-				}
-
-				{
-					auto b = isolatedWeightAssignmentToFirst(tw, suw, sr);
-					if (b.second < blockWeightDiff) {
-						blockWeightDiff = b.second;
-						assignUnclaimedToSource = true;
-						assignTrackedIsolatedWeightToSource = false;
-						trackedIsolatedWeight = b.first;
-					}
-				}
-
-				{
-					auto c = isolatedWeightAssignmentToFirst(sw, tuw, sr);
-					if (c.second < blockWeightDiff) {
-						blockWeightDiff = c.second;
-						assignUnclaimedToSource = false;
-						assignTrackedIsolatedWeightToSource = true;
-						trackedIsolatedWeight = c.first;
-					}
-				}
-
-				{
-					auto d = isolatedWeightAssignmentToFirst(tuw, sw, sr);
-					if (d.second < blockWeightDiff) {
-						blockWeightDiff = d.second;
-						assignUnclaimedToSource = false;
-						assignTrackedIsolatedWeightToSource = false;
-						trackedIsolatedWeight = d.first;
-					}
-				}
-
 			}
 			
 #ifndef NDEBUG
@@ -324,25 +327,23 @@ namespace whfc {
 			AssertMsg(isolatedNodes.isSummable(trackedIsolatedWeight), "isolated weight is not summable");
 #endif
 			
-			if (write_partition) {
-				writePartition(trackedIsolatedWeight, assignTrackedIsolatedWeightToSource, assignUnclaimedToSource);
-			}
-			
 			timer.stop("Assign Isolated Nodes");
-			
-			return blockWeightDiff;
+			return {assignUnclaimedToSource, assignTrackedIsolatedWeightToSource, trackedIsolatedWeight, blockWeightDiff, trackedMoves.size(), currentViewDirection()};
 		}
 		
-		
 		// takes the information from mostBalancedIsolatedNodesAssignment()
-		// can be an old run, since trackedIsolatedWeight
-		void writePartition(const NodeWeight trackedIsolatedWeight, const bool assignTrackedIsolatedWeightToSource, const bool assignUnclaimedToSource) {
+		// can be an old run, since the DP solution for trackedIsolatedWeight only contains nodes that were isolated during that run
+		void writePartition(const SimulatedIsolatedNodesAssignment& r) {
 			AssertMsg(isBalanced(), "Not balanced yet");
 			AssertMsg(!partitionWrittenToNodeSet, "Partition was already written");
-			auto isoSubset = isolatedNodes.extractSubset(trackedIsolatedWeight);
+			
+			if (currentViewDirection() != r.direction)
+				flipViewDirection();
+			
+			auto isoSubset = isolatedNodes.extractSubset(r.trackedIsolatedWeight);
 			for (const Node u : isoSubset) {
 				Assert(!n.isSourceReachable(u) && !n.isTargetReachable(u) && isIsolated(u));
-				if (assignTrackedIsolatedWeightToSource) {
+				if (r.assignTrackedIsolatedWeightToSource) {
 					n.reach(u); n.settle(u);
 				}
 				else {
@@ -358,7 +359,7 @@ namespace whfc {
 					n.settleTarget(u);
 				
 				if (!n.isSourceReachable(u) && !n.isTargetReachable(u) && !isIsolated(u)) {
-					if (assignUnclaimedToSource) {
+					if (r.assignUnclaimedToSource) {
 						n.reach(u); n.settle(u);
 					}
 					else {
@@ -367,7 +368,7 @@ namespace whfc {
 				}
 				
 				if (isIsolated(u)) {
-					if (assignTrackedIsolatedWeightToSource) {
+					if (r.assignTrackedIsolatedWeightToSource) {
 						n.reach(u); n.settle(u);
 					}
 					else {
@@ -376,23 +377,34 @@ namespace whfc {
 				}
 			}
 			
+			if (currentViewDirection() != 0)
+				flipViewDirection();
+			
 			Assert(n.sourceWeight + n.targetWeight == hg.totalNodeWeight());
 			partitionWrittenToNodeSet = true;
 		}
 		
-		struct SolutionState {
-			int direction;
-			ReachableNodes reachableNodes;
-		};
+		void writePartition() {
+			writePartition(mostBalancedIsolatedNodesAssignment());
+		}
 		
-		SolutionState saveState() {
-			return SolutionState { currentViewDirection(), n };
-		};
-		
-		void restoreState(SolutionState& state) {
-			if (currentViewDirection() != state.direction)
-				flipViewDirection();
-			n = std::move(state.reachableNodes);
+		void revertMoves(SimulatedIsolatedNodesAssignment r) {
+			timer.start("Revert Moves");
+			while (trackedMoves.size() > r.numberOfTrackedMoves) {
+				Move& m = trackedMoves.back();
+				if (m.t == Move::Type::Isolate) {
+					prohibitIsolation = true;	//in the next trials, we cannot isolate nodes, since we destroyed the datastructure
+					isolatedNodes.mixedIncidentHyperedges[m.node] -= 1;
+				}
+				else {
+					if (m.direction == currentViewDirection())
+						n.unsettleSource(m.node);
+					else
+						n.unsettleTarget(m.node);
+				}
+				trackedMoves.pop_back();
+			}
+			timer.stop("Revert Moves");
 		}
 		
 		std::string toString() {
