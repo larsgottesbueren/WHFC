@@ -39,11 +39,6 @@ namespace whfc {
 			timer.clear();
 		}
 		
-		void flipViewDirection() {
-			cs.flipViewDirection();
-			piercer.flipViewDirection();
-		}
-
 		void setPiercingNode(const Node piercingNode) {
 			cs.augmentingPathAvailableFromPiercing = cs.n.isTargetReachable(piercingNode);
 			cs.sourcePiercingNodes.clear();
@@ -70,7 +65,7 @@ namespace whfc {
 				timer.start("Augment", "Flow");
 				cs.flowValue += flow_algo.exhaustFlow(cs);
 				timer.stop("Augment");
-				flipViewDirection();
+				cs.flipViewDirection();
 				timer.start("Grow Backward Reachable", "Flow");
 				flow_algo.growReachable(cs);
 				timer.stop("Grow Backward Reachable");
@@ -86,10 +81,9 @@ namespace whfc {
 			
 			cs.hasCut = true;
 			if (cs.n.targetReachableWeight <= cs.n.sourceReachableWeight) {
-				flipViewDirection();
+				cs.flipViewDirection();
 			}
 			timer.start("Grow Assimilated");
-			LOGGER << "grow assimilated";
 			GrowAssimilated<FlowAlgorithm>::grow(cs, flow_algo.getScanList());
 			timer.stop("Grow Assimilated");
 			cs.verifyFlowConstraints();
@@ -114,7 +108,7 @@ namespace whfc {
 				cs.flowValue += flow_diff;
 				cs.hasCut = flow_diff == 0;
 				if (cs.hasCut) {
-					flipViewDirection();
+					cs.flipViewDirection();
 					timer.start("Grow Backward Reachable", "Flow");
 					flow_algo.growReachable(cs);
 					timer.stop("Grow Backward Reachable");
@@ -133,7 +127,7 @@ namespace whfc {
 			if (cs.hasCut) {
 				cs.verifySetInvariants();
 				if (cs.n.targetReachableWeight <= cs.n.sourceReachableWeight)
-					flipViewDirection();
+					cs.flipViewDirection();
 				timer.start("Grow Assimilated");
 				GrowAssimilated<FlowAlgorithm>::grow(cs, flow_algo.getScanList());
 				timer.stop("Grow Assimilated");
@@ -161,10 +155,10 @@ namespace whfc {
 				// S + U + ISO <= T ==> will always add U and ISO completely to S
 				const bool better_balance_impossible = hg.totalNodeWeight() - cs.n.targetReachableWeight <= cs.n.targetReachableWeight;
 				LOGGER << V(better_balance_impossible);
-				if (find_most_balanced && !better_balance_impossible)
+				if (find_most_balanced && (true || !better_balance_impossible))
 					mostBalancedCut();
 				else
-					cs.mostBalancedIsolatedNodesAssignment(true);
+					cs.writePartition();
 			}
 			
 			Assert(!cs.hasCut || cs.isBalanced() || cs.flowValue > upperFlowBound);
@@ -175,78 +169,28 @@ namespace whfc {
 			timer.start("MBMC");
 			
 			//settle target reachable nodes, so we don't have to track them in the moves
-			flipViewDirection();
-			timer.start("Grow Assimilated");
+			cs.flipViewDirection();
 			GrowAssimilated<FlowAlgorithm>::grow(cs, flow_algo.getScanList());
-			timer.stop("Grow Assimilated");
-			flipViewDirection();
+			cs.flipViewDirection();
 			
-			NodeWeight best_bwd = cs.mostBalancedIsolatedNodesAssignment(false);
+			NodeWeight isoWeightAtFirst = cs.isolatedNodes.weight;
+			SimulatedIsolatedNodesAssignment sol = cs.mostBalancedIsolatedNodesAssignment();
 			cs.mostBalancedCutMode = true;	//enables move tracker
 			
-			// the whole process works one time, when we isolate nodes.
-			// we can "un-isolate" them once in the mixed hyperedge counters, thereby destroying that datastructure
-			// further we track the isoWeight for every stage we might want to revert to. even if further nodes are isolated,
-			// the then used solution is still valid and the DP will only extract nodes used then.
-			// however, the DP datastructures are "stained" for further tries. the only option is to make a copy, or ignore isolated nodes in further tries
-			// if we didn't isolate nodes (which isn't too unlikely) we can go again without any changes
-			NodeWeight isoWeightAtFirst = cs.isolatedNodes.weight;
+			//TODO multiple runs
 			
-			// Option 1: implement MBMC as KaHyPar does. always grow only one side. they do target side because of reverse topo sweep. we could do either.
-			// Option 2: use our growReachable and growAssimilated stuff
-			
-			// Options:
-			// 1) save the state every time we would flip the search direction.
-			// starting with the first time flipping, this would probably just alternate. so that's expensive
-			//
-			// 2) save before the first flip and again at the end.
-			// 3) make fully dynamic, i.e. store only deltas and then roll back. this is quite nasty
-			
-			// This implements option 2) from above. not so pretty.
-			
-			// Option 2) is still too slow (slower than computing flow) --> so think about how to make it fully dynamic or find cases where we can output less often
-			
-			// instead of the partition saved in ReachableNodes : provide a set of node moves.
-			
-			auto saved_state = cs.saveState();
-			std::vector<typename CutterState<FlowAlgorithm>::SolutionState> solutions;
-			size_t restore_to = 0;
-			NodeWeight bwd_at_first_partition = saveState_OutputPartition_Restore(solutions);
-			
-			if (bwd_at_first_partition > 0) {
-				bool changed = false;
-				int dir = cs.currentViewDirection();
-				while (cs.currentViewDirection() == dir && advanceOneFlowIteration(true /* reject piercing if it creates an augmenting path */))
-					changed = true;
-				
-				if (changed && cs.isBalanced()) {
-					NodeWeight bwd_at_first_flip = saveState_OutputPartition_Restore(solutions);
-					if (bwd_at_first_flip < bwd_at_first_partition)
-						restore_to = 1;
-					
-					changed = false;
-					while (advanceOneFlowIteration(true))
-						changed = true;
-					
-					if (changed && cs.isBalanced()) {
-						NodeWeight end_bwd = saveState_OutputPartition_Restore(solutions);    //one state save too many. probably not problematic
-						if (end_bwd < std::min(bwd_at_first_partition, bwd_at_first_flip))
-							restore_to = 2;
-					}
-				}
+			while (sol.blockWeightDiff > 0 && advanceOneFlowIteration(true)) {
+				SimulatedIsolatedNodesAssignment sim = cs.mostBalancedIsolatedNodesAssignment();
+				if (sim.blockWeightDiff < sol.blockWeightDiff)
+					sol = sim;
 			}
-			cs.restoreState(solutions[restore_to]);
+			
+			cs.revertMoves(sol);
+			cs.writePartition(sol);
+			
 			timer.stop("MBMC");
 		}
-		
-		NodeWeight saveState_OutputPartition_Restore(std::vector<typename CutterState<FlowAlgorithm>::SolutionState>& solutions) {
-			auto saved = cs.saveState();
-			NodeWeight bwd = cs.mostBalancedIsolatedNodesAssignment();
-			solutions.emplace_back(cs.saveState());
-			cs.restoreState(saved);
-			cs.partitionWrittenToNodeSet = false;
-			return bwd;
-		}
+
 		
 		void findCutsUntilBalancedOrFlowBoundExceeded(const Node s, const Node t) {
 			cs.initialize(s,t);
