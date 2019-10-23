@@ -46,7 +46,7 @@ int main(int argc, const char* argv[]) {
 	if (argc < 2 || argc > 3)
 		throw std::runtime_error("Usage: ./WHFC hypergraphfile interleaving-style (flowbased or cutbased)");
 	std::string hgfile = argv[1];
-	std::string interleavingstyle = "cutbased";
+	std::string interleavingstyle = "flowbased";
 	if (argc == 3)
 		interleavingstyle = argv[2];
 	whfc::runSnapshotTester(hgfile, interleavingstyle);

@@ -152,32 +152,30 @@ namespace whfc {
 			}
 			
 			if (has_balanced_cut && cs.flowValue <= upperFlowBound) {
-				// S + U + ISO <= T ==> will always add U and ISO completely to S
+				// S + U + ISO <= T ==> will always add U and ISO completely to S, i.e. take target-side cut (we know S <= T)
 				const bool better_balance_impossible = hg.totalNodeWeight() - cs.n.targetReachableWeight <= cs.n.targetReachableWeight;
-				LOGGER << V(better_balance_impossible);
-				if (find_most_balanced && (true || !better_balance_impossible))
+				if (find_most_balanced && !better_balance_impossible)
 					mostBalancedCut();
 				else
 					cs.writePartition();
 			}
 			
-			Assert(!cs.hasCut || cs.isBalanced() || cs.flowValue > upperFlowBound);
 			return !piercingFailedOrFlowBoundReachedWithNonAAPPiercingNode && cs.flowValue <= upperFlowBound && has_balanced_cut;
 		}
 		
 		void mostBalancedCut() {
 			timer.start("MBMC");
+			LOGGER << "Start MBMC";
 			
 			//settle target reachable nodes, so we don't have to track them in the moves
 			cs.flipViewDirection();
 			GrowAssimilated<FlowAlgorithm>::grow(cs, flow_algo.getScanList());
 			cs.flipViewDirection();
 			
-			NodeWeight isoWeightAtFirst = cs.isolatedNodes.weight;
 			SimulatedIsolatedNodesAssignment sol = cs.mostBalancedIsolatedNodesAssignment();
 			cs.mostBalancedCutMode = true;	//enables move tracker
 			
-			//TODO multiple runs
+			//TODO multiple runs. this requires copying the old border nodes --> clean them first.
 			
 			while (sol.blockWeightDiff > 0 && advanceOneFlowIteration(true)) {
 				SimulatedIsolatedNodesAssignment sim = cs.mostBalancedIsolatedNodesAssignment();
@@ -185,6 +183,7 @@ namespace whfc {
 					sol = sim;
 			}
 			
+			LOGGER << V(sol.blockWeightDiff) << V(sol.numberOfTrackedMoves);
 			cs.revertMoves(sol);
 			cs.writePartition(sol);
 			
