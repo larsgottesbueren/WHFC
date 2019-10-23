@@ -122,7 +122,7 @@ namespace whfc {
 								if (n.isTargetReachable(p))
 									n.unreachTarget(p);
 								if (mostBalancedCutMode)
-									trackedMoves.emplace_back(u, currentViewDirection(), Move::Type::Isolate);
+									trackedMoves.emplace_back(p, currentViewDirection(), Move::Type::Isolate);
 							}
 						}
 					}
@@ -322,8 +322,6 @@ namespace whfc {
 			const NodeWeight iso = isolatedNodes.weight;
 			NodeWeight s = (assignUnclaimedToSource ? suw : sw) + (assignTrackedIsolatedWeightToSource ? trackedIsolatedWeight : iso - trackedIsolatedWeight);
 			NodeWeight t = (assignUnclaimedToSource ? tw : tuw) + (assignTrackedIsolatedWeightToSource ? iso - trackedIsolatedWeight : trackedIsolatedWeight);
-			const bool is_balanced = isBalanced();
-			LOGGER << V(is_balanced);
 			AssertMsg(s <= maxBlockWeight, "computed assignment violates max block weight on source side");
 			AssertMsg(t <= maxBlockWeight, "computed assignment violates max block weight on target side");
 			AssertMsg(isolatedNodes.isSummable(trackedIsolatedWeight), "isolated weight is not summable");
@@ -336,8 +334,9 @@ namespace whfc {
 		// takes the information from mostBalancedIsolatedNodesAssignment()
 		// can be an old run, since the DP solution for trackedIsolatedWeight only contains nodes that were isolated during that run
 		void writePartition(const SimulatedIsolatedNodesAssignment& r) {
-			AssertMsg(isBalanced(), "Not balanced yet");
 			AssertMsg(!partitionWrittenToNodeSet, "Partition was already written");
+			AssertMsg(isBalanced(), "Not balanced yet");
+			
 			
 			if (currentViewDirection() != r.direction)
 				flipViewDirection();
