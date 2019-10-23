@@ -23,14 +23,12 @@ namespace whfc {
 		};
 
 	private:
-
 		//If the subset sum approach gets too slow, there are two alternatives:
 		//	1) try scaling the weights of all nodes in the flow network --> more locality in the DP table. if GCD(weights) > 1 then using ranges for balance checking doesn't help at all
 				//as the ranges with rescaled weights would consist of single elements
 				//we would need to implement two versions depending on GCD(weights) { == 1, > 1 }
 		//	2) just assign the nodes ad-hoc, after growAssimilated. shouldn't be too bad. works well enough with AAP
 		NodeWeight maxSubsetSumWeight = NodeWeight(0);
-
 
 		struct TableEntry {
 			Node node;
@@ -44,22 +42,18 @@ namespace whfc {
 		};
 
 		std::vector<TableEntry> DPTable;
-
 		std::vector<SummableRange> sumRanges;
 		std::vector<SummableRange> nextSumRanges;
 		bool newSumAvailable = true;
-
 		std::vector<Node> nodesNotInTheDPTable;
 
-		//This variant assumes that DPTable[sumRanges[i].from] == DPTable[sumRanges[i].to] == i
-		//Pointers in between are considered stale.
-		//Updating DP Table entries requires computing all sums available with node u.
-
+		// This variant assumes that DPTable[sumRanges[i].from] == DPTable[sumRanges[i].to] == i
+		// Pointers in between are considered stale.
+		// Updating DP Table entries requires computing all sums available with node u.
 		void updateDPTableWithSumRanges() {
 			for (const Node u : nodesNotInTheDPTable) {
-
 				if (newSumAvailable)
-					nextSumRanges = sumRanges;        //find way to avoid copies. must be possible. this is so horrible.
+					nextSumRanges = sumRanges;
 				AssertMsg(nextSumRanges == sumRanges, "nextSumRanges not up to date");
 				newSumAvailable = false;
 
@@ -118,7 +112,6 @@ namespace whfc {
 						}
 					}
 				}
-
 				std::swap(nextSumRanges, sumRanges);
 			}
 		}
@@ -137,17 +130,14 @@ namespace whfc {
 				mixedIncidentHyperedges(hg.numNodes(), HyperedgeIndex(0)),
 				maxSubsetSumWeight(maxBlockWeight),
 				DPTable(maxBlockWeight + 2, TableEntry())
-				//We could use maxBlocKWeight+2 for a right-ward sentinel. With +3 even a left-ward sentinel, but that would required reindexing everything by +1 which is nasty
-				//So, only rightward sentinel
 		{
 			sumRanges.emplace_back(NodeWeight(0), NodeWeight(0));
 			DPTable[0].sumsIndex = 0;
 		}
 		
-		//Unfortunately resetting IsolatedNodes is just as bad as reallocation, but at least we're saving the allocator call
 		void reset() {
 			mixedIncidentHyperedges.assign(hg.numNodes(), HyperedgeIndex(0));
-			DPTable.assign(DPTable.size(), TableEntry());
+			DPTable.assign(weight, TableEntry());
 			sumRanges.clear();
 			nextSumRanges.clear();
 			newSumAvailable = true;
@@ -179,11 +169,14 @@ namespace whfc {
 		}
 
 		void updateDPTable() {
+			/*
 			if (weight + 1 > DPTable.size()) {
-				//at the moment we're allocating for @maxBlocKWeight elements in DPTable, so this branch is never executed. in the future we might care about saving some memory
+				//at the moment we're allocating for maxBlocKWeight elements in DPTable, so this branch is never executed. in the future we might care about saving some memory
 				//if memory actually becomes critical, we can also compress the DPTable by a two-level indexing approach, where ranges only consume one entry. compression called infrequently
 				DPTable.resize(std::min((size_t)2*(weight+1), (size_t)maxSubsetSumWeight + 1), TableEntry());
 			}
+			*/
+			
 			updateDPTableWithSumRanges();
 			//Internal_UpdateDPTableWithSumRangesAndRangePruning();		NOT IMPLEMENTED YET. Not sure if faster or necessary
 			nodesNotInTheDPTable.clear();
@@ -209,7 +202,6 @@ namespace whfc {
 			auto second = setDifference(nodes, first, hg.numNodes());
 			return std::make_pair(std::move(first), std::move(second));
 		}
-
 
 		bool isCandidate(const Node u) const {
 			return mixedIncidentHyperedges[u] == hg.degree(u);
