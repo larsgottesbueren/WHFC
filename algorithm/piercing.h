@@ -17,10 +17,6 @@ namespace whfc {
 		
 		static constexpr bool log = true;
 		
-		void flipViewDirection() {
-			multiplier *= -1;
-		}
-		
 		void clear() {
 			multiplier = -1;
 		}
@@ -28,6 +24,8 @@ namespace whfc {
 		const Node findPiercingNode() {
 			if (cs.notSettledNodeWeight() == 0)
 				return invalidNode;
+			
+			multiplier = cs.currentViewDirection() == 0 ? -1 : 1;
 			
 			Assert(cs.n.sourceWeight == cs.n.sourceReachableWeight);
 			Assert(cs.n.sourceReachableWeight <= cs.n.targetReachableWeight);
