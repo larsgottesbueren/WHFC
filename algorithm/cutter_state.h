@@ -320,8 +320,10 @@ namespace whfc {
 			
 #ifndef NDEBUG
 			const NodeWeight iso = isolatedNodes.weight;
-			NodeWeight s = (assignUnclaimedToSource ? sw : suw) + (assignTrackedIsolatedWeightToSource ? trackedIsolatedWeight : iso - trackedIsolatedWeight);
-			NodeWeight t = (assignUnclaimedToSource ? tuw : tw) + (assignTrackedIsolatedWeightToSource ? iso - trackedIsolatedWeight : trackedIsolatedWeight);
+			NodeWeight s = (assignUnclaimedToSource ? suw : sw) + (assignTrackedIsolatedWeightToSource ? trackedIsolatedWeight : iso - trackedIsolatedWeight);
+			NodeWeight t = (assignUnclaimedToSource ? tw : tuw) + (assignTrackedIsolatedWeightToSource ? iso - trackedIsolatedWeight : trackedIsolatedWeight);
+			const bool is_balanced = isBalanced();
+			LOGGER << V(is_balanced);
 			AssertMsg(s <= maxBlockWeight, "computed assignment violates max block weight on source side");
 			AssertMsg(t <= maxBlockWeight, "computed assignment violates max block weight on target side");
 			AssertMsg(isolatedNodes.isSummable(trackedIsolatedWeight), "isolated weight is not summable");
@@ -416,7 +418,8 @@ namespace whfc {
 			   << " s=" << n.sourceWeight << "|" << n.sourceReachableWeight
 			   << " t=" << n.targetWeight << "|" << n.targetReachableWeight
 			   << " iso=" << isolatedNodes.weight
-			    << " total=" << hg.totalNodeWeight();
+			   << " u=" << unclaimedNodeWeight()
+			   << " total=" << hg.totalNodeWeight();
 			if (flipIt)
 				flipViewDirection();
 			return os.str();
