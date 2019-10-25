@@ -11,7 +11,7 @@ namespace whfc {
 	public:
 		NodeWeight weight = NodeWeight(0);
 		std::vector<Node> nodes;
-		std::vector<HyperedgeIndex> mixedIncidentHyperedges;
+		std::vector<InHeIndex> mixedIncidentHyperedges;
 
 		struct SummableRange {
 			NodeWeight from, to;
@@ -127,7 +127,7 @@ namespace whfc {
 	public:
 		explicit IsolatedNodes(FlowHypergraph& hg, NodeWeight maxBlockWeight) :
 				hg(hg),
-				mixedIncidentHyperedges(hg.numNodes(), HyperedgeIndex(0)),
+				mixedIncidentHyperedges(hg.numNodes(), InHeIndex(0)),
 				maxSubsetSumWeight(maxBlockWeight),
 				DPTable(maxBlockWeight + 2, TableEntry())
 		{
@@ -136,7 +136,7 @@ namespace whfc {
 		}
 		
 		void reset() {
-			mixedIncidentHyperedges.assign(hg.numNodes(), HyperedgeIndex(0));
+			mixedIncidentHyperedges.assign(hg.numNodes(), InHeIndex(0));
 			DPTable.assign(weight, TableEntry());
 			sumRanges.clear();
 			nextSumRanges.clear();

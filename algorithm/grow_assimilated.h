@@ -41,12 +41,12 @@ public:
 					const bool scanAllPins = !hg.isSaturated(e) || hg.flowReceived(he_inc) > 0;
 					if (scanAllPins) {
 						Assert(h.areAllPinsSourceReachable(e));
-						h.settleAllPins(e);
+						cs.settleAllPins(e);
 						
 						if (FlowAlgorithm::grow_reachable_marks_flow_sending_pins_when_marking_all_pins) {
 							Assert(h.areFlowSendingPinsSourceReachable(e));
 							if (!h.areFlowSendingPinsSources(e))
-								h.settleFlowSendingPins(e);
+								cs.settleFlowSendingPins(e);
 						}
 					}
 					else {
@@ -61,7 +61,7 @@ public:
 							h.reachFlowSendingPins(e);
 						}
 #endif
-						h.settleFlowSendingPins(e);
+						cs.settleFlowSendingPins(e);
 					}
 
 					for (const Pin& pv : scanAllPins ? hg.pinsOf(e) : hg.pinsSendingFlowInto(e)) {
