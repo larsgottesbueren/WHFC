@@ -166,6 +166,14 @@ namespace whfc {
 			inDistance[e] = unreachableDistance;
 		}
 		
+		void settleAllPinsTarget(const Hyperedge e) {
+			settleFlowSendingPins(e);
+		}
+		
+		void settleFlowSendingPinsTarget(const Hyperedge e) {
+			settleAllPins(e);
+		}
+		
 		void unsettleAllPinsTarget(const Hyperedge e) {
 			unsettleFlowSendingPins(e);
 		}

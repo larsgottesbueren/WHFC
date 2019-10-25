@@ -10,7 +10,6 @@ namespace whfc {
 	template<class FlowAlgorithm>
 	class HyperFlowCutter {
 	public:
-		static constexpr const char *algo_name = "HyperFlowCutter";		//this looks weird
 		TimeReporter timer;
 		FlowHypergraph& hg;
 		CutterState<FlowAlgorithm> cs;
@@ -21,7 +20,7 @@ namespace whfc {
 
 		static constexpr bool log = true;
 		HyperFlowCutter(FlowHypergraph& hg, NodeWeight maxBlockWeight, int seed) :
-				timer(algo_name),
+				timer("HyperFlowCutter"),
 				hg(hg),
 				cs(hg, maxBlockWeight, timer),
 				flow_algo(hg),
@@ -40,6 +39,7 @@ namespace whfc {
 		}
 		
 		void setPiercingNode(const Node piercingNode) {
+			LOGGER << "set piercing node";
 			cs.augmentingPathAvailableFromPiercing = cs.n.isTargetReachable(piercingNode);
 			cs.sourcePiercingNodes.clear();
 			cs.sourcePiercingNodes.emplace_back(piercingNode, cs.n.isTargetReachable(piercingNode));
@@ -86,8 +86,7 @@ namespace whfc {
 			timer.start("Grow Assimilated");
 			GrowAssimilated<FlowAlgorithm>::grow(cs, flow_algo.getScanList());
 			timer.stop("Grow Assimilated");
-			cs.verifyFlowConstraints();
-			cs.verifySetInvariants();
+			cs.verifyCutPostConditions();
 			LOGGER << cs.toString();
 		}
 
@@ -131,8 +130,7 @@ namespace whfc {
 				timer.start("Grow Assimilated");
 				GrowAssimilated<FlowAlgorithm>::grow(cs, flow_algo.getScanList());
 				timer.stop("Grow Assimilated");
-				cs.verifyFlowConstraints();
-				cs.verifySetInvariants();
+				cs.verifyCutPostConditions();
 				LOGGER << cs.toString();
 			}
 			
@@ -154,10 +152,15 @@ namespace whfc {
 			if (has_balanced_cut && cs.flowValue <= upperFlowBound) {
 				// S + U + ISO <= T ==> will always add U and ISO completely to S, i.e. take target-side cut (we know S <= T)
 				const bool better_balance_impossible = hg.totalNodeWeight() - cs.n.targetReachableWeight <= cs.n.targetReachableWeight;
+				LOGGER << V(better_balance_impossible);
 				if (find_most_balanced && !better_balance_impossible)
 					mostBalancedCut();
 				else
 					cs.writePartition();
+			}
+			else {
+				LOGGER << "no balanced cut <= flow bound" << V(cs.flowValue) << V(upperFlowBound) << V(has_balanced_cut);
+				LOGGER << cs.toString();
 			}
 			
 			return !piercingFailedOrFlowBoundReachedWithNonAAPPiercingNode && cs.flowValue <= upperFlowBound && has_balanced_cut;
@@ -170,22 +173,67 @@ namespace whfc {
 			//settle target reachable nodes, so we don't have to track them in the moves
 			cs.flipViewDirection();
 			GrowAssimilated<FlowAlgorithm>::grow(cs, flow_algo.getScanList());
+			cs.verifyCutPostConditions();
 			cs.flipViewDirection();
 			
-			SimulatedIsolatedNodesAssignment sol = cs.mostBalancedIsolatedNodesAssignment();
-			cs.mostBalancedCutMode = true;	//enables move tracker
+			Assert(cs.n.sourceReachableWeight == cs.n.sourceWeight);
+			Assert(cs.n.targetReachableWeight == cs.n.targetWeight);
 			
-			//TODO multiple runs. this requires copying the old border nodes --> clean them first.
 			
-			while (sol.blockWeightDiff > 0 && advanceOneFlowIteration(true)) {
-				SimulatedIsolatedNodesAssignment sim = cs.mostBalancedIsolatedNodesAssignment();
-				if (sim.blockWeightDiff < sol.blockWeightDiff)
-					sol = sim;
+			NonDynamicCutterState first_balanced_state = cs.enterMostBalancedCutMode();
+			SimulatedIsolatedNodesAssignment initial_sol = cs.mostBalancedIsolatedNodesAssignment();
+			std::vector<Move> best_moves;
+			SimulatedIsolatedNodesAssignment best_sol = initial_sol;
+			
+			LOGGER << V(initial_sol.blockWeightDiff);
+			const size_t mbc_iterations = 20;
+			for (size_t i = 0; i < mbc_iterations && best_sol.blockWeightDiff > 0; ++i) {
+				LOGGER << "\n----------------------------\nMBMC iteration" << (i + 1);
+				LOGGER << cs.toString();
+				LOGGER << V(cs.trackedMoves.size());
+				LOGGER << V(cs.borderNodes.sourceSide.persistent_entries.size()) << V(cs.borderNodes.sourceSide.currentNumberOfPersistentEntries);
+				LOGGER << V(cs.borderNodes.sourceSide.non_persistent_entries.size()) << V(cs.borderNodes.sourceSide.currentNumberOfNonPersistentEntries);
+				
+				LOGGER << "-----------------------------------\n start iteration \n ";
+				
+				Assert(cs.n.sourceReachableWeight <= cs.n.targetReachableWeight);
+				
+				SimulatedIsolatedNodesAssignment sol = best_sol;
+				while (sol.blockWeightDiff > 0 && pierce(true)) {
+					LOGGER << "grow reachable";
+					flow_algo.growReachable(cs);		//TODO could consolidate. but avoid any code duplication.
+					LOGGER << cs.toString();
+					LOGGER << "grow assimilated";
+					GrowAssimilated<FlowAlgorithm>::grow(cs, flow_algo.getScanList());
+					LOGGER << cs.toString();
+					cs.hasCut = true;
+					cs.verifyCutPostConditions();
+					
+					if (cs.n.targetReachableWeight <= cs.n.sourceReachableWeight)
+						cs.flipViewDirection();
+					
+					SimulatedIsolatedNodesAssignment sim = cs.mostBalancedIsolatedNodesAssignment();
+					if (sim.blockWeightDiff < sol.blockWeightDiff)
+						sol = sim;
+					
+				}
+				
+				LOGGER << V(sol.blockWeightDiff) << V(best_sol.blockWeightDiff);
+				if (sol.blockWeightDiff < best_sol.blockWeightDiff) {
+					best_sol = sol;
+					cs.revertMoves(sol.numberOfTrackedMoves);
+					best_moves = cs.trackedMoves;
+				}
+				
+				LOGGER << "before resetting iteration";
+				LOGGER << V(cs.borderNodes.sourceSide.persistent_entries.size()) << V(cs.borderNodes.sourceSide.currentNumberOfPersistentEntries);
+				LOGGER << V(cs.borderNodes.sourceSide.non_persistent_entries.size()) << V(cs.borderNodes.sourceSide.currentNumberOfNonPersistentEntries);
+				
+				cs.resetToFirstBalancedState(first_balanced_state);
 			}
 			
-			LOGGER << V(sol.blockWeightDiff) << V(sol.numberOfTrackedMoves);
-			cs.revertMoves(sol);
-			cs.writePartition(sol);
+			cs.applyMoves(best_moves);
+			cs.writePartition(best_sol);
 			
 			timer.stop("MBMC");
 		}
@@ -197,12 +245,7 @@ namespace whfc {
 			while (cs.flowValue <= upperFlowBound && !cs.isBalanced() && pierce())
 				exhaustFlowAndGrow();
 		}
-
-	};
-
-
-	class MultiCutter {
-		//implement interleaving and parallelization here, if desired.
+		
 	};
 
 }

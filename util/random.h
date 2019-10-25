@@ -31,12 +31,15 @@ namespace whfc {
 			return instance().uint_dist(instance().gen, std::uniform_int_distribution<uint32_t>::param_type(a,b));
 		}
 		
+		static size_t randomIndex(const size_t a, const size_t b) {
+			return instance().size_t_dist(instance().gen, std::uniform_int_distribution<size_t>::param_type(a,b));
+		}
+		
 		template<class T>
 		static T selectRandomElement(std::vector<T>& range) {
 			if (range.empty())
 				return T::Invalid();
-			uint32_t index = randomNumber(0, range.size() - 1);
-			return range[index];
+			return range[randomIndex(0, range.size() - 1)];
 		}
 		
 		static void setSeed(int seed) {
@@ -57,5 +60,6 @@ namespace whfc {
 		std::mt19937 gen;
 		std::uniform_int_distribution<int> bool_dist;
 		std::uniform_int_distribution<uint32_t> uint_dist;
+		std::uniform_int_distribution<size_t> size_t_dist;
 	};
 }

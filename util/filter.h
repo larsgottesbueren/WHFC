@@ -23,6 +23,16 @@ namespace util {
 		auto new_end = std::remove_if(C.begin(), C.end(), p);
 		C.erase(new_end, C.end());
 	}
-
+	
+	template<typename Container, typename Predicate>
+	void move_to_end_if(Container& C, size_t& size, const Predicate& p) {
+		static constexpr bool log = true;
+		for (size_t i = 0; i < size; ++i)
+			if (p(C[i])) {
+				LOGGER << V(i) << V(size) << V(C[i]);
+				std::swap(C[i--], C[--size]);
+			}
+			
+	}
 }
 }

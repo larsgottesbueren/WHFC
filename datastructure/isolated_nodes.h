@@ -12,6 +12,7 @@ namespace whfc {
 		NodeWeight weight = NodeWeight(0);
 		std::vector<Node> nodes;
 		std::vector<InHeIndex> mixedIncidentHyperedges;
+		BitVector hasSettledSourcePins, hasSettledTargetPins;
 
 		struct SummableRange {
 			NodeWeight from, to;
@@ -128,6 +129,7 @@ namespace whfc {
 		explicit IsolatedNodes(FlowHypergraph& hg, NodeWeight maxBlockWeight) :
 				hg(hg),
 				mixedIncidentHyperedges(hg.numNodes(), InHeIndex(0)),
+				hasSettledSourcePins(hg.numHyperedges()), hasSettledTargetPins(hg.numHyperedges()),
 				maxSubsetSumWeight(maxBlockWeight),
 				DPTable(maxBlockWeight + 2, TableEntry())
 		{
@@ -144,9 +146,14 @@ namespace whfc {
 			nodes.clear();
 			nodesNotInTheDPTable.clear();
 			weight = NodeWeight(0);
-			
+			hasSettledSourcePins.reset(0, hg.numHyperedges());
+			hasSettledTargetPins.reset(0, hg.numHyperedges());
 			sumRanges.emplace_back(NodeWeight(0), NodeWeight(0));
 			DPTable[0].sumsIndex = 0;
+		}
+		
+		void flipViewDirection() {
+			std::swap(hasSettledSourcePins, hasSettledTargetPins);
 		}
 
 		const std::vector<SummableRange>& getSumRanges() const {
@@ -178,7 +185,7 @@ namespace whfc {
 			*/
 			
 			updateDPTableWithSumRanges();
-			//Internal_UpdateDPTableWithSumRangesAndRangePruning();		NOT IMPLEMENTED YET. Not sure if faster or necessary
+			//Internal_UpdateDPTableWithSumRangesAndRangePruning();		NOT IMPLEMENTED YET. Uncertain if faster or even necessary
 			nodesNotInTheDPTable.clear();
 		}
 

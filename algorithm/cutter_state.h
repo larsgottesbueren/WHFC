@@ -13,18 +13,25 @@ namespace whfc {
 	struct SimulatedIsolatedNodesAssignment {
 		bool assignUnclaimedToSource = true;
 		bool assignTrackedIsolatedWeightToSource = true;
+		NodeWeight totalIsolatedWeight = NodeWeight::Invalid();
 		NodeWeight trackedIsolatedWeight = NodeWeight::Invalid();
 		NodeWeight blockWeightDiff = NodeWeight::Invalid();
 		size_t numberOfTrackedMoves = 0;
-		int direction;
+		int direction = 0;
 	};
 	
 	struct Move {
-		enum class Type : uint8_t { Isolate, Settle };
+		enum class Type : uint8_t { SettleNode, SettleAllPins, SettleFlowSendingPins };
 		Node node;
+		Hyperedge hyperedge;
 		int direction;
 		Type t;
-		Move(Node node, int dir, Type t) : node(node), direction(dir), t(t) { }
+		Move(Node node, int dir, Type t) : node(node), hyperedge(invalidHyperedge), direction(dir), t(t) {
+			Assert(t == Type::SettleNode);
+		}
+		Move(Hyperedge hyperedge, int dir, Type t) : node(invalidNode), hyperedge(hyperedge), direction(dir), t(t) {
+			Assert(t == Type::SettleAllPins || t == Type::SettleFlowSendingPins);
+		}
 	};
 	
 	struct PiercingNode {
@@ -33,13 +40,18 @@ namespace whfc {
 		PiercingNode(const Node node, bool isReachableFromOppositeSide) : node(node), isReachableFromOppositeSide(isReachableFromOppositeSide) { }
 	};
 	
+	struct NonDynamicCutterState {
+		std::vector<PiercingNode> sourcePiercingNodes, targetPiercingNodes;
+		int direction;
+	};
+	
 	template<typename FlowAlgorithm>
 	class CutterState {
 	public:
 		using Pin = FlowHypergraph::Pin;
 		static constexpr bool log = true;
 		
-		int viewDirection = 0;	//potential prettyfication: ViewDirection class
+		int viewDirection = 0;
 		FlowHypergraph& hg;
 		Flow flowValue = 0;
 
@@ -54,8 +66,8 @@ namespace whfc {
 		bool hasCut = false;
 		bool mostBalancedCutMode = false;
 		bool prohibitIsolation = false;
-		HyperedgeCut cut;
-		NodeBorder borderNodes;
+		HyperedgeCuts cuts;
+		NodeBorders borderNodes;
 		NodeWeight maxBlockWeight;
 		IsolatedNodes isolatedNodes;
 		bool partitionWrittenToNodeSet = false;
@@ -65,7 +77,7 @@ namespace whfc {
 				hg(_hg),
 				n(_hg),
 				h(_hg),
-				cut(_hg.numHyperedges()),
+				cuts(_hg.numHyperedges()),
 				borderNodes(_hg.numNodes()),
 				maxBlockWeight(_maxBlockWeight),
 				isolatedNodes(hg, _maxBlockWeight),
@@ -79,39 +91,50 @@ namespace whfc {
 			return !n.isSource(u) && !n.isTarget(u) && isolatedNodes.isCandidate(u);
 		}
 		
-		inline bool canBeSettled(const Node u) const { return !n.isSource(u) && !n.isTarget(u) && !isIsolated(u); }
+		inline bool canBeSettled(const Node u) const {
+			return !n.isSource(u) && !n.isTarget(u) && !isIsolated(u);
+		}
 
-		inline NodeWeight unclaimedNodeWeight() const { return hg.totalNodeWeight() - n.sourceReachableWeight - n.targetReachableWeight - isolatedNodes.weight; }
-		inline NodeWeight notSettledNodeWeight() const { return hg.totalNodeWeight() - n.sourceWeight - n.targetWeight - isolatedNodes.weight; }
-		inline bool hasSourcePin(const Hyperedge e) const { return cut.hasSettledSourcePins[e]; }
-		inline bool hasTargetPin(const Hyperedge e) const { return cut.hasSettledTargetPins[e]; }
-		inline bool shouldBeAddedToCut(const Hyperedge e) const { return !h.areAllPinsSourceReachable(e) && !cut.wasAdded(e) && hg.isSaturated(e); }	//the first condition is just an optimization, not really necessary
+		inline NodeWeight unclaimedNodeWeight() const {
+			return hg.totalNodeWeight() - n.sourceReachableWeight - n.targetReachableWeight - isolatedNodes.weight;
+		}
+		
+		inline NodeWeight notSettledNodeWeight() const {
+			return hg.totalNodeWeight() - n.sourceWeight - n.targetWeight - isolatedNodes.weight;
+		}
+		
+		inline bool shouldBeAddedToCut(const Hyperedge e) const {
+			return !h.areAllPinsSourceReachable(e) && !cuts.sourceSide.wasAdded(e) && hg.isSaturated(e); // the first condition is just an optimization, not really necessary
+		}
 
 		inline void addToCut(const Hyperedge e) {
 			Assert(shouldBeAddedToCut(e));
 			for (const Pin& px : hg.pinsOf(e))
-				if (canBeSettled(px.pin) && !borderNodes.wasAdded(px.pin))
-					borderNodes.add(px.pin);
-			cut.add(e);
+				if (canBeSettled(px.pin) && !borderNodes.sourceSide.wasAdded(px.pin) && (!mostBalancedCutMode || !n.isTargetReachable(px.pin))) {
+					LOGGER << "add border node" << V(px.pin) << V(currentViewDirection());
+					borderNodes.sourceSide.add(px.pin);
+				}
+			LOGGER << "add cut hyperedge" << V(e) << V(currentViewDirection());
+			cuts.sourceSide.add(e);
 		}
 
 		void settleNode(const Node u) {
+			LOGGER << "Settle" << V(u);
 			Assert(canBeSettled(u));
 			if (!n.isSourceReachable(u))
 				n.reach(u);
 			n.settle(u);
 
-			if (mostBalancedCutMode)
-				trackedMoves.emplace_back(u, currentViewDirection(), Move::Type::Settle);
-			
-			if (prohibitIsolation)
+			if (mostBalancedCutMode) {
+				trackedMoves.emplace_back(u, currentViewDirection(), Move::Type::SettleNode);
 				return;
+			}
 			
 			for (const auto& he_inc : hg.hyperedgesOf(u)) {
 				const Hyperedge e = he_inc.e;
-				if (!hasSourcePin(e)) {
-					cut.hasSettledSourcePins.set(e);
-					if (hasTargetPin(e)) {	//e just became mixed
+				if (!isolatedNodes.hasSettledSourcePins[e]) {
+					isolatedNodes.hasSettledSourcePins.set(e);
+					if (isolatedNodes.hasSettledTargetPins[e]) {	//e just became mixed
 						for (const auto& px : hg.pinsOf(e)) {
 							const Node p = px.pin;
 							isolatedNodes.mixedIncidentHyperedges[p]++;
@@ -121,13 +144,23 @@ namespace whfc {
 									n.unreachSource(p);
 								if (n.isTargetReachable(p))
 									n.unreachTarget(p);
-								if (mostBalancedCutMode)
-									trackedMoves.emplace_back(p, currentViewDirection(), Move::Type::Isolate);
 							}
 						}
 					}
 				}
 			}
+		}
+		
+		void settleFlowSendingPins(const Hyperedge e) {
+			if (mostBalancedCutMode)
+				trackedMoves.emplace_back(e, currentViewDirection(), Move::Type::SettleFlowSendingPins);
+			h.settleFlowSendingPins(e);
+		}
+		
+		void settleAllPins(const Hyperedge e) {
+			if (mostBalancedCutMode)
+				trackedMoves.emplace_back(e, currentViewDirection(), Move::Type::SettleAllPins);
+			h.settleAllPins(e);
 		}
 
 		void flipViewDirection() {
@@ -136,8 +169,9 @@ namespace whfc {
 			n.flipViewDirection();
 			h.flipViewDirection();
 			sourcePiercingNodes.swap(targetPiercingNodes);
-			cut.flipViewDirection();
+			cuts.flipViewDirection();
 			borderNodes.flipViewDirection();
+			isolatedNodes.flipViewDirection();
 		}
 
 		int currentViewDirection() const {
@@ -164,7 +198,7 @@ namespace whfc {
 			hasCut = false;
 			mostBalancedCutMode = false;
 			prohibitIsolation = false;
-			cut.reset(hg.numHyperedges());			//this requires that FlowHypergraph is reset before resetting the CutterState
+			cuts.reset(hg.numHyperedges());			//this requires that FlowHypergraph is reset before resetting the CutterState
 			borderNodes.reset(hg.numNodes());
 			isolatedNodes.reset();
 			partitionWrittenToNodeSet = false;
@@ -178,14 +212,6 @@ namespace whfc {
 			flipViewDirection();
 			settleNode(t);
 			flipViewDirection();
-		}
-		
-		void cleanUpBorder() {
-			borderNodes.cleanUp([&](const Node& x) { return !canBeSettled(x); });
-		}
-
-		void cleanUpCut() {
-			cut.cleanUp([&](const Hyperedge& e) { return h.areAllPinsSources(e); });
 		}
 		
 		bool isBalanced() {
@@ -250,6 +276,31 @@ namespace whfc {
 
 			timer.stop("Balance Check");
 			return balanced;
+		}
+		
+		NonDynamicCutterState enterMostBalancedCutMode() {
+			Assert(!mostBalancedCutMode);
+			Assert(trackedMoves.empty());
+			Assert(hasCut);
+			mostBalancedCutMode = true;	//activates move tracking
+			
+			borderNodes.sourceSide.cleanUp([&](const Node u) { return n.isTargetReachable(u) || !canBeSettled(u); });
+			borderNodes.targetSide.cleanUp([&](const Node u) { return n.isSourceReachable(u) || !canBeSettled(u); });
+			borderNodes.enterMostBalancedCutMode();
+			
+			cuts.enterMostBalancedCutMode();
+			
+			return { sourcePiercingNodes, targetPiercingNodes, currentViewDirection() };
+		}
+		
+		void resetToFirstBalancedState(NonDynamicCutterState& nds) {
+			if (currentViewDirection() != nds.direction)
+				flipViewDirection();
+			sourcePiercingNodes = nds.sourcePiercingNodes;
+			targetPiercingNodes = nds.targetPiercingNodes;
+			revertMoves(0);
+			borderNodes.resetForMostBalancedCut();
+			cuts.resetForMostBalancedCut();
 		}
 
 		// TODO consolidate isBalanced() and mostBalancedIsolatedNodesAssignment(). they do the same thing with slightly different purposes
@@ -328,7 +379,7 @@ namespace whfc {
 #endif
 			
 			timer.stop("Assign Isolated Nodes");
-			return {assignUnclaimedToSource, assignTrackedIsolatedWeightToSource, trackedIsolatedWeight, blockWeightDiff, trackedMoves.size(), currentViewDirection()};
+			return {assignUnclaimedToSource, assignTrackedIsolatedWeightToSource, isolatedNodes.weight, trackedIsolatedWeight, blockWeightDiff, trackedMoves.size(), currentViewDirection()};
 		}
 		
 		// takes the information from mostBalancedIsolatedNodesAssignment()
@@ -389,23 +440,67 @@ namespace whfc {
 			writePartition(mostBalancedIsolatedNodesAssignment());
 		}
 		
-		void revertMoves(SimulatedIsolatedNodesAssignment r) {
+		void revertMoves(const size_t numberOfTrackedMoves) {
 			timer.start("Revert Moves");
-			while (trackedMoves.size() > r.numberOfTrackedMoves) {
+			while (trackedMoves.size() > numberOfTrackedMoves) {
 				Move& m = trackedMoves.back();
-				if (m.t == Move::Type::Isolate) {
-					prohibitIsolation = true;	//in the next trials, we cannot isolate nodes, since we destroyed the datastructure
-					isolatedNodes.mixedIncidentHyperedges[m.node] -= 1;
-				}
-				else {
+				if (m.node != invalidNode) {
+					Assert(m.hyperedge == invalidHyperedge);
 					if (m.direction == currentViewDirection())
 						n.unsettleSource(m.node);
 					else
 						n.unsettleTarget(m.node);
 				}
+				else {
+					Assert(m.node == invalidNode);
+					//for timestamp and distance reachable sets, we would only need unsettleAllPins and unsettleFlowSendingPins, since S and T are disjoint by nature.
+					if (currentViewDirection() == m.direction) {
+						if (m.t == Move::Type::SettleAllPins)
+							h.unsettleAllPins(m.hyperedge);
+						else
+							h.unsettleFlowSendingPins(m.hyperedge);
+					}
+					else {
+						if (m.t == Move::Type::SettleAllPins)
+							h.unsettleAllPinsTarget(m.hyperedge);
+						else
+							h.unsettleFlowSendingPinsTarget(m.hyperedge);
+					}
+				}
 				trackedMoves.pop_back();
 			}
 			timer.stop("Revert Moves");
+		}
+		
+		void applyMoves(const std::vector<Move>& moves) {
+			timer.start("Apply Moves");
+			for (const Move& m : moves) {
+				if (m.node != invalidNode) {
+					Assert(!n.isSourceReachable(m.node) && !n.isTargetReachable(m.node));
+					if (m.direction == currentViewDirection()) {
+						n.reach(m.node); n.settle(m.node);
+					}
+					else {
+						n.reachTarget(m.node); n.settleTarget(m.node);
+					}
+				}
+				else {
+					Assert(m.hyperedge != invalidHyperedge);
+					if (currentViewDirection() == m.direction) {
+						if (m.t == Move::Type::SettleAllPins)
+							h.settleAllPins(m.hyperedge);
+						else
+							h.settleFlowSendingPins(m.hyperedge);
+					}
+					else {
+						if (m.t == Move::Type::SettleAllPins)
+							h.settleAllPinsTarget(m.hyperedge);
+						else
+							h.settleFlowSendingPinsTarget(m.hyperedge);
+					}
+				}
+			}
+			timer.stop("Apply Moves");
 		}
 		
 		std::string toString() {
@@ -479,10 +574,19 @@ namespace whfc {
 		
 		void verifyCutPostConditions() {
 			Assert(hasCut);
+#ifndef NDEBUG
+			LOGGER << "clean source side cut for cut post condition verification";
+			cuts.sourceSide.cleanUp([&](const Hyperedge& e) { return h.areAllPinsSources(e); });
+#endif
 			verifySetInvariants();
 			verifyCutInducedByPartitionMatchesExtractedCutHyperedges();
 			verifyExtractedCutHyperedgesActuallySplitHypergraph();
-			Assert(flowValue == cut.weight(hg));
+			verifyFlowConstraints();
+			
+			Assert(flowValue ==
+				   std::accumulate(cuts.sourceSide.entries().begin(), cuts.sourceSide.entries().end(), Flow(0),
+								   [&](const Flow& w, const Hyperedge& e) { return hg.capacity(e) + w; })
+			);
 		}
 		
 		void verifySetInvariants() {
@@ -528,8 +632,7 @@ namespace whfc {
 				if (hasSource && !hasOther)
 					Assert(h.areAllPinsSources(e));
 			}
-			
-			std::vector<Hyperedge> sorted_cut = cut.sourceSideBorder;
+			std::vector<Hyperedge> sorted_cut = cuts.sourceSide.copy();
 			std::sort(sorted_cut.begin(), sorted_cut.end());
 			Assert(sorted_cut == cut_from_partition);
 #endif
@@ -547,7 +650,7 @@ namespace whfc {
 				}
 			}
 			
-			for (Hyperedge e : cut.sourceSideBorder)
+			for (Hyperedge e : cuts.sourceSide.entries())
 				he_seen.set(e);
 			
 			while (!queue.empty()) {
@@ -586,7 +689,7 @@ namespace whfc {
 				}
 			}
 			
-			for (Hyperedge e : cut.sourceSideBorder)
+			for (Hyperedge e : cuts.sourceSide.entries())
 				he_seen.set(e);
 			
 			while (!queue.empty()) {

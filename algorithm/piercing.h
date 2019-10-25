@@ -1,7 +1,6 @@
 #pragma once
 
 #include "../definitions.h"
-#include "../util/random.h"
 #include "../util/comparison.h"
 #include "cutter_state.h"
 
@@ -22,31 +21,40 @@ namespace whfc {
 		}
 		
 		const Node findPiercingNode() {
-			if (cs.notSettledNodeWeight() == 0)
-				return invalidNode;
-			
-			multiplier = cs.currentViewDirection() == 0 ? -1 : 1;
-			
+			Assert(cs.hasCut);
 			Assert(cs.n.sourceWeight == cs.n.sourceReachableWeight);
 			Assert(cs.n.sourceReachableWeight <= cs.n.targetReachableWeight);
-			cs.cleanUpCut();
-			cs.verifyCutPostConditions();
-			
+			LOGGER << "piercing";
+			if (cs.notSettledNodeWeight() == 0)
+				return invalidNode;
+			multiplier = cs.currentViewDirection() == 0 ? -1 : 1;
+			LOGGER << V(multiplier);
 			if (!cs.mostBalancedCutMode) {
-				cs.cleanUpBorder();
-				Score first_try = checkAllCandidates(cs.borderNodes.sourceSideBorder);
+				cs.borderNodes.sourceSide.cleanUp([&](const Node& x) { return !cs.canBeSettled(x); });
+				Score first_try = multiCriteriaCandidateCheck(cs.borderNodes.sourceSide.persistent_entries);
 				if (first_try.candidate != invalidNode)
 					return first_try.candidate;
 				auto allNodes = hg.nodeIDs();
-				Score second_try = checkAllCandidates(allNodes);
+				Score second_try = multiCriteriaCandidateCheck(allNodes);
 				return second_try.candidate;
 			}
 			else {
-				return selectRandomAAPNodeAndRemoveNonAAPNodes();
+				while (!cs.borderNodes.sourceSide.empty()) {
+					Node p = cs.borderNodes.sourceSide.popRandomEntryPreferringPersistent();
+					LOGGER << "piercing node" << V(p) << V(cs.n.isTargetReachable(p)) << V(cs.canBeSettled(p)) << V(hg.nodeWeight(p));
+					if (!cs.n.isTargetReachable(p) && isCandidate(p))
+						return p;
+				}
+				LOGGER << "no piercing possible";
+				return invalidNode;
 			}
 		}
 		
 	private:
+		bool isCandidate(const Node u) const {
+			return cs.canBeSettled(u) && cs.n.sourceWeight + hg.nodeWeight(u) <= cs.maxBlockWeight;
+		}
+		
 		struct Score {
 			bool avoidsAugmentingPaths = false;
 			HopDistance hopDistance = std::numeric_limits<HopDistance>::min();
@@ -71,27 +79,12 @@ namespace whfc {
 			return useDistancesFromCut ? std::max(multiplier * distanceFromCut[x], 0) : 0; // distances of vertices on opposite side are negative --> throw away
 		}
 		
-		Node selectRandomAAPNodeAndRemoveNonAAPNodes() {
-			std::vector<Node>& b = cs.borderNodes.sourceSideBorder;
-			while (!b.empty()) {
-				uint32_t index = Random::randomNumber(0, b.size() - 1);
-				const Node u = b[index];
-				
-				// remove u
-				b[index] = b.back();
-				b.pop_back();
-				
-				if (cs.canBeSettled(u) && !cs.n.isTargetReachable(u))
-					return u;
-			}
-			return invalidNode;
-		}
 		
 		template<class NodeRange>
-		Score checkAllCandidates(NodeRange& candidates) {
+		Score multiCriteriaCandidateCheck(NodeRange& candidates) {
 			Score maxScore;
 			for (const Node u : candidates) {
-				if (cs.canBeSettled(u) && cs.n.sourceWeight + hg.nodeWeight(u) <= cs.maxBlockWeight) {		//the canBeSettled(u) check is necessary for the fallback
+				if (isCandidate(u)) {		//the canBeSettled(u) check is necessary for the fallback
 					const Score score_u(!cs.n.isTargetReachable(u), getHopDistanceFromCut(u), Random::randomNumber(), u);
 					if (maxScore < score_u)
 						maxScore = score_u;
