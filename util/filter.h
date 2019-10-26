@@ -26,13 +26,21 @@ namespace util {
 	
 	template<typename Container, typename Predicate>
 	void move_to_end_if(Container& C, size_t& size, const Predicate& p) {
-		static constexpr bool log = true;
-		for (size_t i = 0; i < size; ++i)
+		for (size_t i = 0; i < size; ++i) {
 			if (p(C[i])) {
-				LOGGER << V(i) << V(size) << V(C[i]);
 				std::swap(C[i--], C[--size]);
 			}
-			
+		}
+	}
+	
+	template<typename Container, typename Predicate>
+	void move_to_front_if(Container& C, size_t& front, size_t size, const Predicate& p) {
+		for ( ; front < size; ) {
+			Assert(size > 0);
+			if (p(C[--size])) {
+				std::swap(C[front++], C[size++]);
+			}
+		}
 	}
 }
 }

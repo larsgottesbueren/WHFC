@@ -39,7 +39,6 @@ namespace whfc {
 		}
 		
 		void setPiercingNode(const Node piercingNode) {
-			LOGGER << "set piercing node";
 			cs.augmentingPathAvailableFromPiercing = cs.n.isTargetReachable(piercingNode);
 			cs.sourcePiercingNodes.clear();
 			cs.sourcePiercingNodes.emplace_back(piercingNode, cs.n.isTargetReachable(piercingNode));
@@ -191,8 +190,6 @@ namespace whfc {
 				LOGGER << "\n----------------------------\nMBMC iteration" << (i + 1);
 				LOGGER << cs.toString();
 				LOGGER << V(cs.trackedMoves.size());
-				LOGGER << V(cs.borderNodes.sourceSide.persistent_entries.size()) << V(cs.borderNodes.sourceSide.currentNumberOfPersistentEntries);
-				LOGGER << V(cs.borderNodes.sourceSide.non_persistent_entries.size()) << V(cs.borderNodes.sourceSide.currentNumberOfNonPersistentEntries);
 				
 				LOGGER << "-----------------------------------\n start iteration \n ";
 				
@@ -200,10 +197,7 @@ namespace whfc {
 				
 				SimulatedIsolatedNodesAssignment sol = best_sol;
 				while (sol.blockWeightDiff > 0 && pierce(true)) {
-					LOGGER << "grow reachable";
-					flow_algo.growReachable(cs);		//TODO could consolidate. but avoid any code duplication.
-					LOGGER << cs.toString();
-					LOGGER << "grow assimilated";
+					flow_algo.growReachable(cs);		//TODO could consolidate for factor 2 speedup. but avoid any code duplication.
 					GrowAssimilated<FlowAlgorithm>::grow(cs, flow_algo.getScanList());
 					LOGGER << cs.toString();
 					cs.hasCut = true;
@@ -224,10 +218,6 @@ namespace whfc {
 					cs.revertMoves(sol.numberOfTrackedMoves);
 					best_moves = cs.trackedMoves;
 				}
-				
-				LOGGER << "before resetting iteration";
-				LOGGER << V(cs.borderNodes.sourceSide.persistent_entries.size()) << V(cs.borderNodes.sourceSide.currentNumberOfPersistentEntries);
-				LOGGER << V(cs.borderNodes.sourceSide.non_persistent_entries.size()) << V(cs.borderNodes.sourceSide.currentNumberOfNonPersistentEntries);
 				
 				cs.resetToFirstBalancedState(first_balanced_state);
 			}

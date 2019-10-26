@@ -15,116 +15,96 @@
 namespace whfc {
 	
 	template<typename T, bool trackElements>
-	class Border {
-	public:
-		explicit Border(size_t nT) : was_added(nT) { }
-		static constexpr bool log = true;
-		using BorderRange = concatenated_range< sub_range<std::vector<T>>, T >;
-		
+	class PersistentSet {
+	private:
+		bool persistentMode = true;
+		size_t persistent_front = 0, persistent_end = 0, non_persistent_front = 0;
 		BitVector was_added;
-		std::vector<T> persistent_entries, non_persistent_entries;
-		size_t currentNumberOfPersistentEntries = 0;
-		size_t currentNumberOfNonPersistentEntries = 0;
-		bool nonPersistentMode = false;
+		std::vector<T> c;
+		
+		sub_range<std::vector<T>> persistent_entries() const {
+			return sub_range(c, persistent_front, persistent_end);
+		}
+		
+		sub_range<std::vector<T>> non_persistent_entries() const {
+			return sub_range(c, non_persistent_front, c.size());
+		}
+		
+	public:
+		explicit PersistentSet(const size_t nT) : was_added(nT) { }
 		
 		bool wasAdded(const T x) const {
 			return was_added[x];
 		}
 		
-		void add(T x) {
+		void add(const T& x) {
 			Assert(!wasAdded(x));
 			was_added.set(x);
-			if (nonPersistentMode) {
-				non_persistent_entries.push_back(x);
-				//set number of non persistent entries.
-				
-				//TODO push back and moving stale elements to the back does not work! think of something different.
+			if (trackElements || !persistentMode)
+				c.push_back(x);
+		}
+		
+		// delete non persistent entries, even those removed from the list
+		// and recover the persistent entries, even those removed from the list
+		void recover() {
+			while (c.size() > persistent_end) {
+				was_added.reset(c.back());
+				c.pop_back();
 			}
-			else {
-				if constexpr (trackElements) {
-					persistent_entries.push_back(x);
-				}
-			}
+			non_persistent_front = persistent_end;
+			persistent_front = 0;
+		}
+		
+		void lockInPersistentEntries() {
+			persistentMode = false;
+			persistent_end = c.size();
+			non_persistent_front = persistent_end;
 		}
 		
 		template<typename Predicate>
-		void cleanUp(Predicate pred) {
-			if (nonPersistentMode) {
-				LOGGER << "non persistent mode clean up";
-				LOGGER << "clean persistent entries" << V(persistent_entries.size()) << V(currentNumberOfPersistentEntries);
-				util::move_to_end_if(persistent_entries, currentNumberOfPersistentEntries, pred);
-				LOGGER << "clean non persistent entries" << V(non_persistent_entries.size()) << V(currentNumberOfNonPersistentEntries);
-				util::move_to_end_if(non_persistent_entries, currentNumberOfNonPersistentEntries, pred);
+		void cleanUp(Predicate p) {
+			if (persistentMode) {
+				util::remove_if_inplace(c, p);
 			}
 			else {
-				if constexpr (trackElements) {
-					LOGGER << "clean up in non persistent mode. old size" << persistent_entries.size();
-					util::remove_if_inplace(persistent_entries, pred);
-					LOGGER << "new size" << persistent_entries.size();
-				}
+				util::move_to_front_if(c, persistent_front, persistent_end, p);
+				util::move_to_front_if(c, non_persistent_front, c.size(), p);
 			}
 		}
 		
-		void reset(const size_t newN) {	// not a proper clearlist, we're deleting some entries without resetting the was_added bit
+		void reset(size_t newN) {
 			was_added.reset(0, newN);
-			persistent_entries.clear();
-			non_persistent_entries.clear();
-			currentNumberOfPersistentEntries = 0;
-			currentNumberOfNonPersistentEntries = 0;
-			nonPersistentMode = false;
+			c.clear();
+			persistent_front = 0;
+			persistent_end = 0;
+			non_persistent_front = 0;
+			persistentMode = true;
 		}
 		
 		bool empty() const {
-			if (nonPersistentMode)
-				return currentNumberOfNonPersistentEntries == 0 && currentNumberOfPersistentEntries == 0;
-			else
-				return persistent_entries.empty();
+			return persistent_front == persistent_end && non_persistent_front == c.size();
 		}
 		
 		T popRandomEntryPreferringPersistent() {
-			Assert(nonPersistentMode);
+			Assert(!persistentMode);
 			Assert(!empty());
-			if (currentNumberOfPersistentEntries > 0) {
-				size_t ind = Random::randomIndex(0, --currentNumberOfPersistentEntries );
-				std::swap(persistent_entries[ind], persistent_entries[currentNumberOfPersistentEntries]);
-				return persistent_entries[currentNumberOfPersistentEntries];
+			if (persistent_front < persistent_end) {
+				size_t ind = Random::randomIndex(persistent_front, persistent_end - 1);
+				std::swap(c[ind], c[persistent_front]);
+				return c[persistent_front++];
 			}
 			else {
-				size_t ind = Random::randomIndex(0, --currentNumberOfNonPersistentEntries);
-				std::swap(non_persistent_entries[ind], non_persistent_entries[currentNumberOfNonPersistentEntries]);
-				return non_persistent_entries[currentNumberOfNonPersistentEntries];
+				size_t ind = Random::randomIndex(non_persistent_front, c.size() - 1);
+				std::swap(c[ind], c[non_persistent_front]);
+				return c[non_persistent_front++];
 			}
 		}
 		
-		void enterNonPersistentMode() {
-			reinsertPersistentEntries();
-			nonPersistentMode = true;
+		auto entries() const {
+			return concatenated_range< sub_range<std::vector<T>>, T  >(persistent_entries(), non_persistent_entries());
 		}
 		
-		void removeNonPersistentEntries() {
-			for (const T x : non_persistent_entries)
-				was_added.reset(x);
-			non_persistent_entries.clear();
-			currentNumberOfNonPersistentEntries = 0;
-		}
-		
-		void reinsertPersistentEntries() {
-			currentNumberOfPersistentEntries = persistent_entries.size();
-		}
-		
-		void resetToPersistentState() {
-			removeNonPersistentEntries();
-			reinsertPersistentEntries();
-		}
-		
-		BorderRange entries() const {
-			if (nonPersistentMode)
-				return BorderRange( sub_range(persistent_entries, 0, currentNumberOfPersistentEntries), sub_range(non_persistent_entries, 0, currentNumberOfNonPersistentEntries) );
-			else
-				return BorderRange( sub_range(persistent_entries, 0, persistent_entries.size()), sub_range(non_persistent_entries, 0 , 0) );
-		}
-		
-		std::vector<T> copy() {
+		std::vector<T> copy() const {
 			std::vector<T> c;
 			for (const T& x : entries())
 				c.push_back(x);
@@ -141,7 +121,7 @@ namespace whfc {
 			std::swap(sourceSide, targetSide);
 		}
 
-		Border<T, trackElements> sourceSide, targetSide;
+		PersistentSet<T, trackElements> sourceSide, targetSide;
 
 		void reset(const size_t newN) {
 			sourceSide.reset(newN);
@@ -149,13 +129,13 @@ namespace whfc {
 		}
 		
 		void enterMostBalancedCutMode() {
-			sourceSide.enterNonPersistentMode();
-			targetSide.enterNonPersistentMode();
+			sourceSide.lockInPersistentEntries();
+			targetSide.lockInPersistentEntries();
 		}
 		
 		void resetForMostBalancedCut() {
-			sourceSide.resetToPersistentState();
-			targetSide.resetToPersistentState();
+			sourceSide.recover();
+			targetSide.recover();
 		}
 	};
 

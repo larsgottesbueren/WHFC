@@ -111,15 +111,12 @@ namespace whfc {
 			Assert(shouldBeAddedToCut(e));
 			for (const Pin& px : hg.pinsOf(e))
 				if (canBeSettled(px.pin) && !borderNodes.sourceSide.wasAdded(px.pin) && (!mostBalancedCutMode || !n.isTargetReachable(px.pin))) {
-					LOGGER << "add border node" << V(px.pin) << V(currentViewDirection());
 					borderNodes.sourceSide.add(px.pin);
 				}
-			LOGGER << "add cut hyperedge" << V(e) << V(currentViewDirection());
 			cuts.sourceSide.add(e);
 		}
 
 		void settleNode(const Node u) {
-			LOGGER << "Settle" << V(u);
 			Assert(canBeSettled(u));
 			if (!n.isSourceReachable(u))
 				n.reach(u);
@@ -574,19 +571,20 @@ namespace whfc {
 		
 		void verifyCutPostConditions() {
 			Assert(hasCut);
+			
 #ifndef NDEBUG
-			LOGGER << "clean source side cut for cut post condition verification";
 			cuts.sourceSide.cleanUp([&](const Hyperedge& e) { return h.areAllPinsSources(e); });
 #endif
-			verifySetInvariants();
-			verifyCutInducedByPartitionMatchesExtractedCutHyperedges();
-			verifyExtractedCutHyperedgesActuallySplitHypergraph();
-			verifyFlowConstraints();
 			
 			Assert(flowValue ==
 				   std::accumulate(cuts.sourceSide.entries().begin(), cuts.sourceSide.entries().end(), Flow(0),
-								   [&](const Flow& w, const Hyperedge& e) { return hg.capacity(e) + w; })
+								   [&](const Flow& w, const Hyperedge& e) { Assert(hg.isSaturated(e)); return hg.capacity(e) + w; })
 			);
+			
+			verifySetInvariants();
+			verifyFlowConstraints();
+			verifyExtractedCutHyperedgesActuallySplitHypergraph();
+			verifyCutInducedByPartitionMatchesExtractedCutHyperedges();
 		}
 		
 		void verifySetInvariants() {

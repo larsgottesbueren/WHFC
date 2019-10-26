@@ -24,28 +24,24 @@ namespace whfc {
 			Assert(cs.hasCut);
 			Assert(cs.n.sourceWeight == cs.n.sourceReachableWeight);
 			Assert(cs.n.sourceReachableWeight <= cs.n.targetReachableWeight);
-			LOGGER << "piercing";
 			if (cs.notSettledNodeWeight() == 0)
 				return invalidNode;
 			multiplier = cs.currentViewDirection() == 0 ? -1 : 1;
-			LOGGER << V(multiplier);
+			
 			if (!cs.mostBalancedCutMode) {
 				cs.borderNodes.sourceSide.cleanUp([&](const Node& x) { return !cs.canBeSettled(x); });
-				Score first_try = multiCriteriaCandidateCheck(cs.borderNodes.sourceSide.persistent_entries);
+				Score first_try = multiCriteriaCandidateCheck(cs.borderNodes.sourceSide.entries());
 				if (first_try.candidate != invalidNode)
 					return first_try.candidate;
-				auto allNodes = hg.nodeIDs();
-				Score second_try = multiCriteriaCandidateCheck(allNodes);
+				Score second_try = multiCriteriaCandidateCheck(hg.nodeIDs());
 				return second_try.candidate;
 			}
 			else {
 				while (!cs.borderNodes.sourceSide.empty()) {
 					Node p = cs.borderNodes.sourceSide.popRandomEntryPreferringPersistent();
-					LOGGER << "piercing node" << V(p) << V(cs.n.isTargetReachable(p)) << V(cs.canBeSettled(p)) << V(hg.nodeWeight(p));
 					if (!cs.n.isTargetReachable(p) && isCandidate(p))
 						return p;
 				}
-				LOGGER << "no piercing possible";
 				return invalidNode;
 			}
 		}
@@ -81,7 +77,7 @@ namespace whfc {
 		
 		
 		template<class NodeRange>
-		Score multiCriteriaCandidateCheck(NodeRange& candidates) {
+		Score multiCriteriaCandidateCheck(NodeRange candidates) {
 			Score maxScore;
 			for (const Node u : candidates) {
 				if (isCandidate(u)) {		//the canBeSettled(u) check is necessary for the fallback
