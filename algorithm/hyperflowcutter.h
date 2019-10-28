@@ -47,9 +47,7 @@ namespace whfc {
 		}
 		
 		bool pierce(bool reject_piercing_if_it_creates_an_augmenting_path = false) {
-			timer.start("Piercing");
 			Node piercingNode = piercer.findPiercingNode();
-			timer.stop("Piercing");
 			if (piercingNode == invalidNode)
 				return false;
 			if (reject_piercing_if_it_creates_an_augmenting_path && cs.n.isTargetReachable(piercingNode))
@@ -151,15 +149,10 @@ namespace whfc {
 			if (has_balanced_cut && cs.flowValue <= upperFlowBound) {
 				// S + U + ISO <= T ==> will always add U and ISO completely to S, i.e. take target-side cut (we know S <= T)
 				const bool better_balance_impossible = hg.totalNodeWeight() - cs.n.targetReachableWeight <= cs.n.targetReachableWeight;
-				LOGGER << V(better_balance_impossible);
 				if (find_most_balanced && !better_balance_impossible)
 					mostBalancedCut();
 				else
 					cs.writePartition();
-			}
-			else {
-				LOGGER << "no balanced cut <= flow bound" << V(cs.flowValue) << V(upperFlowBound) << V(has_balanced_cut);
-				LOGGER << cs.toString();
 			}
 			
 			return !piercingFailedOrFlowBoundReachedWithNonAAPPiercingNode && cs.flowValue <= upperFlowBound && has_balanced_cut;
@@ -167,7 +160,6 @@ namespace whfc {
 		
 		void mostBalancedCut() {
 			timer.start("MBMC");
-			LOGGER << "Start MBMC";
 			
 			//settle target reachable nodes, so we don't have to track them in the moves
 			cs.flipViewDirection();
@@ -184,22 +176,13 @@ namespace whfc {
 			std::vector<Move> best_moves;
 			SimulatedIsolatedNodesAssignment best_sol = initial_sol;
 			
-			LOGGER << V(initial_sol.blockWeightDiff);
 			const size_t mbc_iterations = 20;
 			for (size_t i = 0; i < mbc_iterations && best_sol.blockWeightDiff > 0; ++i) {
-				LOGGER << "\n----------------------------\nMBMC iteration" << (i + 1);
-				LOGGER << cs.toString();
-				LOGGER << V(cs.trackedMoves.size());
-				
-				LOGGER << "-----------------------------------\n start iteration \n ";
-				
 				Assert(cs.n.sourceReachableWeight <= cs.n.targetReachableWeight);
-				
 				SimulatedIsolatedNodesAssignment sol = best_sol;
 				while (sol.blockWeightDiff > 0 && pierce(true)) {
 					flow_algo.growReachable(cs);		//TODO could consolidate for factor 2 speedup. but avoid any code duplication.
 					GrowAssimilated<FlowAlgorithm>::grow(cs, flow_algo.getScanList());
-					LOGGER << cs.toString();
 					cs.hasCut = true;
 					cs.verifyCutPostConditions();
 					
@@ -212,7 +195,6 @@ namespace whfc {
 					
 				}
 				
-				LOGGER << V(sol.blockWeightDiff) << V(best_sol.blockWeightDiff);
 				if (sol.blockWeightDiff < best_sol.blockWeightDiff) {
 					best_sol = sol;
 					cs.revertMoves(sol.numberOfTrackedMoves);

@@ -41,7 +41,6 @@ namespace whfc {
 			
 			void initialize(Flow maxScalingCap) {
 				maxScalingCap = std::min(DefaultInitialCapacity, maxScalingCap);
-				std::cout << "max scaling cap " << maxScalingCap << std::endl;
 				initialCapacity = 1;
 				while (2 * initialCapacity <= maxScalingCap) {
 					initialCapacity *= 2;
