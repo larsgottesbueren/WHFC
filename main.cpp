@@ -8,6 +8,7 @@
 
 #include "util/random.h"
 #include "datastructure/flow_hypergraph_builder.h"
+#include "algorithm/dinic.h"
 
 
 namespace whfc {
@@ -19,7 +20,7 @@ namespace whfc {
 			throw std::runtime_error("s or t not within node id range");
 		
 		int seed = 42;
-		HyperFlowCutter<BasicEdmondsKarp> hfc(hg, mbw, seed);
+		HyperFlowCutter<Dinic> hfc(hg, mbw, seed);
 		
 		hfc.findCutsUntilBalancedOrFlowBoundExceeded(s, t);
 		hfc.timer.report(std::cout);
