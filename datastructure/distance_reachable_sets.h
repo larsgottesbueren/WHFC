@@ -22,7 +22,6 @@ namespace whfc {
 		using Base = ReachableNodesBase;
 		using DistanceT = DistanceRange::DistanceT;
 		
-		static constexpr bool log = true;
 		
 		DistanceReachableNodes(const FlowHypergraph& hg) : Base(hg), distance(hg.numNodes(), unreachableDistance), s(sourceSettledDistance), t(targetSettledDistance) {
 			Assert(4 + hg.numNodes() * 2 < std::numeric_limits<DistanceT>::max());

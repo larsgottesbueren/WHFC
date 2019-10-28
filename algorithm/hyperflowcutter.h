@@ -18,7 +18,7 @@ namespace whfc {
 		Piercer<FlowAlgorithm> piercer;
 		bool find_most_balanced = true;
 
-		static constexpr bool log = true;
+		static constexpr bool log = false;
 		HyperFlowCutter(FlowHypergraph& hg, NodeWeight maxBlockWeight, int seed) :
 				timer("HyperFlowCutter"),
 				hg(hg),

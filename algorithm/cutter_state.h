@@ -49,7 +49,7 @@ namespace whfc {
 	class CutterState {
 	public:
 		using Pin = FlowHypergraph::Pin;
-		static constexpr bool log = true;
+		static constexpr bool log = false;
 		
 		int viewDirection = 0;
 		FlowHypergraph& hg;

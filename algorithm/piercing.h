@@ -1,7 +1,6 @@
 #pragma once
 
 #include "../definitions.h"
-#include "../util/comparison.h"
 #include "cutter_state.h"
 
 namespace whfc {
@@ -14,7 +13,7 @@ namespace whfc {
 		bool useDistancesFromCut = false;
 		int multiplier = -1;
 		
-		static constexpr bool log = true;
+		static constexpr bool log = false;
 		
 		void clear() {
 			multiplier = -1;

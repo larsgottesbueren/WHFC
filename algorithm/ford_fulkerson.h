@@ -67,7 +67,7 @@ namespace whfc {
 	public:
 		static constexpr bool same_traversal_as_grow_assimilated = true;
 		static constexpr bool grow_reachable_marks_flow_sending_pins_when_marking_all_pins = false;
-		static constexpr bool log = true;
+		static constexpr bool log = false;
 		
 		using Type = FordFulkerson<ScanListType, use_scaling, always_set_parent>;
 		using ScanList = ScanListType;
@@ -310,7 +310,7 @@ namespace whfc {
 	public:
 		static constexpr bool same_traversal_as_grow_assimilated = false;
 		static constexpr bool grow_reachable_marks_flow_sending_pins_when_marking_all_pins = false;
-		static constexpr bool log = true;
+		static constexpr bool log = false;
 		using Type = DepthFirstFordFulkerson<use_scaling>;
 		
 		using ReachableNodes = ReachableNodesChecker;
