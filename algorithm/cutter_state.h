@@ -201,6 +201,7 @@ namespace whfc {
 		}
 		
 		void initialize(const Node s, const Node t) {
+			timer.start("Initialize");
 			Assert(sourcePiercingNodes.empty() && targetPiercingNodes.empty());
 			sourcePiercingNodes.emplace_back(s,false);
 			settleNode(s);
@@ -208,6 +209,7 @@ namespace whfc {
 			flipViewDirection();
 			settleNode(t);
 			flipViewDirection();
+			timer.stop("Initialize");
 		}
 		
 		bool isBalanced() {
@@ -383,6 +385,7 @@ namespace whfc {
 		void writePartition(const SimulatedIsolatedNodesAssignment& r) {
 			AssertMsg(!partitionWrittenToNodeSet, "Partition was already written");
 			AssertMsg(isBalanced(), "Not balanced yet");
+			timer.start("Write Partition");
 			
 			if (currentViewDirection() != r.direction)
 				flipViewDirection();
@@ -429,6 +432,7 @@ namespace whfc {
 			
 			Assert(n.sourceWeight + n.targetWeight == hg.totalNodeWeight());
 			partitionWrittenToNodeSet = true;
+			timer.stop("Write Partition");
 		}
 		
 		void writePartition() {
