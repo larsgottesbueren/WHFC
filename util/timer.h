@@ -107,6 +107,10 @@ namespace whfc {
 			registerCategory(id, top_level_category);
 		}
 		
+		Interval get(const Identifier& cat) {
+			return times[cat];
+		}
+		
 		void clear() {
 			running.clear();
 			times.clear();
@@ -117,7 +121,7 @@ namespace whfc {
 		Identifier top_level_category = "total";
 	private:
 		
-		void traverseTree(std::vector<std::pair<std::string, std::string>>& lines, Identifier& cat, size_t depth) {
+		void traverseTree(std::vector<std::pair<std::string, std::string>>& lines, const Identifier& cat, const size_t depth) {
 			std::stringstream first_column;
 			for (size_t i = 0; i < depth; ++i)
 				first_column << "    ";
@@ -128,8 +132,20 @@ namespace whfc {
 			auto ret = times.find(cat);
 			if (ret != times.end())
 				second_column << ret->second.count() << " s";
-			else
-				second_column << " --- ";
+			else {
+				if (cat != top_level_category) {
+					second_column << " --- ";
+				}
+				else {
+					Interval sum(0.0);
+					for (Identifier child : tree[cat]) {
+						auto ret_top = times.find(child);
+						sum += ret_top == times.end() ? Interval(0.0) : ret_top->second;
+					}
+					second_column << sum.count() << " s";
+				}
+			}
+			
 			
 			lines.emplace_back(first_column.str(), second_column.str());
 			for (Identifier child : tree[cat])
