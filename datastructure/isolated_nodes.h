@@ -60,49 +60,47 @@ namespace whfc {
 
 				const NodeWeight wu = hg.nodeWeight(u);
 				AssertMsg(wu > 0, "Node has zero weight");
-
 				for (const SummableRange& sr : sumRanges) {
 					for (NodeWeight new_sum = sr.from + wu, _end = std::min(sr.to + wu, maxSubsetSumWeight); new_sum <= _end; ++new_sum) {
 						if (!isSummable(new_sum)) {
 							newSumAvailable = true;
 							DPTable[new_sum].node = u;
 
-							NodeWeight left(new_sum - 1), right(new_sum + 1);
+							NodeWeight left(new_sum - 1), right(new_sum + 1); //new_sum + 1 is valid because of right-ward sentinel.
 							Index leftIndex = DPTable[left].sumsIndex, rightIndex = DPTable[right].sumsIndex;
-							bool hasLeft = DPTable[left].summable();
-							bool hasRight = DPTable[right].summable();    //new_sum + 1 is valid because of right-ward sentinel.
+							bool hasLeft = DPTable[left].summable(), hasRight = DPTable[right].summable();
 
 							if (hasLeft && hasRight) {
-								//merge ranges. keep left range, and extend it to cover the right range
-								AssertMsg(nextSumRanges[DPTable[left].sumsIndex].to == left, "hasLeft && hasRight: left range does not extend to new_sum-1");
-								AssertMsg(nextSumRanges[DPTable[right].sumsIndex].from == right, "hasLeft && hasRight: right range does not start at new_sum+1");
-								DPTable[new_sum].sumsIndex = leftIndex; //bridging cell. the index is stale, but we're setting it anyway to mark it as summable
-
 								SummableRange& leftRange = nextSumRanges[leftIndex], rightRange = nextSumRanges[rightIndex];
+								
+								//merge ranges. keep left range, and extend it to cover the right range
+								AssertMsg(leftRange.to == left, "hasLeft && hasRight: left range does not extend to new_sum-1");
+								AssertMsg(rightRange.from == right, "hasLeft && hasRight: right range does not start at new_sum+1");
+								DPTable[new_sum].sumsIndex = leftIndex; //bridging cell. the index is stale, but we're setting it anyway to mark it as summable
 
 								//extend leftRange to cover rightRange
 								DPTable[rightRange.to].sumsIndex = leftIndex;
 								leftRange.to = rightRange.to;
 
 								//delete rightRange
-								SummableRange back = nextSumRanges.back();        //make copy! thus immediate pop_back is safe
+								if (rightIndex != nextSumRanges.size() - 1) {
+									//update sumsIndex of the range that was swapped to rightIndex
+									nextSumRanges[rightIndex] = nextSumRanges.back();
+									DPTable[ nextSumRanges[rightIndex].from ].sumsIndex = rightIndex;
+									DPTable[ nextSumRanges[rightIndex].to ].sumsIndex = rightIndex;
+								}
 								nextSumRanges.pop_back();
-								nextSumRanges[rightIndex] = back;
-
-								//update sumsIndex of the range that was swapped to rightIndex
-								DPTable[back.from].sumsIndex = rightIndex;
-								DPTable[back.to].sumsIndex = rightIndex;
 							}
 							else if (hasLeft) {
 								//extend left range's .to by +1
-								AssertMsg(nextSumRanges[DPTable[left].sumsIndex].to == left, "hasLeft: left range does not extend to new_sum-1");
-								nextSumRanges[DPTable[left].sumsIndex].to = new_sum;
+								AssertMsg(nextSumRanges[leftIndex].to == left, "hasLeft: left range does not extend to new_sum-1");
+								nextSumRanges[leftIndex].to = new_sum;
 								DPTable[new_sum].sumsIndex = leftIndex;
 							}
 							else if (hasRight) {
 								//extend right range's .from by -1
-								AssertMsg(nextSumRanges[DPTable[right].sumsIndex].from == right, "hasRight: right range does not start at new_sum+1");
-								nextSumRanges[DPTable[right].sumsIndex].from = new_sum;
+								AssertMsg(nextSumRanges[rightIndex].from == right, "hasRight: right range does not start at new_sum+1");
+								nextSumRanges[rightIndex].from = new_sum;
 								DPTable[new_sum].sumsIndex = rightIndex;
 							}
 							else {
@@ -139,7 +137,7 @@ namespace whfc {
 		
 		void reset() {
 			mixedIncidentHyperedges.assign(hg.numNodes(), InHeIndex(0));
-			DPTable.assign(weight, TableEntry());
+			DPTable.assign(weight + 1, TableEntry());
 			sumRanges.clear();
 			nextSumRanges.clear();
 			newSumAvailable = true;
@@ -194,7 +192,7 @@ namespace whfc {
 					  std::string("Trying to extract subset for not achieved subset sum. ")
 					  + (isDPTableUpToDate() ? "Call updateDPTable() before calling this method. There are nodes that are not included in the table yet." : " ")
 			);
-
+			
 			std::vector<Node> result;
 			while (sum > 0) {
 				const Node u = DPTable[sum].node;
