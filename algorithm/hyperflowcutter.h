@@ -35,7 +35,7 @@ namespace whfc {
 			flow_algo.reset();
 			upperFlowBound = maxFlow;
 			piercer.clear();
-			timer.clear();
+			//timer.clear();
 		}
 		
 		void setPiercingNode(const Node piercingNode) {
@@ -90,9 +90,13 @@ namespace whfc {
 		//for flow-based interleaving
 		bool advanceOneFlowIteration(bool reject_piercing_if_it_creates_an_augmenting_path = false) {
 			const bool pierceInThisIteration = cs.hasCut;
-			if (pierceInThisIteration)
-				if (!pierce(reject_piercing_if_it_creates_an_augmenting_path))
+			if (pierceInThisIteration) {
+				timer.start("Piercing");
+				const bool early_reject = !pierce(reject_piercing_if_it_creates_an_augmenting_path);
+				timer.stop("Piercing");
+				if (early_reject)
 					return false;
+			}
 			
 			timer.start("Flow");
 			if (cs.augmentingPathAvailableFromPiercing) {
@@ -146,6 +150,7 @@ namespace whfc {
 				has_balanced_cut = cs.hasCut && cs.isBalanced(); //no cut ==> run and don't check for balance.
 			}
 			
+			
 			if (has_balanced_cut && cs.flowValue <= upperFlowBound) {
 				// S + U + ISO <= T ==> will always add U and ISO completely to S, i.e. take target-side cut (we know S <= T)
 				const bool better_balance_impossible = hg.totalNodeWeight() - cs.n.targetReachableWeight <= cs.n.targetReachableWeight;
@@ -153,8 +158,10 @@ namespace whfc {
 					mostBalancedCut();
 				else
 					cs.writePartition();
+				
+				LOGGER << cs.toString(true);
+				cs.verifyCutInducedByPartitionMatchesFlowValue();
 			}
-			
 			return !piercingFailedOrFlowBoundReachedWithNonAAPPiercingNode && cs.flowValue <= upperFlowBound && has_balanced_cut;
 		}
 		
@@ -170,13 +177,12 @@ namespace whfc {
 			Assert(cs.n.sourceReachableWeight == cs.n.sourceWeight);
 			Assert(cs.n.targetReachableWeight == cs.n.targetWeight);
 			
-			
 			NonDynamicCutterState first_balanced_state = cs.enterMostBalancedCutMode();
 			SimulatedIsolatedNodesAssignment initial_sol = cs.mostBalancedIsolatedNodesAssignment();
 			std::vector<Move> best_moves;
 			SimulatedIsolatedNodesAssignment best_sol = initial_sol;
 			
-			const size_t mbc_iterations = 20;
+			const size_t mbc_iterations = cs.unclaimedNodeWeight() > 0 ? 7 : 0;
 			for (size_t i = 0; i < mbc_iterations && best_sol.blockWeightDiff > 0; ++i) {
 				Assert(cs.n.sourceReachableWeight <= cs.n.targetReachableWeight);
 				SimulatedIsolatedNodesAssignment sol = best_sol;
@@ -192,7 +198,6 @@ namespace whfc {
 					SimulatedIsolatedNodesAssignment sim = cs.mostBalancedIsolatedNodesAssignment();
 					if (sim.blockWeightDiff < sol.blockWeightDiff)
 						sol = sim;
-					
 				}
 				
 				if (sol.blockWeightDiff < best_sol.blockWeightDiff) {
