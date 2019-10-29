@@ -498,17 +498,20 @@ namespace whfc {
 			timer.stop("Apply Moves");
 		}
 		
-		std::string toString() {
+		std::string toString(bool skip_iso_and_unclaimed = false) {
 			std::stringstream os;
 			bool flipIt = currentViewDirection() != 0;
 			if (flipIt)
 				flipViewDirection();
 			os << " cut= " << flowValue
 			   << " s=" << n.sourceWeight << "|" << n.sourceReachableWeight
-			   << " t=" << n.targetWeight << "|" << n.targetReachableWeight
-			   << " iso=" << isolatedNodes.weight
-			   << " u=" << unclaimedNodeWeight()
-			   << " total=" << hg.totalNodeWeight();
+			   << " t=" << n.targetWeight << "|" << n.targetReachableWeight;
+			if (!skip_iso_and_unclaimed)
+			   os << " iso=" << isolatedNodes.weight
+				  << " u=" << unclaimedNodeWeight();
+			os << " mbw=" << maxBlockWeight
+			   << " total=" << hg.totalNodeWeight()
+			   << " dir=" << (flipIt ? 1 : 0);
 			if (flipIt)
 				flipViewDirection();
 			return os.str();
