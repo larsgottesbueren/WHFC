@@ -637,6 +637,24 @@ namespace whfc {
 #endif
 		}
 		
+		void verifyCutInducedByPartitionMatchesFlowValue() {
+#ifndef NDEBUG
+			Flow cut_weight = 0;
+			for (Hyperedge e : hg.hyperedgeIDs()) {
+				bool hasSource = false;
+				bool hasOther = false;
+				for (Pin& p : hg.pinsOf(e)) {
+					hasSource |= n.isSource(p.pin);
+					hasOther |= !n.isSource(p.pin);
+				}
+				if (hasSource && hasOther) {
+					cut_weight += hg.capacity(e);
+				}
+			}
+			Assert(flowValue == cut_weight);
+#endif
+		}
+		
 		
 		void verifyExtractedCutHyperedgesActuallySplitHypergraph() {
 #ifndef NDEBUG
