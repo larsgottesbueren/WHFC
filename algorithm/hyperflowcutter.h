@@ -25,7 +25,7 @@ namespace whfc {
 				cs(hg, maxBlockWeight, timer),
 				flow_algo(hg),
 				upperFlowBound(maxFlow),
-				piercer(hg, cs)
+				piercer(hg, cs, timer)
 		{
 			Random::setSeed(seed);
 		}

@@ -8,7 +8,8 @@ namespace whfc {
 	template<class FlowAlgorithm>
 	class Piercer {
 	public:
-		explicit Piercer(FlowHypergraph& hg, CutterState<FlowAlgorithm>& cs) : hg(hg), cs(cs), distanceFromCut(hg.numNodes(), 0) { }
+		
+		explicit Piercer(FlowHypergraph& hg, CutterState<FlowAlgorithm>& cs, TimeReporter& timer) : hg(hg), cs(cs), timer(timer), distanceFromCut(hg.numNodes(), 0) { }
 
 		bool useDistancesFromCut = false;
 		int multiplier = -1;
@@ -28,11 +29,21 @@ namespace whfc {
 			multiplier = cs.currentViewDirection() == 0 ? -1 : 1;
 			
 			if (!cs.mostBalancedCutMode) {
+				timer.start("Clean Up", "Piercing");
 				cs.borderNodes.sourceSide.cleanUp([&](const Node& x) { return !cs.canBeSettled(x); });
-				Score first_try = multiCriteriaCandidateCheck(cs.borderNodes.sourceSide.entries());
+				timer.stop("Clean Up");
+				
+				timer.start("Regular Multicriteria Candidate Check", "Piercing");
+				Score first_try = multiCriteriaCandidateCheck(cs.borderNodes.sourceSide.entries_in_persistent_mode());
+				timer.stop("Regular Multicriteria Candidate Check");
+				
 				if (first_try.candidate != invalidNode)
 					return first_try.candidate;
+				
+				timer.start("Fallback Multicriteria Candidate Check", "Piercing");
 				Score second_try = multiCriteriaCandidateCheck(hg.nodeIDs());
+				timer.stop("Fallback Multicriteria Candidate Check");
+				
 				return second_try.candidate;
 			}
 			else {
@@ -90,6 +101,7 @@ namespace whfc {
 
 		FlowHypergraph& hg;
 		CutterState<FlowAlgorithm>& cs;
+		TimeReporter& timer;
 		
 	public:
 		//negative entries for original source-side, positive entries for original target-side. start counting at -1/1

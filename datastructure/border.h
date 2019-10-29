@@ -104,6 +104,11 @@ namespace whfc {
 			return concatenated_range< sub_range<std::vector<T>>, T  >(persistent_entries(), non_persistent_entries());
 		}
 		
+		const std::vector<T>& entries_in_persistent_mode() const {
+			Assert(persistentMode);
+			return c;
+		}
+		
 		std::vector<T> copy() const {
 			std::vector<T> c;
 			for (const T& x : entries())
