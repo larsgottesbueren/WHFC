@@ -49,7 +49,6 @@ namespace whfc {
 	class CutterState {
 	public:
 		using Pin = FlowHypergraph::Pin;
-		static constexpr bool log = false;
 		
 		int viewDirection = 0;
 		FlowHypergraph& hg;
@@ -385,7 +384,6 @@ namespace whfc {
 			AssertMsg(!partitionWrittenToNodeSet, "Partition was already written");
 			AssertMsg(isBalanced(), "Not balanced yet");
 			
-			
 			if (currentViewDirection() != r.direction)
 				flipViewDirection();
 			
@@ -418,10 +416,10 @@ namespace whfc {
 				
 				if (isIsolated(u)) {
 					if (r.assignTrackedIsolatedWeightToSource) {
-						n.reach(u); n.settle(u);
+						n.reachTarget(u); n.settleTarget(u);
 					}
 					else {
-						n.reachTarget(u); n.settleTarget(u);
+						n.reach(u); n.settle(u);
 					}
 				}
 			}
