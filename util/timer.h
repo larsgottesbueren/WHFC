@@ -81,6 +81,7 @@ namespace whfc {
 			
 			size_t line_width = min_padding + max_left + max_right;
 			std::string header = "Running time report";
+			os << header;
 			for (size_t i = header.length(); i < line_width; ++i)
 				os << "-";
 			os << "\n";
