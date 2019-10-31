@@ -18,7 +18,7 @@ namespace whfc {
 		Piercer<FlowAlgorithm> piercer;
 		bool find_most_balanced = true;
 
-		static constexpr bool log = false;
+		static constexpr bool log = true;
 		HyperFlowCutter(FlowHypergraph& hg, NodeWeight maxBlockWeight, int seed) :
 				timer("HyperFlowCutter"),
 				hg(hg),
@@ -34,7 +34,6 @@ namespace whfc {
 			cs.reset();
 			flow_algo.reset();
 			upperFlowBound = maxFlow;
-			piercer.clear();
 			//timer.clear();
 		}
 		
@@ -150,10 +149,12 @@ namespace whfc {
 				has_balanced_cut = cs.hasCut && cs.isBalanced(); //no cut ==> run and don't check for balance.
 			}
 			
+			LOGGER << V(has_balanced_cut) << V(cs.flowValue) << V(upperFlowBound);
 			
 			if (has_balanced_cut && cs.flowValue <= upperFlowBound) {
 				// S + U + ISO <= T ==> will always add U and ISO completely to S, i.e. take target-side cut (we know S <= T)
-				const bool better_balance_impossible = hg.totalNodeWeight() - cs.n.targetReachableWeight <= cs.n.targetReachableWeight;
+				const bool better_balance_impossible = hg.totalNodeWeight() - cs.n.targetReachableWeight <= cs.n.targetReachableWeight || cs.unclaimedNodeWeight() == 0;
+				LOGGER << V(better_balance_impossible);
 				if (find_most_balanced && !better_balance_impossible)
 					mostBalancedCut();
 				else
@@ -167,6 +168,8 @@ namespace whfc {
 		
 		void mostBalancedCut() {
 			timer.start("MBMC");
+			
+			LOGGER << "MBC Mode";
 			
 			//settle target reachable nodes, so we don't have to track them in the moves
 			cs.flipViewDirection();
@@ -182,15 +185,18 @@ namespace whfc {
 			std::vector<Move> best_moves;
 			SimulatedIsolatedNodesAssignment best_sol = initial_sol;
 			
-			const size_t mbc_iterations = cs.unclaimedNodeWeight() > 0 ? 7 : 0;
+			const size_t mbc_iterations = 7;
 			for (size_t i = 0; i < mbc_iterations && best_sol.blockWeightDiff > 0; ++i) {
+				LOGGER << "MBC it" << i;
 				Assert(cs.n.sourceReachableWeight <= cs.n.targetReachableWeight);
 				SimulatedIsolatedNodesAssignment sol = best_sol;
 				while (sol.blockWeightDiff > 0 && pierce(true)) {
-					flow_algo.growReachable(cs);		//TODO could consolidate for factor 2 speedup. but avoid any code duplication.
+					flow_algo.growReachable(cs);		//could consolidate for factor 2 speedup. but avoid any code duplication.
 					GrowAssimilated<FlowAlgorithm>::grow(cs, flow_algo.getScanList());
 					cs.hasCut = true;
 					cs.verifyCutPostConditions();
+					
+					LOGGER << cs.toString();
 					
 					if (cs.n.targetReachableWeight <= cs.n.sourceReachableWeight)
 						cs.flipViewDirection();
@@ -203,6 +209,7 @@ namespace whfc {
 				if (sol.blockWeightDiff < best_sol.blockWeightDiff) {
 					best_sol = sol;
 					cs.revertMoves(sol.numberOfTrackedMoves);
+					LOGGER << "improved";
 					best_moves = cs.trackedMoves;
 				}
 				

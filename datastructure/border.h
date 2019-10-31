@@ -144,7 +144,7 @@ namespace whfc {
 		}
 	};
 
-	using NodeBorders = Borders<Node, true>;
+	using NodeBordersPreviously = Borders<Node, true>;
 
 	//track hyperedges only for assertions in debug mode
 #ifndef NDEBUG

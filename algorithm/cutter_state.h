@@ -3,6 +3,7 @@
 #include "../datastructure/queue.h"
 #include "../definitions.h"
 #include "../datastructure/border.h"
+#include "../datastructure/node_border.h"
 #include "../datastructure/flow_hypergraph.h"
 #include "../datastructure/isolated_nodes.h"
 #include "../datastructure/bitset_reachable_sets.h"
@@ -106,11 +107,13 @@ namespace whfc {
 		}
 
 		inline void addToCut(const Hyperedge e) {
+			//Note: the current implementation of selecting piercing nodes relies on not inserting target-reachable nodes during most balanced cut mode
 			Assert(shouldBeAddedToCut(e));
-			for (const Pin& px : hg.pinsOf(e))
-				if (canBeSettled(px.pin) && !borderNodes.sourceSide.wasAdded(px.pin) && (!mostBalancedCutMode || !n.isTargetReachable(px.pin))) {
-					borderNodes.sourceSide.add(px.pin);
+			for (const Pin& px : hg.pinsOf(e)) {
+				if (canBeSettled(px.pin) && !borderNodes.sourceSide->wasAdded(px.pin) && (!mostBalancedCutMode || !n.isTargetReachable(px.pin))) {
+					borderNodes.sourceSide->add(px.pin, n.isTargetReachable(px.pin));
 				}
+			}
 			cuts.sourceSide.add(e);
 		}
 
@@ -280,13 +283,8 @@ namespace whfc {
 			Assert(trackedMoves.empty());
 			Assert(hasCut);
 			mostBalancedCutMode = true;	//activates move tracking
-			
-			borderNodes.sourceSide.cleanUp([&](const Node u) { return n.isTargetReachable(u) || !canBeSettled(u); });
-			borderNodes.targetSide.cleanUp([&](const Node u) { return n.isSourceReachable(u) || !canBeSettled(u); });
 			borderNodes.enterMostBalancedCutMode();
-			
 			cuts.enterMostBalancedCutMode();
-			
 			return { sourcePiercingNodes, targetPiercingNodes, currentViewDirection() };
 		}
 		

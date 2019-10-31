@@ -42,6 +42,17 @@ namespace whfc {
 			return range[randomIndex(0, range.size() - 1)];
 		}
 		
+		template<class T>
+		static T selectAndRemoveRandomElement(std::vector<T>& range) {
+			if (range.empty())
+				return T::Invalid();
+			size_t it = randomIndex(0, range.size() - 1);
+			T res = range[it];
+			range[it] = range.back();
+			range.pop_back();
+			return res;
+		}
+		
 		static void setSeed(int seed) {
 			instance().gen.seed(seed);
 		}
