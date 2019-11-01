@@ -63,12 +63,13 @@ public:
 	
 	void reset(const size_t newN) {
 		mostBalancedCutMode = false;
-		was_added.reset(newN);
+		was_added.reset(0, newN);
 		
 		for (Index i = 0; i < 2; ++i) {
 			clearBuckets(i);
 			Assert(removed_during_most_balanced_cut_mode[i].empty());
 		}
+		verifyBucketsAreClean();
 		
 		HopDistance maxDistance = 0;
 		for (Node i(0); i < newN; ++i) {
@@ -95,6 +96,9 @@ public:
 		for (Node u : removed_during_most_balanced_cut_mode[most_balanced_cut_bucket_index]) {
 			was_added.reset(u);
 		}
+		
+		removed_during_most_balanced_cut_mode[not_target_reachable_bucket_index].clear();
+		removed_during_most_balanced_cut_mode[most_balanced_cut_bucket_index].clear();
 		
 		maxOccupiedBucket = backupMaxOccupiedBucket;
 		minOccupiedBucket = backupMinOccupiedBucket;
@@ -136,6 +140,18 @@ public:
 	int multiplier;
 	bool mostBalancedCutMode = false;
 	
+private:
+	
+	void verifyBucketsAreClean() {
+#ifndef NDEBUG
+		for (auto& bb : buckets) {
+			for (Bucket& b : bb) {
+				Assert(b.empty());
+			}
+		}
+#endif
+	}
+	
 };
 
 class NodeBorders {
@@ -143,7 +159,7 @@ public:
 	
 	NodeBorders(const size_t initialN) : distance(initialN),
 										 sourceSide(std::make_unique<NodeBorder>(initialN, distance, -1)),
-										 targetSide(std::make_unique<NodeBorder>(initialN, distance, -1)){ }
+										 targetSide(std::make_unique<NodeBorder>(initialN, distance, 1)) { }
 	
 	void flipViewDirection() {
 		std::swap(sourceSide, targetSide);
@@ -151,8 +167,7 @@ public:
 	}
 	
 	void reset(const size_t newN) {
-		if (sourceSide->multiplier != -1)
-			flipViewDirection();
+		Assert(sourceSide->multiplier == -1);
 		sourceSide->reset(newN);
 		targetSide->reset(newN);
 	}
