@@ -12,8 +12,8 @@
 namespace whfc {
 	void runSnapshotTester(const std::string& filename, std::string& interleaving) {
 		
-		//using FlowAlgorithm = Dinic;
-		using FlowAlgorithm = ScalingDinic;
+		using FlowAlgorithm = Dinic;
+		//using FlowAlgorithm = ScalingDinic;
 		
 		WHFC_IO::WHFCInformation info = WHFC_IO::readAdditionalInformation(filename);
 		Node s = info.s;
@@ -21,13 +21,15 @@ namespace whfc {
 		NodeWeight mbw = info.maxBlockWeight;
 		std::cout << s << " " << t << " " << mbw << " " << info.upperFlowBound<< std::endl;
 		
-		FlowHypergraph hg = HMetisIO::readFlowHypergraph(filename);
+		FlowHypergraphBuilder hg = HMetisIO::readFlowHypergraphWithBuilder(filename);
 		if (s >= hg.numNodes() || t >= hg.numNodes())
 			throw std::runtime_error("s or t not within node id range");
 		
 		int seed = 42;
 		HyperFlowCutter<FlowAlgorithm> hfc(hg, mbw, seed);
 		hfc.upperFlowBound = info.upperFlowBound;
+		
+		WHFC_IO::readRandomGeneratorState(filename);
 		
 		hfc.timer.start();
 		if (interleaving == "flowbased")
@@ -38,6 +40,26 @@ namespace whfc {
 			throw std::runtime_error("Unknown interleaving option");
 		hfc.timer.stop();
 		hfc.timer.report(std::cout);
+		hfc.timer.clear();
+		
+		std::cout << "Reread" << std::endl;
+		HMetisIO::readFlowHypergraphWithBuilder(hg, filename);
+		
+		std::cout << "Reset" << std::endl;
+		hfc.reset();
+		std::cout << "Run again" << std::endl;
+		
+		hfc.timer.start();
+		if (interleaving == "flowbased")
+			hfc.runUntilBalancedOrFlowBoundExceeded(s, t);
+		else if (interleaving == "cutbased")
+			hfc.findCutsUntilBalancedOrFlowBoundExceeded(s, t);
+		else
+			throw std::runtime_error("Unknown interleaving option");
+		hfc.timer.stop();
+		hfc.timer.report(std::cout);
+		hfc.timer.clear();
+		
 		
 	}
 }
