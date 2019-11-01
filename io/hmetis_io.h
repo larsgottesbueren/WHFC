@@ -42,12 +42,17 @@ namespace whfc {
 		}
 		
 		static FlowHypergraphBuilder readFlowHypergraphWithBuilder(const std::string& filename) {
+			FlowHypergraphBuilder hgb;
+			return readFlowHypergraphWithBuilder(hgb, filename);
+		}
+		
+		static FlowHypergraphBuilder& readFlowHypergraphWithBuilder(FlowHypergraphBuilder& hgb, const std::string& filename) {
 			std::ifstream f(filename);
 			if (!f)
 				throw std::runtime_error("File: " + filename + " not found.");
 			
 			auto [numNodes, numHEs, hg_type] = readHeader(f);
-			FlowHypergraphBuilder hgb;
+			hgb.clear();
 			hgb.reinitialize(numNodes);
 			
 			std::string line;
