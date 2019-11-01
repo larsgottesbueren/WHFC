@@ -46,7 +46,7 @@ namespace whfc {
 			f.close();
 			
 			std::ofstream df(hgpath + ".distribution");
-			df << Random::instance().size_t_dist;
+			df << Random::instance().get64BitUintDistribution();
 			df.close();
 			
 			std::ofstream genf(hgpath + ".generator");
