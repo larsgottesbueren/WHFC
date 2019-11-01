@@ -29,7 +29,7 @@ namespace whfc {
 				
 				for ( ; d >= border.minOccupiedBucket[reachability_bucket_type]; --d) {
 					
-					NodeBorder::Bucket& b = border.buckets[d].at(reachability_bucket_type);
+					NodeBorder::Bucket& b = border.buckets[d][reachability_bucket_type];
 					
 					while (!b.empty()) {
 						
