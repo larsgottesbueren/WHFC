@@ -60,7 +60,11 @@ namespace whfc {
 		std::mt19937& getGenerator() {
 			return gen;
 		}
-
+		
+		std::uniform_int_distribution<size_t>& get64BitUintDistribution() {
+			return size_t_dist;
+		}
+		
 	protected:
 		Random() :
 				gen(),

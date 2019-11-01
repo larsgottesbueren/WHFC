@@ -1,6 +1,7 @@
 #pragma once
 
 #include <fstream>
+#include "../util/random.h"
 #include "../definitions.h"
 
 namespace whfc {
@@ -11,6 +12,21 @@ namespace whfc {
 			Flow upperFlowBound;
 			Node s, t;
 		};
+		
+		static void readRandomGeneratorState(const std::string& hgpath) {
+			std::ifstream df(hgpath + ".distribution");
+			if (df) {
+				df >> Random::instance().get64BitUintDistribution();
+			}
+			df.close();
+			
+			std::ifstream genf(hgpath + ".generator");
+			if (genf) {
+				genf >> Random::instance().getGenerator();
+			}
+			genf.close();
+		}
+		
 		static WHFCInformation readAdditionalInformation(const std::string& hgpath) {
 			std::string fileSuffix = ".whfc";
 			std::ifstream f(hgpath + fileSuffix);
@@ -28,6 +44,14 @@ namespace whfc {
 			std::ofstream f(hgpath + fileSuffix);
 			f << i.maxBlockWeight << " " << i.upperFlowBound << " " << i.s << " " << i.t << std::endl;
 			f.close();
+			
+			std::ofstream df(hgpath + ".distribution");
+			df << Random::instance().size_t_dist;
+			df.close();
+			
+			std::ofstream genf(hgpath + ".generator");
+			genf << Random::instance().getGenerator();
+			genf.close();
 		}
 	};
 }
