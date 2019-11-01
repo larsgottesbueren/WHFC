@@ -39,7 +39,7 @@ namespace whfc {
 		}
 		
 		void fullReset() {
-			timestamps.assign(hg.numNodes(), unreachableTS);
+			std::fill_n(timestamps.begin(), hg.numNodes(), unreachableTS);
 			generation = initialTS;
 			sourceSettledTS = 1;
 			targetSettledTS = 2;
@@ -165,8 +165,8 @@ namespace whfc {
 		}
 		
 		void fullReset() {
-			in.assign(hg.numHyperedges(), unreachableTS);
-			out.assign(hg.numHyperedges(), unreachableTS);
+			std::fill_n(in.begin(), hg.numHyperedges(), unreachableTS);
+			std::fill_n(out.begin(), hg.numHyperedges(), unreachableTS);
 			generation = initialTS;
 			sourceSettledTS = 1;
 			targetSettledTS = 2;

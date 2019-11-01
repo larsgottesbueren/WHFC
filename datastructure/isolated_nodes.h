@@ -136,8 +136,8 @@ namespace whfc {
 		}
 		
 		void reset() {
-			mixedIncidentHyperedges.assign(hg.numNodes(), InHeIndex(0));
-			DPTable.assign(weight + 1, TableEntry());
+			std::fill_n(mixedIncidentHyperedges.begin(), hg.numNodes(), InHeIndex(0));
+			std::fill_n(DPTable.begin(), weight + 1, TableEntry());
 			sumRanges.clear();
 			nextSumRanges.clear();
 			newSumAvailable = true;
