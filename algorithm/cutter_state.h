@@ -212,7 +212,7 @@ namespace whfc {
 			settleNode(t);
 			flipViewDirection();
 			for (Node u : hg.nodeIDs())
-				if (isIsolated(u))
+				if (hg.degree(u) == 0)
 					isolatedNodes.add(u);
 			timer.stop("Initialize");
 		}
