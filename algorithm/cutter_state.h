@@ -211,6 +211,9 @@ namespace whfc {
 			flipViewDirection();
 			settleNode(t);
 			flipViewDirection();
+			for (Node u : hg.nodeIDs())
+				if (isIsolated(u))
+					isolatedNodes.add(u);
 			timer.stop("Initialize");
 		}
 		
@@ -398,6 +401,7 @@ namespace whfc {
 				}
 			}
 			
+			
 			for (const Node u : hg.nodeIDs()) {
 				if (n.isSourceReachable(u) && !n.isSource(u))
 					n.settle(u);
@@ -415,7 +419,8 @@ namespace whfc {
 				}
 				
 				if (isIsolated(u)) {
-					if (r.assignTrackedIsolatedWeightToSource) {
+					Assert(isolatedNodes.weight > r.trackedIsolatedWeight);
+					if (r.assignTrackedIsolatedWeightToSource) {	// these are untracked isolated nodes
 						n.reachTarget(u); n.settleTarget(u);
 					}
 					else {

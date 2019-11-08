@@ -116,14 +116,16 @@ namespace whfc {
 		}
 		
 	private:
+		
 		void removeLastPin() {
 			nodes[ pins.back().pin + 1 ].first_out--;
 			pins.pop_back();
 		}
 		
 		bool finishHyperedge() {
-			if (currentHyperedgeSize() == 1)
+			if (currentHyperedgeSize() == 1) {
 				removeLastPin();
+			}
 			
 			if (currentHyperedgeSize() > 0) {
 				pins_sending_flow.emplace_back(hyperedges.back().first_out, hyperedges.back().first_out);
