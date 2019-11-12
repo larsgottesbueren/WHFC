@@ -49,6 +49,7 @@ namespace whfc {
 	template<typename FlowAlgorithm>
 	class CutterState {
 	public:
+		static constexpr bool log = false;
 		using Pin = FlowHypergraph::Pin;
 		
 		int viewDirection = 0;
@@ -117,8 +118,8 @@ namespace whfc {
 			cuts.sourceSide.add(e);
 		}
 
-		void settleNode(const Node u) {
-			Assert(canBeSettled(u));
+		void settleNode(const Node u, bool check = true) {
+			Assert(!n.isSource(u) && !n.isTarget(u) && (!check || !isIsolated(u)));
 			if (!n.isSourceReachable(u))
 				n.reach(u);
 			n.settle(u);
@@ -206,14 +207,15 @@ namespace whfc {
 			timer.start("Initialize");
 			Assert(sourcePiercingNodes.empty() && targetPiercingNodes.empty());
 			sourcePiercingNodes.emplace_back(s,false);
-			settleNode(s);
+			settleNode(s, false);
 			targetPiercingNodes.emplace_back(t,false);
 			flipViewDirection();
-			settleNode(t);
+			settleNode(t, false);
 			flipViewDirection();
-			for (Node u : hg.nodeIDs())
-				if (hg.degree(u) == 0)
+			for (Node u : hg.nodeIDs()) {
+				if (hg.degree(u) == 0 && u != s && u != t)
 					isolatedNodes.add(u);
+			}
 			timer.stop("Initialize");
 		}
 		
