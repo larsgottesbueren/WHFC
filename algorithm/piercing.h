@@ -61,9 +61,9 @@ namespace whfc {
 			for (const Node u : hg.nodeIDs()) {
 				if (isCandidate(u)) {
 					const HopDistance dist_u = cs.borderNodes.distance.getHopDistanceFromCut(u);
-					if (dist_u > d) {
+					if (dist_u >= d) {
 						const uint32_t score_u = Random::randomNumber(1, max_random_score);
-						if (score_u > rndScore) {
+						if (dist_u > d || score_u > rndScore) {
 							rndScore = score_u;
 							p = u;
 							d = dist_u;
