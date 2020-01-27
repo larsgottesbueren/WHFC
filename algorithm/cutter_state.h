@@ -88,7 +88,7 @@ namespace whfc {
 		}
 		
 		inline bool isIsolated(const Node u) const {
-			return !n.isSource(u) && !n.isTarget(u) && isolatedNodes.isCandidate(u);
+			return useIsolatedVertices && !n.isSource(u) && !n.isTarget(u) && isolatedNodes.isCandidate(u);
 		}
 		
 		inline bool canBeSettled(const Node u) const {
