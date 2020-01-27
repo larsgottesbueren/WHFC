@@ -66,7 +66,7 @@ namespace whfc {
 		bool augmentingPathAvailableFromPiercing = true;
 		bool hasCut = false;
 		bool mostBalancedCutMode = false;
-		bool prohibitIsolation = false;
+		bool useIsolatedVertices = true;
 		HyperedgeCuts cuts;
 		NodeBorders borderNodes;
 		NodeWeight maxBlockWeight;
@@ -129,6 +129,10 @@ namespace whfc {
 				return;
 			}
 			
+			if (!useIsolatedVertices) {
+				return;
+			}
+
 			for (const auto& he_inc : hg.hyperedgesOf(u)) {
 				const Hyperedge e = he_inc.e;
 				if (!isolatedNodes.hasSettledSourcePins[e]) {
@@ -196,7 +200,6 @@ namespace whfc {
 			augmentingPathAvailableFromPiercing = true;
 			hasCut = false;
 			mostBalancedCutMode = false;
-			prohibitIsolation = false;
 			cuts.reset(hg.numHyperedges());			//this requires that FlowHypergraph is reset before resetting the CutterState
 			borderNodes.reset(hg.numNodes());
 			isolatedNodes.reset();
@@ -213,7 +216,7 @@ namespace whfc {
 			settleNode(t, false);
 			flipViewDirection();
 			for (Node u : hg.nodeIDs()) {
-				if (hg.degree(u) == 0 && u != s && u != t)
+				if (hg.degree(u) == 0 && u != s && u != t && useIsolatedVertices)
 					isolatedNodes.add(u);
 			}
 			timer.stop("Initialize");
