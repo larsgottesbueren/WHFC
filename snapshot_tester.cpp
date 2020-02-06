@@ -10,7 +10,7 @@
 
 
 namespace whfc {
-	void runSnapshotTester(const std::string& filename, std::string& interleaving) {
+	void runSnapshotTester(const std::string& filename) {
 		
 		using FlowAlgorithm = Dinic;
 		//using FlowAlgorithm = ScalingDinic;
@@ -18,26 +18,22 @@ namespace whfc {
 		WHFC_IO::WHFCInformation info = WHFC_IO::readAdditionalInformation(filename);
 		Node s = info.s;
 		Node t = info.t;
-		NodeWeight mbw = info.maxBlockWeight;
-		std::cout << s << " " << t << " " << mbw << " " << info.upperFlowBound<< std::endl;
+		std::cout << s << " " << t << " " << info.maxBlockWeight[0] << " " << info.maxBlockWeight[1] << " " << info.upperFlowBound<< std::endl;
 		
 		FlowHypergraphBuilder hg = HMetisIO::readFlowHypergraphWithBuilder(filename);
 		if (s >= hg.numNodes() || t >= hg.numNodes())
 			throw std::runtime_error("s or t not within node id range");
 		
 		int seed = 42;
-		HyperFlowCutter<FlowAlgorithm> hfc(hg, mbw, seed);
+		HyperFlowCutter<FlowAlgorithm> hfc(hg, seed);
 		hfc.upperFlowBound = info.upperFlowBound;
+		for (int i = 0; i < 2; ++i)
+			hfc.cs.setMaxBlockWeight(i, info.maxBlockWeight[i]);
 		
 		WHFC_IO::readRandomGeneratorState(filename);
 		
 		hfc.timer.start();
-		if (interleaving == "flowbased")
-			hfc.runUntilBalancedOrFlowBoundExceeded(s, t);
-		else if (interleaving == "cutbased")
-			hfc.findCutsUntilBalancedOrFlowBoundExceeded(s, t);
-		else
-			throw std::runtime_error("Unknown interleaving option");
+		hfc.runUntilBalancedOrFlowBoundExceeded(s, t);
 		hfc.timer.stop();
 		hfc.timer.report(std::cout);
 		hfc.timer.clear();
@@ -50,12 +46,7 @@ namespace whfc {
 		std::cout << "Run again" << std::endl;
 		
 		hfc.timer.start();
-		if (interleaving == "flowbased")
-			hfc.runUntilBalancedOrFlowBoundExceeded(s, t);
-		else if (interleaving == "cutbased")
-			hfc.findCutsUntilBalancedOrFlowBoundExceeded(s, t);
-		else
-			throw std::runtime_error("Unknown interleaving option");
+		hfc.runUntilBalancedOrFlowBoundExceeded(s, t);
 		hfc.timer.stop();
 		hfc.timer.report(std::cout);
 		hfc.timer.clear();
@@ -66,11 +57,8 @@ namespace whfc {
 
 int main(int argc, const char* argv[]) {
 	if (argc < 2 || argc > 3)
-		throw std::runtime_error("Usage: ./WHFC hypergraphfile interleaving-style (flowbased or cutbased)");
+		throw std::runtime_error("Usage: ./WHFC hypergraphfile");
 	std::string hgfile = argv[1];
-	std::string interleavingstyle = "flowbased";
-	if (argc == 3)
-		interleavingstyle = argv[2];
-	whfc::runSnapshotTester(hgfile, interleavingstyle);
+	whfc::runSnapshotTester(hgfile);
 	return 0;
 }

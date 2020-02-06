@@ -8,7 +8,7 @@ namespace whfc {
 	class WHFC_IO {
 	public:
 		struct WHFCInformation {
-			NodeWeight maxBlockWeight;
+			std::array<NodeWeight, 2> maxBlockWeight;
 			Flow upperFlowBound;
 			Node s, t;
 		};
@@ -31,7 +31,7 @@ namespace whfc {
 			std::string fileSuffix = ".whfc";
 			std::ifstream f(hgpath + fileSuffix);
 			WHFCInformation i;
-			f >> i.maxBlockWeight
+			f >> i.maxBlockWeight[0] >> i.maxBlockWeight[1]
 			  >> i.upperFlowBound
 			  >> i.s
 			  >> i.t;
@@ -42,7 +42,7 @@ namespace whfc {
 		static void writeAdditionalInformation(std::string& hgpath, WHFCInformation& i) {
 			std::string fileSuffix = ".whfc";
 			std::ofstream f(hgpath + fileSuffix);
-			f << i.maxBlockWeight << " " << i.upperFlowBound << " " << i.s << " " << i.t << std::endl;
+			f << i.maxBlockWeight[0] << " " << i.maxBlockWeight[1] << " " << i.upperFlowBound << " " << i.s << " " << i.t << std::endl;
 			f.close();
 			
 			std::ofstream df(hgpath + ".distribution");
