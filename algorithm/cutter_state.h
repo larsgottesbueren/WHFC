@@ -69,19 +69,19 @@ namespace whfc {
 		bool prohibitIsolation = false;
 		HyperedgeCuts cuts;
 		NodeBorders borderNodes;
-		NodeWeight maxBlockWeight;
+		std::array<NodeWeight, 2> maxBlockWeightPerSide;
 		IsolatedNodes isolatedNodes;
 		bool partitionWrittenToNodeSet = false;
 		TimeReporter& timer;
 
-		CutterState(FlowHypergraph& _hg, NodeWeight _maxBlockWeight, TimeReporter& timer) :
+		CutterState(FlowHypergraph& _hg, TimeReporter& timer) :
 				hg(_hg),
 				n(_hg),
 				h(_hg),
 				cuts(_hg.numHyperedges()),
 				borderNodes(_hg.numNodes()),
-				maxBlockWeight(_maxBlockWeight),
-				isolatedNodes(hg, _maxBlockWeight),
+				maxBlockWeightPerSide({NodeWeight(0), NodeWeight(0)}),
+				isolatedNodes(hg),
 				timer(timer)
 		{
 			timer.registerCategory("Balance Check");
@@ -117,7 +117,20 @@ namespace whfc {
 			}
 			cuts.sourceSide.add(e);
 		}
-
+		
+		void setMaxBlockWeight(int side, NodeWeight mw) {
+			maxBlockWeightPerSide[side] = mw;
+			isolatedNodes.adaptMaxBlockWeight(mw);
+		}
+		
+		NodeWeight maxBlockWeight(int side) const {
+			return maxBlockWeightPerSide[side];
+		}
+		
+		NodeWeight maxBlockWeight() const {
+			return maxBlockWeight(currentViewDirection());
+		}
+		
 		void settleNode(const Node u, bool check = true) {
 			Assert(!n.isSource(u) && !n.isTarget(u) && (!check || !isIsolated(u)));
 			if (!n.isSourceReachable(u))
@@ -228,10 +241,14 @@ namespace whfc {
 					tw = n.targetReachableWeight,		//cannot be split
 					uw = unclaimedNodeWeight(),			//cannot be split (in current stages. if we integrate proper PCKP heuristics for MBMC this would change)
 					iso = isolatedNodes.weight;			//can be split
+			
+			const NodeWeight
+					s_mbw = maxBlockWeight(currentViewDirection()),
+					t_mbw = maxBlockWeight(oppositeViewDirection());
 
-			if (sw > maxBlockWeight || tw > maxBlockWeight)					//this is good at late and early stages
+			if (sw > s_mbw || tw > t_mbw)					//this is good at late and early stages
 				return false;
-			if (sw + uw > maxBlockWeight && tw + uw > maxBlockWeight)		//this is good at early stages
+			if (sw + uw > s_mbw && tw + uw > t_mbw)		//this is good at early stages
 				return false;
 
 			{	//quick checks to determine whether balance is possible without invoking SubsetSum, i.e. don't split the isolated nodes.
