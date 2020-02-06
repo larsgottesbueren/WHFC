@@ -177,7 +177,7 @@ namespace whfc {
 			
 			//settle target reachable nodes, so we don't have to track them in the moves
 			cs.flipViewDirection();
-			GrowAssimilated<FlowAlgorithm>::grow(cs, flow_algo.getScanList());
+			GrowAssimilated<FlowAlgorithm>::grow<false>(cs, flow_algo.getScanList());
 			cs.verifyCutPostConditions();
 			cs.flipViewDirection();
 			
@@ -195,8 +195,7 @@ namespace whfc {
 				Assert(cs.n.sourceReachableWeight <= cs.n.targetReachableWeight);
 				SimulatedIsolatedNodesAssignment sol = best_sol;
 				while (sol.blockWeightDiff > 0 && pierce(true)) {
-					flow_algo.growReachable(cs);		//could consolidate for factor 2 speedup. but avoid any code duplication.
-					GrowAssimilated<FlowAlgorithm>::grow(cs, flow_algo.getScanList());
+					GrowAssimilated<FlowAlgorithm>::grow<true>(cs, flow_algo.getScanList());
 					cs.hasCut = true;
 					cs.verifyCutPostConditions();
 					

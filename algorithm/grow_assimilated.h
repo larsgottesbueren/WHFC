@@ -17,7 +17,7 @@ public:
 	using ReachableNodes = typename FlowAlgorithm::ReachableNodes;
 	using ReachableHyperedges = typename FlowAlgorithm::ReachableHyperedges;
 
-
+	template<bool reach_and_settle = false>
 	static void grow(CutterState<FlowAlgorithm>& cs, ScanList& nodes_to_scan) {
 		ReachableNodes& n = cs.n;
 		ReachableHyperedges& h = cs.h;
@@ -40,11 +40,11 @@ public:
 				if (!h.areAllPinsSources(e)) {
 					const bool scanAllPins = !hg.isSaturated(e) || hg.flowReceived(he_inc) > 0;
 					if (scanAllPins) {
-						Assert(h.areAllPinsSourceReachable(e));
+						Assert(h.areAllPinsSourceReachable(e) || reach_and_settle);
 						cs.settleAllPins(e);
 						
 						if (FlowAlgorithm::grow_reachable_marks_flow_sending_pins_when_marking_all_pins) {
-							Assert(h.areFlowSendingPinsSourceReachable(e));
+							Assert(h.areFlowSendingPinsSourceReachable(e) || reach_and_settle);
 							if (!h.areFlowSendingPinsSources(e))
 								cs.settleFlowSendingPins(e);
 						}
@@ -55,7 +55,7 @@ public:
 						if (h.areFlowSendingPinsSources(e))
 							continue;
 						
-						Assert(h.areFlowSendingPinsSourceReachable(e) || (!FlowAlgorithm::same_traversal_as_grow_assimilated && h.areAllPinsSourceReachable(e)));
+						Assert(h.areFlowSendingPinsSourceReachable(e) || reach_and_settle || (!FlowAlgorithm::same_traversal_as_grow_assimilated && h.areAllPinsSourceReachable(e)));
 #ifndef NDEBUG
 						if (!FlowAlgorithm::same_traversal_as_grow_assimilated && h.areAllPinsSourceReachable(e) && !h.areFlowSendingPinsSourceReachable(e)) {
 							h.reachFlowSendingPins(e);
