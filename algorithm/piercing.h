@@ -78,7 +78,7 @@ namespace whfc {
 	private:
 
 		bool isCandidate(const Node u) const {
-			return cs.canBeSettled(u) && cs.n.sourceWeight + hg.nodeWeight(u) <= cs.maxBlockWeight;
+			return cs.canBeSettled(u) && cs.n.sourceWeight + hg.nodeWeight(u) <= cs.maxBlockWeight();
 		}
 		
 		FlowHypergraph& hg;

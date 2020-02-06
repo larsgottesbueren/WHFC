@@ -24,11 +24,6 @@ namespace whfc {
 		};
 
 	private:
-		//If the subset sum approach gets too slow, there are two alternatives:
-		//	1) try scaling the weights of all nodes in the flow network --> more locality in the DP table. if GCD(weights) > 1 then using ranges for balance checking doesn't help at all
-				//as the ranges with rescaled weights would consist of single elements
-				//we would need to implement two versions depending on GCD(weights) { == 1, > 1 }
-		//	2) just assign the nodes ad-hoc, after growAssimilated. shouldn't be too bad. works well enough with AAP
 		NodeWeight maxSubsetSumWeight = NodeWeight(0);
 
 		struct TableEntry {
@@ -124,7 +119,7 @@ namespace whfc {
 		}
 
 	public:
-		explicit IsolatedNodes(FlowHypergraph& hg, NodeWeight maxBlockWeight) :
+		explicit IsolatedNodes(FlowHypergraph& hg, NodeWeight maxBlockWeight = NodeWeight(0)) :
 				hg(hg),
 				mixedIncidentHyperedges(hg.numNodes(), InHeIndex(0)),
 				hasSettledSourcePins(hg.numHyperedges()), hasSettledTargetPins(hg.numHyperedges()),
@@ -148,6 +143,13 @@ namespace whfc {
 			hasSettledTargetPins.reset(0, hg.numHyperedges());
 			sumRanges.emplace_back(NodeWeight(0), NodeWeight(0));
 			DPTable[0].sumsIndex = 0;
+		}
+		
+		void adaptMaxBlockWeight(const NodeWeight mw) {
+			if (mw > maxSubsetSumWeight) {
+				maxSubsetSumWeight = mw;
+				DPTable.resize(maxSubsetSumWeight + 2, TableEntry());
+			}
 		}
 		
 		void flipViewDirection() {
@@ -174,14 +176,6 @@ namespace whfc {
 		}
 
 		void updateDPTable() {
-			/*
-			if (weight + 1 > DPTable.size()) {
-				//at the moment we're allocating for maxBlocKWeight elements in DPTable, so this branch is never executed. in the future we might care about saving some memory
-				//if memory actually becomes critical, we can also compress the DPTable by a two-level indexing approach, where ranges only consume one entry. compression called infrequently
-				DPTable.resize(std::min((size_t)2*(weight+1), (size_t)maxSubsetSumWeight + 1), TableEntry());
-			}
-			*/
-			
 			updateDPTableWithSumRanges();
 			//Internal_UpdateDPTableWithSumRangesAndRangePruning();		NOT IMPLEMENTED YET. Uncertain if faster or even necessary
 			nodesNotInTheDPTable.clear();
