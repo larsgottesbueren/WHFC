@@ -11,7 +11,7 @@
 
 namespace whfc {
 	
-	struct SimulatedIsolatedNodesAssignment {
+	struct SimulatedNodeAssignment {
 		bool assignUnclaimedToSource = true;
 		bool assignTrackedIsolatedWeightToSource = true;
 		NodeWeight trackedIsolatedWeight = NodeWeight::Invalid();
@@ -371,7 +371,7 @@ namespace whfc {
 		static void isolatedWeightAssignmentToFirstMinimizingImbalance(NodeWeight a, NodeWeight max_a,
 																	   NodeWeight b, NodeWeight max_b,
 																	   const IsolatedNodes::SummableRange& sr,
-																	   SimulatedIsolatedNodesAssignment& assignment) {
+																	   SimulatedNodeAssignment& assignment) {
 			
 			auto ddiv = [](const NodeWeight num, const NodeWeight den) -> double {
 				return static_cast<double>(num) / static_cast<double>(den);
@@ -418,7 +418,7 @@ namespace whfc {
 		 * Write that assignment to ReachableNodes if write_partition = true
 		 * returns the smallest possible block weight difference and the necessary assignment information
 		 */
-		SimulatedIsolatedNodesAssignment mostBalancedIsolatedNodesAssignment() {
+		SimulatedNodeAssignment mostBalancedIsolatedNodesAssignment() {
 			const NodeWeight
 					sw = n.sourceReachableWeight,
 					tw = n.targetReachableWeight,
@@ -429,7 +429,7 @@ namespace whfc {
 					t_mbw = maxBlockWeight(oppositeViewDirection()),
 					t_iso = isolatedNodes.weight;
 
-			SimulatedIsolatedNodesAssignment sol, sim;
+			SimulatedNodeAssignment sol, sim;
 			
 			// extracted as lambda to allow using it manually for unweighted nodes or in case the iso DP table is not used
 			auto check_combinations = [&](const IsolatedNodes::SummableRange& sr) {
@@ -502,7 +502,7 @@ namespace whfc {
 		
 		// takes the information from mostBalancedIsolatedNodesAssignment()
 		// can be an old run, since the DP solution for trackedIsolatedWeight only contains nodes that were isolated during that run
-		void writePartition(const SimulatedIsolatedNodesAssignment& r) {
+		void writePartition(const SimulatedNodeAssignment& r) {
 			AssertMsg(!partitionWrittenToNodeSet, "Partition was already written");
 			AssertMsg(isBalanced(), "Not balanced yet");
 			timer.start("Write Partition");

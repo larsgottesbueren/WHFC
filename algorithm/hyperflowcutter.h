@@ -161,15 +161,15 @@ namespace whfc {
 			Assert(cs.n.targetReachableWeight == cs.n.targetWeight);
 			
 			NonDynamicCutterState first_balanced_state = cs.enterMostBalancedCutMode();
-			SimulatedIsolatedNodesAssignment initial_sol = cs.mostBalancedIsolatedNodesAssignment();
+			SimulatedNodeAssignment initial_sol = cs.mostBalancedIsolatedNodesAssignment();
 			std::vector<Move> best_moves;
-			SimulatedIsolatedNodesAssignment best_sol = initial_sol;
+			SimulatedNodeAssignment best_sol = initial_sol;
 			
 			const size_t mbc_iterations = 7;
 			for (size_t i = 0; i < mbc_iterations && !best_sol.isPerfectlyBalanced(); ++i) {
 				LOGGER << "MBC it" << i;
 				Assert(cs.lessBalancedSide() == cs.currentViewDirection());
-				SimulatedIsolatedNodesAssignment sol = best_sol;
+				SimulatedNodeAssignment sol = best_sol;
 				while (!sol.isPerfectlyBalanced() && pierce(true)) {
 					GrowAssimilated<FlowAlgorithm>::grow(cs, flow_algo.getScanList(), true);
 					cs.hasCut = true;
@@ -180,7 +180,7 @@ namespace whfc {
 						cs.flipViewDirection();
 					}
 					
-					SimulatedIsolatedNodesAssignment sim = cs.mostBalancedIsolatedNodesAssignment();
+					SimulatedNodeAssignment sim = cs.mostBalancedIsolatedNodesAssignment();
 					if (sim.imbalance() < sol.imbalance()) {
 						sol = sim;
 					}
