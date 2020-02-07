@@ -492,8 +492,8 @@ namespace whfc {
 						   + (sol.assignTrackedIsolatedWeightToSource ? sol.trackedIsolatedWeight : t_iso - sol.trackedIsolatedWeight);
 			NodeWeight t = (sol.assignUnclaimedToSource ? tw : tuw)
 						   + (sol.assignTrackedIsolatedWeightToSource ? t_iso - sol.trackedIsolatedWeight : sol.trackedIsolatedWeight);
-			AssertMsg(s <= maxBlockWeight, "computed assignment violates max block weight on source side");
-			AssertMsg(t <= maxBlockWeight, "computed assignment violates max block weight on target side");
+			AssertMsg(s <= maxBlockWeight(currentViewDirection()), "computed assignment violates max block weight on source side");
+			AssertMsg(t <= maxBlockWeight(oppositeViewDirection()), "computed assignment violates max block weight on target side");
 			AssertMsg(isolatedNodes.isSummable(sol.trackedIsolatedWeight), "isolated weight is not summable");
 #endif
 			
@@ -635,7 +635,7 @@ namespace whfc {
 			if (!skip_iso_and_unclaimed)
 			   os << " iso=" << isolatedNodes.weight
 				  << " u=" << unclaimedNodeWeight();
-			os << " mbw=" << maxBlockWeight
+			os << " mbw=[" << maxBlockWeight(currentViewDirection()) << " " << maxBlockWeight(oppositeViewDirection()) << "]"
 			   << " total=" << hg.totalNodeWeight()
 			   << " dir=" << (flipIt ? 1 : 0);
 			if (flipIt)

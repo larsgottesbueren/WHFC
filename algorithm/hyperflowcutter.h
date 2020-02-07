@@ -153,7 +153,7 @@ namespace whfc {
 			
 			//settle target reachable nodes, so we don't have to track them in the moves
 			cs.flipViewDirection();
-			GrowAssimilated<FlowAlgorithm>::grow<false>(cs, flow_algo.getScanList());
+			GrowAssimilated<FlowAlgorithm>::grow(cs, flow_algo.getScanList());
 			cs.verifyCutPostConditions();
 			cs.flipViewDirection();
 			
@@ -166,12 +166,12 @@ namespace whfc {
 			SimulatedIsolatedNodesAssignment best_sol = initial_sol;
 			
 			const size_t mbc_iterations = 7;
-			for (size_t i = 0; i < mbc_iterations; ++i) {
+			for (size_t i = 0; i < mbc_iterations && !best_sol.isPerfectlyBalanced(); ++i) {
 				LOGGER << "MBC it" << i;
 				Assert(cs.lessBalancedSide() == cs.currentViewDirection());
 				SimulatedIsolatedNodesAssignment sol = best_sol;
-				while (pierce(true)) {
-					GrowAssimilated<FlowAlgorithm>::grow<true>(cs, flow_algo.getScanList());
+				while (!sol.isPerfectlyBalanced() && pierce(true)) {
+					GrowAssimilated<FlowAlgorithm>::grow(cs, flow_algo.getScanList(), true);
 					cs.hasCut = true;
 					cs.verifyCutPostConditions();
 					LOGGER << cs.toString();
@@ -181,12 +181,12 @@ namespace whfc {
 					}
 					
 					SimulatedIsolatedNodesAssignment sim = cs.mostBalancedIsolatedNodesAssignment();
-					if (sim.imbalance < sol.imbalance) {
+					if (sim.imbalance() < sol.imbalance()) {
 						sol = sim;
 					}
 				}
 				
-				if (sol.imbalance < best_sol.imbalance) {
+				if (sol.imbalance() < best_sol.imbalance()) {
 					best_sol = sol;
 					cs.revertMoves(sol.numberOfTrackedMoves);
 					best_moves = cs.trackedMoves;
