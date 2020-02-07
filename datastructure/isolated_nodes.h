@@ -8,6 +8,7 @@ namespace whfc {
 	class IsolatedNodes {
 	private:
 		FlowHypergraph& hg;
+		bool useIsolatedNodes =  true;
 	public:
 		NodeWeight weight = NodeWeight(0);
 		std::vector<Node> nodes;
@@ -42,11 +43,12 @@ namespace whfc {
 		std::vector<SummableRange> nextSumRanges;
 		bool newSumAvailable = true;
 		std::vector<Node> nodesNotInTheDPTable;
-
+		
 		// This variant assumes that DPTable[sumRanges[i].from] == DPTable[sumRanges[i].to] == i
 		// Pointers in between are considered stale.
 		// Updating DP Table entries requires computing all sums available with node u.
 		void updateDPTableWithSumRanges() {
+			Assert(useIsolatedNodes);
 			for (const Node u : nodesNotInTheDPTable) {
 				if (newSumAvailable)
 					nextSumRanges = sumRanges;
@@ -119,34 +121,40 @@ namespace whfc {
 		}
 
 	public:
-		explicit IsolatedNodes(FlowHypergraph& hg, NodeWeight maxBlockWeight = NodeWeight(0)) :
+		explicit IsolatedNodes(FlowHypergraph& hg, bool useIsolatedNodes, NodeWeight maxBlockWeight = NodeWeight(0)) :
 				hg(hg),
-				mixedIncidentHyperedges(hg.numNodes(), InHeIndex(0)),
-				hasSettledSourcePins(hg.numHyperedges()), hasSettledTargetPins(hg.numHyperedges()),
+				useIsolatedNodes(useIsolatedNodes),
+				mixedIncidentHyperedges(useIsolatedNodes ? hg.numNodes() : 0, InHeIndex(0)),
+				hasSettledSourcePins(useIsolatedNodes ? hg.numHyperedges() : 0),
+				hasSettledTargetPins(useIsolatedNodes ? hg.numHyperedges() : 0),
 				maxSubsetSumWeight(maxBlockWeight),
-				DPTable(maxBlockWeight + 2, TableEntry())
+				DPTable(useIsolatedNodes ? maxBlockWeight + 2 : 0U, TableEntry())
 		{
-			sumRanges.emplace_back(NodeWeight(0), NodeWeight(0));
-			DPTable[0].sumsIndex = 0;
+			if (useIsolatedNodes) {
+				sumRanges.emplace_back(NodeWeight(0), NodeWeight(0));
+				DPTable[0].sumsIndex = 0;
+			}
 		}
 		
 		void reset() {
-			std::fill_n(mixedIncidentHyperedges.begin(), hg.numNodes(), InHeIndex(0));
-			std::fill_n(DPTable.begin(), weight + 1, TableEntry());
-			sumRanges.clear();
-			nextSumRanges.clear();
-			newSumAvailable = true;
-			nodes.clear();
-			nodesNotInTheDPTable.clear();
-			weight = NodeWeight(0);
-			hasSettledSourcePins.reset(0, hg.numHyperedges());
-			hasSettledTargetPins.reset(0, hg.numHyperedges());
-			sumRanges.emplace_back(NodeWeight(0), NodeWeight(0));
-			DPTable[0].sumsIndex = 0;
+			if (useIsolatedNodes) {
+				std::fill_n(mixedIncidentHyperedges.begin(), hg.numNodes(), InHeIndex(0));
+				std::fill_n(DPTable.begin(), weight + 1, TableEntry());
+				sumRanges.clear();
+				nextSumRanges.clear();
+				newSumAvailable = true;
+				nodes.clear();
+				nodesNotInTheDPTable.clear();
+				weight = NodeWeight(0);
+				hasSettledSourcePins.reset(0, hg.numHyperedges());
+				hasSettledTargetPins.reset(0, hg.numHyperedges());
+				sumRanges.emplace_back(NodeWeight(0), NodeWeight(0));
+				DPTable[0].sumsIndex = 0;
+			}
 		}
 		
 		void adaptMaxBlockWeight(const NodeWeight mw) {
-			if (mw > maxSubsetSumWeight) {
+			if (useIsolatedNodes && mw > maxSubsetSumWeight) {
 				maxSubsetSumWeight = mw;
 				DPTable.resize(maxSubsetSumWeight + 2, TableEntry());
 			}
@@ -166,7 +174,7 @@ namespace whfc {
 		}
 
 		void add(const Node u) {
-			// TODO handle weight one nodes explicitly
+			// TODO handle nodes with weight 1 explicitly
 			
 			nodes.push_back(u);
 			nodesNotInTheDPTable.push_back(u);
@@ -205,6 +213,7 @@ namespace whfc {
 		}
 
 		bool isCandidate(const Node u) const {
+			Assert(useIsolatedNodes);
 			return mixedIncidentHyperedges[u] == hg.degree(u);
 		}
 

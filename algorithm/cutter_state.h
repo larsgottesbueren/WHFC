@@ -58,7 +58,7 @@ namespace whfc {
 	public:
 		static constexpr bool log = false;
 		
-		/* static constexpr */ bool useIsolatedNodes = true; /* false */	// TODO adapt
+		static constexpr bool useIsolatedNodes = false;
 		
 		using Pin = FlowHypergraph::Pin;
 		
@@ -90,7 +90,7 @@ namespace whfc {
 				cuts(_hg.numHyperedges()),
 				borderNodes(_hg.numNodes()),
 				maxBlockWeightPerSide({NodeWeight(0), NodeWeight(0)}),
-				isolatedNodes(hg),
+				isolatedNodes(hg, useIsolatedNodes),
 				timer(timer)
 		{
 			timer.registerCategory("Balance Check");
@@ -151,24 +151,22 @@ namespace whfc {
 				return;
 			}
 			
-			if (!useIsolatedNodes) {
-				return;
-			}
-
-			for (const auto& he_inc : hg.hyperedgesOf(u)) {
-				const Hyperedge e = he_inc.e;
-				if (!isolatedNodes.hasSettledSourcePins[e]) {
-					isolatedNodes.hasSettledSourcePins.set(e);
-					if (isolatedNodes.hasSettledTargetPins[e]) {	//e just became mixed
-						for (const auto& px : hg.pinsOf(e)) {
-							const Node p = px.pin;
-							isolatedNodes.mixedIncidentHyperedges[p]++;
-							if (isIsolated(p)) {
-								isolatedNodes.add(p);
-								if (n.isSourceReachable(p))
-									n.unreachSource(p);
-								if (n.isTargetReachable(p))
-									n.unreachTarget(p);
+			if constexpr (useIsolatedNodes) {
+				for (const auto& he_inc : hg.hyperedgesOf(u)) {
+					const Hyperedge e = he_inc.e;
+					if (!isolatedNodes.hasSettledSourcePins[e]) {
+						isolatedNodes.hasSettledSourcePins.set(e);
+						if (isolatedNodes.hasSettledTargetPins[e]) {	//e just became mixed
+							for (const auto& px : hg.pinsOf(e)) {
+								const Node p = px.pin;
+								isolatedNodes.mixedIncidentHyperedges[p]++;
+								if (isIsolated(p)) {
+									isolatedNodes.add(p);
+									if (n.isSourceReachable(p))
+										n.unreachSource(p);
+									if (n.isTargetReachable(p))
+										n.unreachTarget(p);
+								}
 							}
 						}
 					}
@@ -226,7 +224,7 @@ namespace whfc {
 			mostBalancedCutMode = false;
 			cuts.reset(hg.numHyperedges());			//this requires that FlowHypergraph is reset before resetting the CutterState
 			borderNodes.reset(hg.numNodes());
-			if (useIsolatedNodes) {
+			if constexpr (useIsolatedNodes) {
 				isolatedNodes.reset();
 			}
 			partitionWrittenToNodeSet = false;
@@ -241,7 +239,7 @@ namespace whfc {
 			flipViewDirection();
 			settleNode(t, false);
 			flipViewDirection();
-			if (useIsolatedNodes) {
+			if constexpr (useIsolatedNodes) {
 				for (Node u : hg.nodeIDs()) {
 					if (hg.degree(u) == 0 && u != s && u != t) {
 						isolatedNodes.add(u);
@@ -292,7 +290,7 @@ namespace whfc {
 					return true;
 			}
 			
-			if (useIsolatedNodes) {
+			if constexpr (useIsolatedNodes) {
 				timer.start("Balance Check");
 				isolatedNodes.updateDPTable();
 				
@@ -434,34 +432,28 @@ namespace whfc {
 			// extracted as lambda to allow using it manually for unweighted nodes or in case the iso DP table is not used
 			auto check_combinations = [&](const IsolatedNodes::SummableRange& sr) {
 				
-				{
-					sim.assignUnclaimedToSource = true;
-					sim.assignTrackedIsolatedWeightToSource = true;
-					isolatedWeightAssignmentToFirstMinimizingImbalance(suw, s_mbw, tw + t_iso, t_mbw, sr, sim);
-					if (sim.imbalance() < sol.imbalance()) {
-						sol = sim;
-					}
+				sim.assignUnclaimedToSource = true;
+				sim.assignTrackedIsolatedWeightToSource = true;
+				isolatedWeightAssignmentToFirstMinimizingImbalance(suw, s_mbw, tw + t_iso, t_mbw, sr, sim);
+				if (sim.imbalance() < sol.imbalance()) {
+					sol = sim;
 				}
-				
-				{
+			
+				sim.assignUnclaimedToSource = false;
+				sim.assignTrackedIsolatedWeightToSource = true;
+				isolatedWeightAssignmentToFirstMinimizingImbalance(sw, s_mbw, tuw + t_iso, t_mbw, sr, sim);
+				if (sim.imbalance() < sol.imbalance()) {
+					sol = sim;
+				}
+			
+				if constexpr (useIsolatedNodes) {
 					sim.assignUnclaimedToSource = true;
 					sim.assignTrackedIsolatedWeightToSource = false;
 					isolatedWeightAssignmentToFirstMinimizingImbalance(tw, t_mbw, suw + t_iso, s_mbw, sr, sim);
 					if (sim.imbalance() < sol.imbalance()) {
 						sol = sim;
 					}
-				}
 				
-				{
-					sim.assignUnclaimedToSource = false;
-					sim.assignTrackedIsolatedWeightToSource = true;
-					isolatedWeightAssignmentToFirstMinimizingImbalance(sw, s_mbw, tuw + t_iso, t_mbw, sr, sim);
-					if (sim.imbalance() < sol.imbalance()) {
-						sol = sim;
-					}
-				}
-				
-				{
 					sim.assignUnclaimedToSource = false;
 					sim.assignTrackedIsolatedWeightToSource = false;
 					isolatedWeightAssignmentToFirstMinimizingImbalance(tuw, t_mbw, sw + t_iso, s_mbw, sr, sim);
@@ -469,10 +461,9 @@ namespace whfc {
 						sol = sim;
 					}
 				}
-				
 			};
 			
-			if (useIsolatedNodes) {
+			if constexpr (useIsolatedNodes) {
 				timer.start("Assign Isolated Nodes");
 				isolatedNodes.updateDPTable();
 				for (const IsolatedNodes::SummableRange& sr : isolatedNodes.getSumRanges()) {
@@ -633,8 +624,7 @@ namespace whfc {
 			   << " s=" << n.sourceWeight << "|" << n.sourceReachableWeight
 			   << " t=" << n.targetWeight << "|" << n.targetReachableWeight;
 			if (!skip_iso_and_unclaimed)
-			   os << " iso=" << isolatedNodes.weight
-				  << " u=" << unclaimedNodeWeight();
+			   os << " iso=" << isolatedNodes.weight << " u=" << unclaimedNodeWeight();
 			os << " mbw=[" << maxBlockWeight(currentViewDirection()) << " " << maxBlockWeight(oppositeViewDirection()) << "]"
 			   << " total=" << hg.totalNodeWeight()
 			   << " dir=" << (flipIt ? 1 : 0);
