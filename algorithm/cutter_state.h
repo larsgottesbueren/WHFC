@@ -14,11 +14,18 @@ namespace whfc {
 	struct SimulatedIsolatedNodesAssignment {
 		bool assignUnclaimedToSource = true;
 		bool assignTrackedIsolatedWeightToSource = true;
-		NodeWeight totalIsolatedWeight = NodeWeight::Invalid();
 		NodeWeight trackedIsolatedWeight = NodeWeight::Invalid();
-		NodeWeight blockWeightDiff = NodeWeight::Invalid();
+		double imbalanceSourceBlock = std::numeric_limits<double>::max(), imbalanceTargetBlock = std::numeric_limits<double>::max();
 		size_t numberOfTrackedMoves = 0;
 		int direction = 0;
+		
+		double imbalance() const {
+			return std::max(imbalanceSourceBlock, imbalanceTargetBlock);
+		}
+		
+		bool isPerfectlyBalanced() const {
+			return std::abs(imbalanceSourceBlock - imbalanceTargetBlock) < 1e-7;
+		}
 	};
 	
 	struct Move {
@@ -50,6 +57,9 @@ namespace whfc {
 	class CutterState {
 	public:
 		static constexpr bool log = false;
+		
+		/* static constexpr */ bool useIsolatedNodes = true; /* false */	// TODO adapt
+		
 		using Pin = FlowHypergraph::Pin;
 		
 		int viewDirection = 0;
@@ -66,7 +76,6 @@ namespace whfc {
 		bool augmentingPathAvailableFromPiercing = true;
 		bool hasCut = false;
 		bool mostBalancedCutMode = false;
-		bool useIsolatedVertices = true;
 		HyperedgeCuts cuts;
 		NodeBorders borderNodes;
 		std::array<NodeWeight, 2> maxBlockWeightPerSide;
@@ -88,7 +97,7 @@ namespace whfc {
 		}
 		
 		inline bool isIsolated(const Node u) const {
-			return useIsolatedVertices && !n.isSource(u) && !n.isTarget(u) && isolatedNodes.isCandidate(u);
+			return useIsolatedNodes && !n.isSource(u) && !n.isTarget(u) && isolatedNodes.isCandidate(u);
 		}
 		
 		inline bool canBeSettled(const Node u) const {
@@ -142,7 +151,7 @@ namespace whfc {
 				return;
 			}
 			
-			if (!useIsolatedVertices) {
+			if (!useIsolatedNodes) {
 				return;
 			}
 
@@ -168,14 +177,16 @@ namespace whfc {
 		}
 		
 		void settleFlowSendingPins(const Hyperedge e) {
-			if (mostBalancedCutMode)
+			if (mostBalancedCutMode) {
 				trackedMoves.emplace_back(e, currentViewDirection(), Move::Type::SettleFlowSendingPins);
+			}
 			h.settleFlowSendingPins(e);
 		}
 		
 		void settleAllPins(const Hyperedge e) {
-			if (mostBalancedCutMode)
+			if (mostBalancedCutMode) {
 				trackedMoves.emplace_back(e, currentViewDirection(), Move::Type::SettleAllPins);
+			}
 			h.settleAllPins(e);
 		}
 
@@ -215,7 +226,9 @@ namespace whfc {
 			mostBalancedCutMode = false;
 			cuts.reset(hg.numHyperedges());			//this requires that FlowHypergraph is reset before resetting the CutterState
 			borderNodes.reset(hg.numNodes());
-			isolatedNodes.reset();
+			if (useIsolatedNodes) {
+				isolatedNodes.reset();
+			}
 			partitionWrittenToNodeSet = false;
 		}
 		
@@ -228,11 +241,26 @@ namespace whfc {
 			flipViewDirection();
 			settleNode(t, false);
 			flipViewDirection();
-			for (Node u : hg.nodeIDs()) {
-				if (hg.degree(u) == 0 && u != s && u != t && useIsolatedVertices)
-					isolatedNodes.add(u);
+			if (useIsolatedNodes) {
+				for (Node u : hg.nodeIDs()) {
+					if (hg.degree(u) == 0 && u != s && u != t) {
+						isolatedNodes.add(u);
+					}
+				}
 			}
 			timer.stop("Initialize");
+		}
+		
+		int lessBalancedSide() const {
+			const double imb_s = static_cast<double>(n.sourceReachableWeight) / static_cast<double>(maxBlockWeight(currentViewDirection()));
+			const double imb_t = static_cast<double>(n.targetReachableWeight) / static_cast<double>(maxBlockWeight(oppositeViewDirection()));
+			return imb_s > imb_t ? currentViewDirection() : oppositeViewDirection();
+		}
+		
+		void turnToLessBalancedSide() {
+			if (currentViewDirection() != lessBalancedSide()) {
+				flipViewDirection();
+			}
 		}
 		
 		bool isBalanced() {
@@ -251,84 +279,139 @@ namespace whfc {
 
 			if (sw > s_mbw || tw > t_mbw)					//this is good at late and early stages
 				return false;
-			if (sw + uw > s_mbw && tw + uw > t_mbw)		//this is good at early stages
+			if (sw + uw > s_mbw && tw + uw > t_mbw)			//this is good at early stages
 				return false;
 
 			{	//quick checks to determine whether balance is possible without invoking SubsetSum, i.e. don't split the isolated nodes.
 				bool balanced = false;
-				balanced |= sw + uw + iso <= maxBlockWeight;
-				balanced |= tw + uw + iso <= maxBlockWeight;
-				balanced |= sw + uw <= maxBlockWeight && tw + iso <= maxBlockWeight;
-				balanced |= tw + uw <= maxBlockWeight && sw + iso <= maxBlockWeight;
+				balanced |= sw + uw + iso <= s_mbw;
+				balanced |= tw + uw + iso <= t_mbw;
+				balanced |= sw + uw <= s_mbw && tw + iso <= t_mbw;
+				balanced |= tw + uw <= t_mbw && sw + iso <= s_mbw;
 				if (balanced)
 					return true;
 			}
 			
-			timer.start("Balance Check");
-			
-			isolatedNodes.updateDPTable();
-
-			const NodeWeight
-					sRem = maxBlockWeight - sw,
-					tRem = maxBlockWeight - tw,
-					suw = sw + uw,
-					tuw = tw + uw,
-					suwRem = suw <= maxBlockWeight ? maxBlockWeight - suw : NodeWeight::Invalid(),
-					tuwRem = tuw <= maxBlockWeight ? maxBlockWeight - tuw : NodeWeight::Invalid();
-			
-			bool balanced = false;
-			
-			//sides: (S + U, T) + <ISO> and (S, T + U) + <ISO>
-			for (const IsolatedNodes::SummableRange& sr : isolatedNodes.getSumRanges()) {
-				if (suwRem.isValid()) {
-					//S+U not overloaded. Therefore, try (S + U, T) + <ISO>
-
-					//allocate as much as possible to S+U, i.e. x = min(suwRem, sr.to), the rest, i.e. iso - x has to go to T
-					balanced |= suwRem >= sr.from && tw + (iso - std::min(suwRem, sr.to)) <= maxBlockWeight;
-					//analogously, allocate as much as possible to T
-					balanced |= tRem >= sr.from && suw + (iso - std::min(tRem, sr.to)) <= maxBlockWeight;
+			if (useIsolatedNodes) {
+				timer.start("Balance Check");
+				isolatedNodes.updateDPTable();
+				
+				const NodeWeight
+						sRem = s_mbw - sw,
+						tRem = t_mbw - tw,
+						suw = sw + uw,
+						tuw = tw + uw,
+						suwRem = suw <= s_mbw ? s_mbw - suw : NodeWeight::Invalid(),
+						tuwRem = tuw <= t_mbw ? t_mbw - tuw : NodeWeight::Invalid();
+				
+				bool balanced = false;
+				
+				//sides: (S + U, T) + <ISO> and (S, T + U) + <ISO>
+				for (const IsolatedNodes::SummableRange& sr : isolatedNodes.getSumRanges()) {
+					if (suwRem.isValid()) {
+						//S+U not overloaded. Therefore, try (S + U, T) + <ISO>
+						
+						//allocate as much as possible to S+U, i.e. x = min(suwRem, sr.to), the rest, i.e. iso - x has to go to T
+						balanced |= suwRem >= sr.from && tw + (iso - std::min(suwRem, sr.to)) <= t_mbw;
+						//analogously, allocate as much as possible to T
+						balanced |= tRem >= sr.from && suw + (iso - std::min(tRem, sr.to)) <= s_mbw;
+					}
+					
+					if (tuwRem.isValid()) {
+						//T+U not overloaded. Therefore, try (S, T + U) + <ISO>
+						balanced |= tuwRem >= sr.from && sw + (iso - std::min(tuwRem, sr.to)) <= s_mbw;
+						balanced |= sRem >= sr.from && tuw + (iso - std::min(sRem, sr.to)) <= t_mbw;
+					}
+					
+					if (balanced)
+						break;
 				}
-
-				if (tuwRem.isValid()) {
-					//T+U not overloaded. Therefore, try (S, T + U) + <ISO>
-					balanced |= tuwRem >= sr.from && sw + (iso - std::min(tuwRem, sr.to)) <= maxBlockWeight;
-					balanced |= sRem >= sr.from && tuw + (iso - std::min(sRem, sr.to)) <= maxBlockWeight;
-				}
-
-				if (balanced)
-					break;
+				
+				timer.stop("Balance Check");
+				return balanced;
 			}
-
-			timer.stop("Balance Check");
-			return balanced;
+			else {
+				return false;
+			}
 		}
 		
 		NonDynamicCutterState enterMostBalancedCutMode() {
 			Assert(!mostBalancedCutMode);
 			Assert(trackedMoves.empty());
 			Assert(hasCut);
-			mostBalancedCutMode = true;	//activates move tracking
+			mostBalancedCutMode = true;	// activates move tracking
 			borderNodes.enterMostBalancedCutMode();
 			cuts.enterMostBalancedCutMode();
 			return { sourcePiercingNodes, targetPiercingNodes, currentViewDirection() };
 		}
 		
 		void resetToFirstBalancedState(NonDynamicCutterState& nds) {
-			if (currentViewDirection() != nds.direction)
+			if (currentViewDirection() != nds.direction) {
 				flipViewDirection();
+			}
 			sourcePiercingNodes = nds.sourcePiercingNodes;
 			targetPiercingNodes = nds.targetPiercingNodes;
 			revertMoves(0);
 			borderNodes.resetForMostBalancedCut();
 			cuts.resetForMostBalancedCut();
 		}
+		
+		
+		/*
+		 * balance criterion with individual part weights is minimize ( w_i / max_w_i ) - 1
+		 *
+		 * here we minimize alpha under the constraints
+		 * 1) a + x <= alpha * max_a
+		 * 2) b - x <= alpha * max_b
+		 * 3) x in [sr.from, sr.to]
+		 *
+		 * Finds the optimal assignment weight of isolated nodes to reassign from b to a, assuming b has received all isolated nodes so far.
+		 * Optimal under the imbalance definition (part_weight[i] / max_part_weight[i]) - 1
+		 */
+		static void isolatedWeightAssignmentToFirstMinimizingImbalance(NodeWeight a, NodeWeight max_a,
+																	   NodeWeight b, NodeWeight max_b,
+																	   const IsolatedNodes::SummableRange& sr,
+																	   SimulatedIsolatedNodesAssignment& assignment) {
+			
+			auto ddiv = [](const NodeWeight num, const NodeWeight den) -> double {
+				return static_cast<double>(num) / static_cast<double>(den);
+			};
+			auto imb_a = [&](const NodeWeight x) -> double {
+				return ddiv(a+x, max_a) - 1.0;
+			};
+			auto imb_b = [&](const NodeWeight x) -> double {
+				return ddiv(b-x, max_b) - 1.0;
+			};
+			
+			const double continuous_x = ddiv(max_a * b - max_b * a, max_a + max_b);
+			
+			if (continuous_x < sr.from) {
+				assignment.trackedIsolatedWeight = sr.from;
+			}
+			else if (continuous_x > sr.to) {
+				assignment.trackedIsolatedWeight = sr.to;
+			}
+			else {
+				// can determine an alpha so that both inequalities are tight
+				const NodeWeight x_low = NodeWeight::fromOtherValueType(std::floor(continuous_x));
+				const NodeWeight x_high = NodeWeight::fromOtherValueType(std::ceil(continuous_x));
+				const double imb_low = std::max(imb_a(x_low), imb_b(x_low));
+				const double imb_high = std::max(imb_a(x_high), imb_b(x_high));
+				assignment.trackedIsolatedWeight = imb_low < imb_high ? x_low : x_high;
+			}
+			
+			assignment.imbalanceSourceBlock = imb_a(assignment.trackedIsolatedWeight);
+			assignment.imbalanceTargetBlock = imb_b(assignment.trackedIsolatedWeight);
+			
+			if (!assignment.assignTrackedIsolatedWeightToSource) {
+				// in this case a corresponds to the target block --> swap them.
+				std::swap(assignment.imbalanceSourceBlock, assignment.imbalanceTargetBlock);
+			}
+			
+		}
+		
 
-		// TODO consolidate isBalanced() and mostBalancedIsolatedNodesAssignment(). they do the same thing with slightly different purposes
-		// still provide two functions that use the same core
-		// e.g. mostBalancedNodesAssignment with a bound on the node weight diff as parameter
-		// which is set to 0 when finding the best assignment and set to 2 * maxBlockWeight - hg.totalNodeWeight() when checking balance
-		// stops searching when a solution lies below that bound
-
+		// TODO this code isn't very clean unfortunately. let's clean it up.
 		
 		/*
 		 * Simulates settling all isolated and unclaimed nodes to achieve the most balanced partition possible with the current sides
@@ -336,70 +419,85 @@ namespace whfc {
 		 * returns the smallest possible block weight difference and the necessary assignment information
 		 */
 		SimulatedIsolatedNodesAssignment mostBalancedIsolatedNodesAssignment() {
-			timer.start("Assign Isolated Nodes");
-			
-			isolatedNodes.updateDPTable();
-
 			const NodeWeight
 					sw = n.sourceReachableWeight,
 					tw = n.targetReachableWeight,
 					uw = unclaimedNodeWeight(),
 					suw = sw + uw,
-					tuw = tw + uw;
+					tuw = tw + uw,
+					s_mbw = maxBlockWeight(currentViewDirection()),
+					t_mbw = maxBlockWeight(oppositeViewDirection()),
+					t_iso = isolatedNodes.weight;
 
+			SimulatedIsolatedNodesAssignment sol, sim;
 			
-			bool assignUnclaimedToSource = true;
-			bool assignTrackedIsolatedWeightToSource = true;
-			NodeWeight trackedIsolatedWeight = NodeWeight::Invalid();
-			NodeWeight blockWeightDiff = NodeWeight::Invalid();
-
-			for (const IsolatedNodes::SummableRange& sr : isolatedNodes.getSumRanges()) {
-
-				auto a = isolatedWeightAssignmentToFirst(suw, tw, sr);
-				if (a.second < blockWeightDiff) {
-					blockWeightDiff = a.second;
-					assignUnclaimedToSource = true;
-					assignTrackedIsolatedWeightToSource = true;
-					trackedIsolatedWeight = a.first;
-				}
-
-				auto b = isolatedWeightAssignmentToFirst(tw, suw, sr);
-				if (b.second < blockWeightDiff) {
-					blockWeightDiff = b.second;
-					assignUnclaimedToSource = true;
-					assignTrackedIsolatedWeightToSource = false;
-					trackedIsolatedWeight = b.first;
-				}
-
-				auto c = isolatedWeightAssignmentToFirst(sw, tuw, sr);
-				if (c.second < blockWeightDiff) {
-					blockWeightDiff = c.second;
-					assignUnclaimedToSource = false;
-					assignTrackedIsolatedWeightToSource = true;
-					trackedIsolatedWeight = c.first;
-				}
-
-				auto d = isolatedWeightAssignmentToFirst(tuw, sw, sr);
-				if (d.second < blockWeightDiff) {
-					blockWeightDiff = d.second;
-					assignUnclaimedToSource = false;
-					assignTrackedIsolatedWeightToSource = false;
-					trackedIsolatedWeight = d.first;
+			// extracted as lambda to allow using it manually for unweighted nodes or in case the iso DP table is not used
+			auto check_combinations = [&](const IsolatedNodes::SummableRange& sr) {
+				
+				{
+					sim.assignUnclaimedToSource = true;
+					sim.assignTrackedIsolatedWeightToSource = true;
+					isolatedWeightAssignmentToFirstMinimizingImbalance(suw, s_mbw, tw + t_iso, t_mbw, sr, sim);
+					if (sim.imbalance() < sol.imbalance()) {
+						sol = sim;
+					}
 				}
 				
+				{
+					sim.assignUnclaimedToSource = true;
+					sim.assignTrackedIsolatedWeightToSource = false;
+					isolatedWeightAssignmentToFirstMinimizingImbalance(tw, t_mbw, suw + t_iso, s_mbw, sr, sim);
+					if (sim.imbalance() < sol.imbalance()) {
+						sol = sim;
+					}
+				}
+				
+				{
+					sim.assignUnclaimedToSource = false;
+					sim.assignTrackedIsolatedWeightToSource = true;
+					isolatedWeightAssignmentToFirstMinimizingImbalance(sw, s_mbw, tuw + t_iso, t_mbw, sr, sim);
+					if (sim.imbalance() < sol.imbalance()) {
+						sol = sim;
+					}
+				}
+				
+				{
+					sim.assignUnclaimedToSource = false;
+					sim.assignTrackedIsolatedWeightToSource = false;
+					isolatedWeightAssignmentToFirstMinimizingImbalance(tuw, t_mbw, sw + t_iso, s_mbw, sr, sim);
+					if (sim.imbalance() < sol.imbalance()) {
+						sol = sim;
+					}
+				}
+				
+			};
+			
+			if (useIsolatedNodes) {
+				timer.start("Assign Isolated Nodes");
+				isolatedNodes.updateDPTable();
+				for (const IsolatedNodes::SummableRange& sr : isolatedNodes.getSumRanges()) {
+					check_combinations(sr);
+				}
+				timer.stop("Assign Isolated Nodes");
+			}
+			else {
+				check_combinations(IsolatedNodes::SummableRange(NodeWeight(0), NodeWeight(0)));
 			}
 			
+			sol.numberOfTrackedMoves = trackedMoves.size();
+			sol.direction = currentViewDirection();
+			
 #ifndef NDEBUG
-			const NodeWeight iso = isolatedNodes.weight;
-			NodeWeight s = (assignUnclaimedToSource ? suw : sw) + (assignTrackedIsolatedWeightToSource ? trackedIsolatedWeight : iso - trackedIsolatedWeight);
-			NodeWeight t = (assignUnclaimedToSource ? tw : tuw) + (assignTrackedIsolatedWeightToSource ? iso - trackedIsolatedWeight : trackedIsolatedWeight);
+			NodeWeight s = (sol.assignUnclaimedToSource ? suw : sw)
+						   + (sol.assignTrackedIsolatedWeightToSource ? sol.trackedIsolatedWeight : t_iso - sol.trackedIsolatedWeight);
+			NodeWeight t = (sol.assignUnclaimedToSource ? tw : tuw)
+						   + (sol.assignTrackedIsolatedWeightToSource ? t_iso - sol.trackedIsolatedWeight : sol.trackedIsolatedWeight);
 			AssertMsg(s <= maxBlockWeight, "computed assignment violates max block weight on source side");
 			AssertMsg(t <= maxBlockWeight, "computed assignment violates max block weight on target side");
-			AssertMsg(isolatedNodes.isSummable(trackedIsolatedWeight), "isolated weight is not summable");
+			AssertMsg(isolatedNodes.isSummable(sol.trackedIsolatedWeight), "isolated weight is not summable");
 #endif
 			
-			timer.stop("Assign Isolated Nodes");
-			return {assignUnclaimedToSource, assignTrackedIsolatedWeightToSource, isolatedNodes.weight, trackedIsolatedWeight, blockWeightDiff, trackedMoves.size(), currentViewDirection()};
+			return sol;
 		}
 		
 		// takes the information from mostBalancedIsolatedNodesAssignment()
@@ -545,18 +643,6 @@ namespace whfc {
 			return os.str();
 		}
 
-
-	private:
-
-		//side of a gets x, side of b gets isolatedNodes.weight - x
-		//result.first = x, result.second = block weight difference
-		inline std::pair<NodeWeight, NodeWeight> isolatedWeightAssignmentToFirst(const NodeWeight a, NodeWeight b, const IsolatedNodes::SummableRange& sr) const {
-			b += isolatedNodes.weight;
-			const NodeWeight x = (a < b) ? std::max(std::min(NodeWeight((b-a)/2), sr.to), sr.from) : sr.from;
-			return std::make_pair(x, Math::absdiff(a + x, b - x));
-		}
-		
-	public:
 		
 		void verifyFlowConstraints() {
 #ifndef NDEBUG
@@ -766,7 +852,5 @@ namespace whfc {
 		}
 		
 	};
-
-
 
 }

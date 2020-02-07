@@ -4,6 +4,5 @@
 int main(int argc, char* argv[]) {
 	whfc::Test::SubsetSumTests().run();
 	whfc::Test::FlowHypergraphTests().run();
-
 	return 0;
 }

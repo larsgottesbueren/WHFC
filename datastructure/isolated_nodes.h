@@ -166,6 +166,8 @@ namespace whfc {
 		}
 
 		void add(const Node u) {
+			// TODO handle weight one nodes explicitly
+			
 			nodes.push_back(u);
 			nodesNotInTheDPTable.push_back(u);
 			weight += hg.nodeWeight(u);
