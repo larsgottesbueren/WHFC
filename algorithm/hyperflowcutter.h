@@ -33,6 +33,7 @@ namespace whfc {
 
 		void reset() {
 			cs.reset();
+			piercer.reset();
 			flow_algo.reset();
 			upperFlowBound = maxFlow;
 			//timer.clear();

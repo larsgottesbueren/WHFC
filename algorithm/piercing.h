@@ -52,27 +52,32 @@ namespace whfc {
 				border.clearBuckets(reachability_bucket_type);
 			}
 			
-			std::cout << "Piercing Fallback" << std::endl;
-			
-			// didn't find one in the bucket PQs, so pick a random unsettled node
 			Node p = invalidNode;
-			uint32_t rndScore = 0;
-			HopDistance d = 0;
-			for (const Node u : hg.nodeIDs()) {
-				if (isCandidate(u)) {
-					const HopDistance dist_u = cs.borderNodes.distance.getHopDistanceFromCut(u);
-					if (dist_u >= d) {
-						const uint32_t score_u = Random::randomNumber(1, max_random_score);
-						if (dist_u > d || score_u > rndScore) {
-							rndScore = score_u;
-							p = u;
-							d = dist_u;
+			
+			if (piercingFallbacks[cs.currentViewDirection()]++ < piercingFallbackLimitPerSide) {
+				// didn't find one in the bucket PQs, so pick a random unsettled node
+				uint32_t rndScore = 0;
+				HopDistance d = 0;
+				for (const Node u : hg.nodeIDs()) {
+					if (isCandidate(u)) {
+						const HopDistance dist_u = cs.borderNodes.distance.getHopDistanceFromCut(u);
+						if (dist_u >= d) {
+							const uint32_t score_u = Random::randomNumber(1, max_random_score);
+							if (dist_u > d || score_u > rndScore) {
+								rndScore = score_u;
+								p = u;
+								d = dist_u;
+							}
 						}
 					}
 				}
 			}
 			
 			return p;
+		}
+		
+		void reset() {
+			piercingFallbacks = { 0, 0 };
 		}
 		
 	private:
@@ -87,5 +92,7 @@ namespace whfc {
 		
 		static constexpr uint32_t max_random_score = 1 << 25;
 		
+		std::array<int, 2> piercingFallbacks = { 0, 0 };
+		static constexpr int piercingFallbackLimitPerSide = 3;
 	};
 }
