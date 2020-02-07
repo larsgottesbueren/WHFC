@@ -142,6 +142,8 @@ namespace whfc {
 		
 		void settleNode(const Node u, bool check = true) {
 			Assert(!n.isSource(u) && !n.isTarget(u) && (!check || !isIsolated(u)));
+			unused(check);
+			
 			if (!n.isSourceReachable(u))
 				n.reach(u);
 			n.settle(u);
