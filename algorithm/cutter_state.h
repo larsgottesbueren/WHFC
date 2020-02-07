@@ -231,7 +231,6 @@ namespace whfc {
 		}
 		
 		void initialize(const Node s, const Node t) {
-			timer.start("Initialize");
 			Assert(sourcePiercingNodes.empty() && targetPiercingNodes.empty());
 			sourcePiercingNodes.emplace_back(s,false);
 			settleNode(s, false);
@@ -246,7 +245,6 @@ namespace whfc {
 					}
 				}
 			}
-			timer.stop("Initialize");
 		}
 		
 		int lessBalancedSide() const {
@@ -496,8 +494,6 @@ namespace whfc {
 		void writePartition(const SimulatedNodeAssignment& r) {
 			AssertMsg(!partitionWrittenToNodeSet, "Partition was already written");
 			AssertMsg(isBalanced(), "Not balanced yet");
-			timer.start("Write Partition");
-			
 			if (currentViewDirection() != r.direction)
 				flipViewDirection();
 			
@@ -545,7 +541,6 @@ namespace whfc {
 			
 			Assert(n.sourceWeight + n.targetWeight == hg.totalNodeWeight());
 			partitionWrittenToNodeSet = true;
-			timer.stop("Write Partition");
 		}
 		
 		void writePartition() {
@@ -553,7 +548,6 @@ namespace whfc {
 		}
 		
 		void revertMoves(const size_t numberOfTrackedMoves) {
-			timer.start("Revert Moves");
 			while (trackedMoves.size() > numberOfTrackedMoves) {
 				Move& m = trackedMoves.back();
 				if (m.node != invalidNode) {
@@ -581,11 +575,9 @@ namespace whfc {
 				}
 				trackedMoves.pop_back();
 			}
-			timer.stop("Revert Moves");
 		}
 		
 		void applyMoves(const std::vector<Move>& moves) {
-			timer.start("Apply Moves");
 			for (const Move& m : moves) {
 				if (m.node != invalidNode) {
 					Assert(!n.isSourceReachable(m.node) && !n.isTargetReachable(m.node));
@@ -612,7 +604,6 @@ namespace whfc {
 					}
 				}
 			}
-			timer.stop("Apply Moves");
 		}
 		
 		std::string toString(bool skip_iso_and_unclaimed = false) {
