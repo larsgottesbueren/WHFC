@@ -62,7 +62,7 @@ namespace whfc {
 	public:
 		static constexpr bool log = false;
 		
-		static constexpr bool useIsolatedNodes = true;
+		static constexpr bool useIsolatedNodes = false;
 		
 		using Pin = FlowHypergraph::Pin;
 		
@@ -261,12 +261,6 @@ namespace whfc {
 			const double imb_s = static_cast<double>(n.sourceReachableWeight) / static_cast<double>(maxBlockWeight(currentViewDirection()));
 			const double imb_t = static_cast<double>(n.targetReachableWeight) / static_cast<double>(maxBlockWeight(oppositeViewDirection()));
 			return imb_s > imb_t ? currentViewDirection() : oppositeViewDirection();
-		}
-		
-		void turnToLessBalancedSide() {
-			if (currentViewDirection() != lessBalancedSide()) {
-				flipViewDirection();
-			}
 		}
 		
 		bool isBalanced() {
