@@ -3,7 +3,7 @@
 #include "../definitions.h"
 #include "../util/unused.h"
 #include <boost/dynamic_bitset.hpp>
-#include <type_traits>
+#include <type_traits>		// TODO what is this for?
 
 namespace whfc {
 
@@ -174,7 +174,7 @@ namespace whfc {
 		inline Flow flow(const Hyperedge e) const { return hyperedges[e].flow; }
 		inline Flow& flow(const Hyperedge e) { return hyperedges[e].flow; }
 		inline Flow residualCapacity(const Hyperedge e) const { return capacity(e) - flow(e); }
-		inline bool isSaturated(const Hyperedge e) const { Assert(flow(e) <= capacity(e)); return flow(e) == capacity(e); }
+		inline bool isSaturated(const Hyperedge e) const { assert(flow(e) <= capacity(e)); return flow(e) == capacity(e); }
 
 		inline Flow flowSent(const Flow f) const { return f * sends_multiplier; }
 		//flow sent from u = getPin(inc_u.pin_iter).pin into e = inc_u.e
@@ -224,12 +224,12 @@ namespace whfc {
 
 		void routeFlow(InHe& inc_u, InHe& inc_v, Flow flow_delta) {
 			const Hyperedge e = inc_u.e;
-			AssertMsg(inc_u.e == inc_v.e, "Routing flow but incident hyperedges are not the same");
-			AssertMsg(flow_delta > 0, "Routing <= 0 flow.");
-			AssertMsg(flow_delta <= residualCapacity(inc_u, inc_v), "Routing more flow than residual capacity");
-			AssertMsg(flow(e) <= capacity(e), "Capacity on e already exceeded");
-			AssertMsg(std::abs(inc_u.flow) <= capacity(e), "Pin capacity already violated (u)");
-			AssertMsg(std::abs(inc_v.flow) <= capacity(e), "Pin capacity already violated (v)");
+			assert(inc_u.e == inc_v.e && "Routing flow but incident hyperedges are not the same");
+			assert(flow_delta > 0 && "Routing <= 0 flow.");
+			assert(flow_delta <= residualCapacity(inc_u, inc_v) && "Routing more flow than residual capacity");
+			assert(flow(e) <= capacity(e) && "Capacity on e already exceeded");
+			assert(std::abs(inc_u.flow) <= capacity(e) && "Pin capacity already violated (u)");
+			assert(std::abs(inc_v.flow) <= capacity(e) && "Pin capacity already violated (v)");
 
 			const Flow prevFlowU = inc_u.flow;
 			const Flow prevFlowV = inc_v.flow;
@@ -253,7 +253,7 @@ namespace whfc {
 			flow_delta -= flow_delta_on_v_eIn_u;
 			
 			Flow flow_delta_on_v_eIn_eOut_u = flow_delta;
-			Assert(flow_delta_on_v_eIn_eOut_u <= residualCapacity(e));
+			assert(flow_delta_on_v_eIn_eOut_u <= residualCapacity(e));
 			inc_u.flow += flowSent(flow_delta_on_v_eIn_eOut_u);
 			inc_v.flow += flowReceived(flow_delta_on_v_eIn_eOut_u);
 			flow(e) += flow_delta_on_v_eIn_eOut_u;
@@ -269,12 +269,12 @@ namespace whfc {
 			if (flowReceived(inc_v.flow) > 0 && flowReceived(prevFlowV) <= 0)  //v now receives flow and did not previously, thus must be inserted into pins_receiving_flow
 				insertPinIntoFlowPins(inc_v, true);
 			
-			Assert(check_flow_conservation_locally(e));
-			Assert(sanity_check_pin_ranges(e));
-			Assert(assert_backpointers_correct(inc_u));
-			Assert(assert_backpointers_correct(inc_v));
-			AssertMsg(pin_is_categorized_correctly(inc_u), "Pin categorized incorrectly");
-			AssertMsg(pin_is_categorized_correctly(inc_v), "Pin categorized incorrectly");
+			assert(check_flow_conservation_locally(e));
+			assert(sanity_check_pin_ranges(e));
+			assert(assert_backpointers_correct(inc_u));
+			assert(assert_backpointers_correct(inc_v));
+			assert(pin_is_categorized_correctly(inc_u) && "Pin categorized incorrectly");
+			assert(pin_is_categorized_correctly(inc_v) && "Pin categorized incorrectly");
 		}
 		
 		Flow maxHyperedgeCapacity = maxFlow;
@@ -301,19 +301,19 @@ namespace whfc {
 			const Hyperedge e = inc_u.e;
 			PinIndex it_u = inc_u.pin_iter;
 			PinIndexRange& flow_pins = flow_receiving_pins ? pins_receiving_flow[e] : pins_sending_flow[e];
-			Assert(!flow_pins.empty());
-			Assert(flow_pins.contains(it_u));
+			assert(!flow_pins.empty());
+			assert(flow_pins.contains(it_u));
 
 			PinIndex it_o = (forwardView() == flow_receiving_pins) ? flow_pins.begin() : PinIndex(flow_pins.end() - 1);
 			InHe& inc_o = getInHe(getPin(it_o));
-			Assert(it_o == it_u || (flow_receiving_pins ? flowReceived(inc_o) > 0 : flowSent(inc_o) > 0));	//ensure it_o, taken from flow_pins, actually receives or sends flow, as appropriate
+			assert(it_o == it_u || (flow_receiving_pins ? flowReceived(inc_o) > 0 : flowSent(inc_o) > 0));	//ensure it_o, taken from flow_pins, actually receives or sends flow, as appropriate
 			if (forwardView() == flow_receiving_pins)
 				flow_pins.advance_begin();
 			else
 				flow_pins.retreat_end();
 			std::swap(inc_u.pin_iter, inc_o.pin_iter);
 			std::swap(pins[it_u], pins[it_o]);
-			Assert(pins_without_flow(e).contains(it_o));
+			assert(pins_without_flow(e).contains(it_o));
 			return it_o;
 		}
 
@@ -321,7 +321,7 @@ namespace whfc {
 			const Hyperedge e = inc_u.e;
 			PinIndex it_u = inc_u.pin_iter;
 			PinIndexRange& flow_pins = flow_receiving_pins ? pins_receiving_flow[e] : pins_sending_flow[e];
-			Assert(pins_without_flow(e).contains(it_u));
+			assert(pins_without_flow(e).contains(it_u));
 			PinIndex it_o = (forwardView() == flow_receiving_pins) ? PinIndex(flow_pins.begin() - 1) : flow_pins.end();
 			InHe& inc_o = getInHe(getPin(it_o));
 			if (forwardView() == flow_receiving_pins)
@@ -330,7 +330,7 @@ namespace whfc {
 				flow_pins.advance_end();
 			std::swap(inc_u.pin_iter, inc_o.pin_iter);
 			std::swap(pins[it_u], pins[it_o]);
-			Assert(flow_pins.contains(it_o));
+			assert(flow_pins.contains(it_o));
 			return it_o;
 		}
 		
@@ -339,39 +339,33 @@ namespace whfc {
 			for (Pin& p : pinsOf(e)) {
 				f += flowSent(p);
 				f_in += absoluteFlowSent(p);
-				Assert(std::abs(flowSent(p)) <= capacity(e));
+				assert(std::abs(flowSent(p)) <= capacity(e));
 			}
-			Assert(f == 0);
-			Assert(f_in == flow(e));
+			assert(f == 0);
+			assert(f_in == flow(e));
 			return true;
 		}
 
 		bool assert_backpointers_correct(const InHe& inhe) const {
 			const InHe& doubled = getInHe(getPin(inhe));
 			unused(inhe, doubled);
-			AssertMsg(doubled.pin_iter == inhe.pin_iter, "Backpointer Pin Iter inconsistent");
-			AssertMsg(doubled.e == inhe.e, "Backpointer hyperedge ID inconsistent");
-			AssertMsg(doubled.flow == inhe.flow, "Backpointer Pin Iter inconsistent");
+			assert(doubled.pin_iter == inhe.pin_iter && "Backpointer Pin Iter inconsistent");
+			assert(doubled.e == inhe.e && "Backpointer hyperedge ID inconsistent");
+			assert(doubled.flow == inhe.flow && "Backpointer Pin Iter inconsistent");
 			return true;
 		}
-/*
-		void assert_backpointers_correct(const Pin& pin) const {
-			const Pin& doubled = getPin(getInHe(pin));
-			AssertMsg(doubled.he_inc_iter== pin.he_inc_iter, "Backpointer HyperedgeIncidence iterator inconsistent");
-			AssertMsg(doubled.pin  == pin.pin, "Backpointer Node ID inconsistent");
-		}
-*/
+
 		bool sanity_check_pin_ranges(const Hyperedge e) const {
 			//check left / right end of pin ranges agree with first_out
 			const PinIndexRange& s = forwardView() ? pins_sending_flow[e] : pins_receiving_flow[e];
 			const PinIndexRange& l = !forwardView() ? pins_sending_flow[e] : pins_receiving_flow[e];
 			unused(e, s, l);
-			Assert(hyperedges[e].first_out == s.begin());
-			Assert(hyperedges[e+1].first_out == l.end());
+			assert(hyperedges[e].first_out == s.begin());
+			assert(hyperedges[e+1].first_out == l.end());
 
-			Assert(s.begin() <= s.end());
-			Assert(s.end() <= l.begin());
-			Assert(l.begin() <= l.end());
+			assert(s.begin() <= s.end());
+			assert(s.end() <= l.begin());
+			assert(l.begin() <= l.end());
 			return true;
 		}
 
@@ -410,7 +404,7 @@ namespace whfc {
 			for (const Hyperedge e: hyperedgeIDs()) {
 				out << e << " pincount = " << pinCount(e) << " w= " << capacity(e) << " pins (pin,flow) = [";
 				for (const Pin& u : pinsOf(e)) {
-					Assert(pin_is_categorized_correctly(getInHe(u)));
+					assert(pin_is_categorized_correctly(getInHe(u)));
 					out << "(" << u.pin << "," << getInHe(u).flow << ") ";
 				}
 				out << "]" << "\n";

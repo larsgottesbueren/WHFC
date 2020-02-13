@@ -161,7 +161,7 @@ namespace whfc {
 		}
 
 		Flow augmentFromTarget(CutterState<Type>& cs, ReachableNodes& n, const Node target) {
-			Assert(n.isTarget(target));
+			assert(n.isTarget(target));
 			Flow bottleneckCapacity = maxFlow;
 			Node v = target;
 			while (!n.isSource(v)) {
@@ -169,9 +169,9 @@ namespace whfc {
 				const Flow residual = hg.residualCapacity(hg.getInHe(p.parentIncidenceIterator), hg.getInHe(p.currentIncidenceIterator));
 				bottleneckCapacity = std::min(bottleneckCapacity, residual);
 				v = hg.getPin(hg.getInHe(p.parentIncidenceIterator)).pin;
-				Assert(!cs.isIsolated(v));
+				assert(!cs.isIsolated(v));
 			}
-			AssertMsg(bottleneckCapacity > 0, "Bottleneck capacity not positive");
+			assert(bottleneckCapacity > 0);
 			v = target;
 			while (!n.isSource(v)) {
 				Parent p = parent[v];
@@ -208,8 +208,8 @@ namespace whfc {
 
 						for (const Pin& pv : scanAllPins ? hg.pinsOf(e) : hg.pinsSendingFlowInto(e)) {
 							const Node v = pv.pin;
-							AssertMsg(augment_flow || !n.isTargetReachable(v), "Not augmenting flow but target side is reachable.");
-							Assert(!cs.isIsolated(v) || (augment_flow && FlowCommons::incidentToPiercingNodes(e, cs)));
+							assert(augment_flow || !n.isTargetReachable(v));
+							assert(!cs.isIsolated(v) || (augment_flow && FlowCommons::incidentToPiercingNodes(e, cs)));
 							if (!n.isSourceReachable(v)) {		//don't do VD label propagation
 								if constexpr (augment_flow || always_set_parent)
 									parent[v] = { inc_u_iter, pv.he_inc_iter };
@@ -233,7 +233,7 @@ namespace whfc {
 		Flow growWithScaling(CutterState<Type>& cs) {
 			const Flow scaling_capacity = scaling.getCapacity();
 			LOGGER << "Grow with scaling " << V(scaling.getCapacity());
-			AssertMsg(scaling.getCapacity() > 1, "Don't call this method with ScalingCapacity <= 1. Use growWithoutScaling instead.");
+			assert(scaling.getCapacity() > 1 && "Don't call this method with ScalingCapacity <= 1. Use growWithoutScaling instead.");
 			cs.clearForSearch();
 			ReachableNodes& n = cs.n;
 			ReachableHyperedges& h = cs.h;
@@ -258,7 +258,7 @@ namespace whfc {
 						for (const Pin& pv : hg.pinsSendingFlowInto(e)) {
 							if (residualCapacity + hg.absoluteFlowSent(pv) >= scaling_capacity) {//residual = flow received by u + residual(e) + flow sent by v
 								const Node v = pv.pin;
-								Assert(!cs.isIsolated(v) || FlowCommons::incidentToPiercingNodes(e, cs));
+								assert(!cs.isIsolated(v) || FlowCommons::incidentToPiercingNodes(e, cs));
 								if (!n.isSourceReachable(v)) {
 									parent[v] = parent[v] = { inc_u_iter, pv.he_inc_iter };
 									if (n.isTarget(v))
@@ -274,7 +274,7 @@ namespace whfc {
 						h.reachAllPins(e);
 						for (const Pin& pv : hg.pinsNotSendingFlowInto(e)) {
 							const Node v = pv.pin;
-							Assert(!cs.isIsolated(v) || FlowCommons::incidentToPiercingNodes(e, cs));
+							assert(!cs.isIsolated(v) || FlowCommons::incidentToPiercingNodes(e, cs));
 							if (!n.isSourceReachable(v)) {
 								parent[v] = parent[v] = { inc_u_iter, pv.he_inc_iter };
 								if (n.isTarget(v))
@@ -353,7 +353,7 @@ namespace whfc {
 				diff = growWithoutScaling<true>(cs);
 				flow += diff;
 			}
-			Assert(!found_isolated);
+			assert(!found_isolated);
 			scaling.reset();
 			return flow;
 		}
@@ -370,7 +370,7 @@ namespace whfc {
 			}
 			Flow flow = growWithoutScaling<true>(cs);
 			if (flow == 0) {
-				Assert(!found_isolated);
+				assert(!found_isolated);
 				scaling.reset();
 			}
 			return flow;
@@ -392,7 +392,7 @@ namespace whfc {
 					LOGGER << V(t.u) << " is isolated " << V(stack.size()) << V(stack_pointer);
 				}
 			}
-			AssertMsg(bottleneckCapacity > 0, "Bottleneck capacity not positive");
+			assert(bottleneckCapacity > 0);
 			inc_v_it = inc_target_it;
 			while (!stack.empty()) {
 				const StackFrame& t = stack.top();
@@ -412,7 +412,7 @@ namespace whfc {
 			stack.clear();
 			
 			for (auto& s : cs.sourcePiercingNodes) {
-				Assert(stack.empty());
+				assert(stack.empty());
 				stack.push({ s.node, hg.beginIndexHyperedges(s.node), InHeIndex::Invalid(), PinIndexRange::Invalid() });
 				while (!stack.empty()) {
 					InHeIndex& he_it = stack.top().out_he_it;
@@ -440,8 +440,8 @@ namespace whfc {
 						
 						for ( ; v == invalidNode && !pins_to_scan.empty(); pins_to_scan.advance_begin()) {
 							const Pin& pv = hg.getPin(pins_to_scan.begin());
-							AssertMsg(augment_flow || !n.isTargetReachable(pv.pin), "Not augmenting flow but target side is reachable.");
-							Assert(!cs.isIsolated(pv.pin) || augment_flow);
+							assert(augment_flow || !n.isTargetReachable(pv.pin));
+							assert(!cs.isIsolated(pv.pin) || augment_flow);
 #ifndef NDEBUG
 							found_isolated |= cs.isIsolated(pv.pin);	//since we don't find shortest paths, this might actually happen when augmenting flow. but not when no flow can be pushed.
 #endif
@@ -479,7 +479,7 @@ namespace whfc {
 			stack.clear();
 			
 			for (auto& s : cs.sourcePiercingNodes) {
-				Assert(stack.empty());
+				assert(stack.empty());
 				stack.push({ s.node, hg.beginIndexHyperedges(s.node), InHeIndex::Invalid(), PinIndexRange::Invalid() });
 				while (!stack.empty()) {
 					InHeIndex& he_it = stack.top().out_he_it;

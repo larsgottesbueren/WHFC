@@ -2,7 +2,6 @@
 
 #include <vector>
 
-#include "custom_asserts.h"
 
 template<typename RANGE>
 class sub_range {
@@ -67,17 +66,17 @@ public:
     }
 
     inline auto operator[](const size_t i) const noexcept {
-        AssertMsg(i < size(), "Index out of range!");
+        assert(i < size());
         return (*range)[beginIndex + i];
     }
 
     inline auto front() const noexcept {
-        AssertMsg(!empty(), "Range is empty!");
+        assert(!empty());
         return (*range)[beginIndex];
     }
 
     inline auto back() const noexcept {
-        AssertMsg(!empty(), "Range is empty!");
+        assert(!empty());
         return (*range)[endIndex - 1];
     }
 

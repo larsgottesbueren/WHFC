@@ -30,7 +30,7 @@ namespace whfc {
 		for (int i = 0; i < 2; ++i)
 			hfc.cs.setMaxBlockWeight(i, info.maxBlockWeight[i]);
 		
-		WHFC_IO::readRandomGeneratorState(filename);
+		WHFC_IO::readRandomGeneratorState(filename, hfc.cs.rng);
 		
 		hfc.timer.start();
 		hfc.runUntilBalancedOrFlowBoundExceeded(s, t);

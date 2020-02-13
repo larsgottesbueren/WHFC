@@ -2,7 +2,6 @@
 
 #include <sstream>
 #include <iostream>
-#include "custom_asserts.h"
 #include "meta.h"
 
 template<int TAG, typename VALUE_TYPE, VALUE_TYPE INVALID, VALUE_TYPE DEFAULT = INVALID, typename... ADDITIONAL_CASTS>
@@ -44,112 +43,97 @@ public:
     inline bool operator!=(const Type& other) const noexcept {return internalValue != other.internalValue;}
 
     inline Type& operator+=(const Type& other) noexcept {
-        AssertMsg(isValid(), "Cannot add something to an Invalid value.");
-        AssertMsg(other.isValid(), "Cannot add an Invalid value to something.");
+        assert(isValid());
+        assert(other.isValid());
         internalValue += other.internalValue;
         return *this;
     }
     
     inline Type& operator+=(const ValueType& other) noexcept {
-        AssertMsg(isValid(), "Cannot add something to an Invalid value.");
+        assert(isValid());
         internalValue += other;
         return *this;
     }
 
     inline Type& operator-=(const Type& other) noexcept {
-        AssertMsg(isValid(), "Cannot subtract from an Invalid value.");
-        AssertMsg(other.isValid(), "Cannot subtract an Invalid value");
+        assert(isValid());
+        assert(other.isValid());
         internalValue -= other.internalValue;
         return *this;
     }
     inline Type& operator-=(const ValueType& other) noexcept {
-        AssertMsg(isValid(), "Cannot subtract from an Invalid value.");
+        assert(isValid());
         internalValue -= other;
         return *this;
     }
 
     inline Type& operator*=(const Type& other) noexcept {
-        AssertMsg(isValid(), "Cannot multiply something with an Invalid value.");
-        AssertMsg(other.isValid(), "Cannot multiply an Invalid value with something.");
+        assert(isValid());
+        assert(other.isValid());
         internalValue *= other.internalValue;
         return *this;
     }
     inline Type& operator*=(const ValueType& other) noexcept {
-        AssertMsg(isValid(), "Cannot multiply something with an Invalid value.");
+        assert(isValid());
         internalValue *= other;
         return *this;
     }
 
     inline Type& operator/=(const Type& other) noexcept {
-        AssertMsg(isValid(), "Cannot divide an Invalid value.");
-        AssertMsg(other.isValid(), "Cannot divide something by an Invalid value.");
+        assert(isValid());
+        assert(other.isValid());
         internalValue /= other.internalValue;
         return *this;
     }
     inline Type& operator/=(const ValueType& other) noexcept {
-        AssertMsg(isValid(), "Cannot divide an Invalid value.");
+        assert(isValid());
         internalValue /= other;
         return *this;
     }
 
     inline Type operator+(const Type& other) const noexcept {
-        AssertMsg(isValid(), "Cannot add something to an Invalid value.");
-        AssertMsg(other.isValid(), "Cannot add an Invalid value to something.");
+        assert(isValid());
+        assert(other.isValid());
         return Type(internalValue + other.internalValue);
     }
 
-    /*
-	//not reference, so we can write TaggedInteger(4) - 1
-    inline Type operator+(const ValueType other) const noexcept {
-    	AssertMsg(isValid(), "Cannot add something to an Invalid value.");
-    	return Type(internalValue + other);
-    }
-	*/
-
     inline Type operator-() const noexcept {
-        AssertMsg(isValid(), "Cannot subtract from an Invalid value.");
+        assert(isValid());
         return Type(-internalValue);
     }
 
     inline Type operator-(const Type& other) const noexcept {
-        AssertMsg(isValid(), "Cannot subtract from an Invalid value.");
-        AssertMsg(other.isValid(), "Cannot subtract an Invalid value");
+        assert(isValid());
+        assert(other.isValid());
         return Type(internalValue - other.internalValue);
     }
 
-    /*
-    //not reference, so we can write TaggedInteger(4) - 1
-    inline Type operator-(const ValueType other) const noexcept {
-    	AssertMsg(isValid(), "Cannot subtract from an Invalid value.");
-    	return Type(internalValue - other);
-    }
-	*/
     inline Type operator*(const Type& other) const noexcept {
-        AssertMsg(isValid(), "Cannot multiply something with an Invalid value.");
-        AssertMsg(other.isValid(), "Cannot multiply an Invalid value with something.");
+        assert(isValid());
+        assert(other.isValid());
         return Type(internalValue * other.internalValue);
     }
 
     inline Type operator/(const Type& other) const noexcept {
-        AssertMsg(isValid(), "Cannot divide an Invalid value.");
-        AssertMsg(other.isValid(), "Cannot divide something by an Invalid value.");
+        assert(isValid());
+        assert(other.isValid());
         return Type(internalValue / other.internalValue);
     }
 
     inline Type operator%(const Type& other) const noexcept{
-    	AssertMsg(isValid(), "Cannot divide an Invalid value");
-    	AssertMsg(other.isValid(), "Cannot divide by an Invalid value");
+        assert(isValid());
+        assert(other.isValid());
     	return Type(internalValue % other.internalValue);
     }
 
     inline Type& operator++() noexcept {
-        AssertMsg(isValid(), "Cannot increment an Invalid value.");
+        assert(isValid());
         internalValue++;
         return *this;
     }
 
     inline Type operator++(int) noexcept {
-        AssertMsg(isValid(), "Cannot increment an Invalid value.");
+        assert(isValid());
         internalValue++;
         return Type(internalValue - 1);
     }
@@ -159,13 +143,13 @@ public:
     }
 
     inline Type& operator--() noexcept {
-        AssertMsg(isValid(), "Cannot decrement an Invalid value.");
+        assert(isValid());
         internalValue--;
         return *this;
     }
 
     inline Type operator--(int) noexcept {
-        AssertMsg(isValid(), "Cannot decrement an Invalid value.");
+        assert(isValid());
         internalValue--;
         return Type(internalValue + 1);
     }

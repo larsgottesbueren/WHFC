@@ -36,7 +36,7 @@ namespace util {
 	template<typename Container, typename Predicate>
 	void move_to_front_if(Container& C, size_t& front, size_t size, const Predicate& p) {
 		for ( ; front < size; ) {
-			Assert(size > 0);
+			assert(size > 0);
 			if (p(C[--size])) {
 				std::swap(C[front++], C[size++]);
 			}

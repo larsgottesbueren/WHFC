@@ -2,8 +2,6 @@
 
 #include <vector>
 
-#include "custom_asserts.h"
-
 template<typename RANGE, typename ELEMENT>
 class concatenated_range {
 
@@ -46,7 +44,7 @@ public:
     }
 
     inline Element operator[](const size_t i) const noexcept {
-        AssertMsg(i < size(), "Index out of range!");
+        assert(i < size());
         if (i < firstRange.size()) {
             return firstRange[i];
         } else {
@@ -54,12 +52,12 @@ public:
         }
     }
     inline Element front() const noexcept {
-        AssertMsg(!empty(), "Range is empty!");
+        assert(!empty());
         return operator[](0);
     }
 
     inline Element back() const noexcept {
-        AssertMsg(!empty(), "Range is empty!");
+        assert(!empty());
         return operator[](size() - 1);
     }
 

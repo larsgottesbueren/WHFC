@@ -13,16 +13,16 @@ namespace whfc {
 			Node s, t;
 		};
 		
-		static void readRandomGeneratorState(const std::string& hgpath) {
+		static void readRandomGeneratorState(const std::string& hgpath, Randomizer& rng) {
 			std::ifstream df(hgpath + ".distribution");
 			if (df) {
-				df >> Random::instance().get64BitUintDistribution();
+				df >> rng.get64BitUintDistribution();
 			}
 			df.close();
 			
 			std::ifstream genf(hgpath + ".generator");
 			if (genf) {
-				genf >> Random::instance().getGenerator();
+				genf >> rng.getGenerator();
 			}
 			genf.close();
 		}
@@ -39,18 +39,18 @@ namespace whfc {
 			return i;
 		}
 
-		static void writeAdditionalInformation(std::string& hgpath, WHFCInformation& i) {
+		static void writeAdditionalInformation(std::string& hgpath, WHFCInformation& i, Randomizer& rng) {
 			std::string fileSuffix = ".whfc";
 			std::ofstream f(hgpath + fileSuffix);
 			f << i.maxBlockWeight[0] << " " << i.maxBlockWeight[1] << " " << i.upperFlowBound << " " << i.s << " " << i.t << std::endl;
 			f.close();
 			
 			std::ofstream df(hgpath + ".distribution");
-			df << Random::instance().get64BitUintDistribution();
+			df << rng.get64BitUintDistribution();
 			df.close();
 			
 			std::ofstream genf(hgpath + ".generator");
-			genf << Random::instance().getGenerator();
+			genf << rng.getGenerator();
 			genf.close();
 		}
 	};

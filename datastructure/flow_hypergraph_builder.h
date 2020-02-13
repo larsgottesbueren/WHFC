@@ -65,7 +65,7 @@ namespace whfc {
 		}
 		
 		void addPin(const Node u) {
-			Assert(u < numNodes());
+			assert(u < numNodes());
 			pins.push_back({u, InHeIndex::Invalid()});
 			nodes[u+1].first_out++;
 		}

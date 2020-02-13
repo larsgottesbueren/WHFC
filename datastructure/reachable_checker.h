@@ -11,25 +11,25 @@ namespace whfc {
 		explicit ReachableNodesChecker(const FlowHypergraph& hg) : Base(hg), bits(hg), timestamps(hg) { }
 		
 		inline size_t capacity() const {
-			Assert(bits.capacity() == timestamps.capacity());
+			assert(bits.capacity() == timestamps.capacity());
 			return bits.capacity();
 		}
 		
 		inline bool isSource(const Node u) const {
-			Assert(bits.isSource(u) == timestamps.isSource(u));
+			assert(bits.isSource(u) == timestamps.isSource(u));
 			return bits.isSource(u);
 		}
 		
 		inline bool isSourceReachable(const Node u) const {
-			Assert(bits.isSourceReachable(u) == timestamps.isSourceReachable(u));
+			assert(bits.isSourceReachable(u) == timestamps.isSourceReachable(u));
 			return bits.isSourceReachable(u);
 		}
 		inline bool isTarget(const Node u) const {
-			Assert(bits.isTarget(u) == timestamps.isTarget(u));
+			assert(bits.isTarget(u) == timestamps.isTarget(u));
 			return bits.isTarget(u);
 		}
 		inline bool isTargetReachable(const Node u) const {
-			Assert(bits.isTargetReachable(u) == timestamps.isTargetReachable(u));
+			assert(bits.isTargetReachable(u) == timestamps.isTargetReachable(u));
 			return bits.isTargetReachable(u);
 		}
 		inline void reach(const Node u) {
@@ -68,12 +68,12 @@ namespace whfc {
 		}
 		
 		inline void unsettleSource(const Node u) {
-			Assert(isSource(u)); Base::unsettleSource(u);
+			assert(isSource(u)); Base::unsettleSource(u);
 			bits.unsettleTarget(u);
 			timestamps.unsettleTarget(u);
 		}
 		inline void unsettleTarget(const Node u) {
-			Assert(isTarget(u)); Base::unsettleTarget(u);
+			assert(isTarget(u)); Base::unsettleTarget(u);
 			bits.unsettleTarget(u);
 			timestamps.unsettleTarget(u);
 		}
@@ -118,17 +118,17 @@ namespace whfc {
 		explicit ReachableHyperedgesChecker(const FlowHypergraph& hg) : bits(hg), timestamps(hg) { }
 		
 		inline size_t capacity() const {
-			Assert(bits.capacity() == timestamps.capacity());
+			assert(bits.capacity() == timestamps.capacity());
 			return bits.capacity();
 		}
 		
 		inline bool areAllPinsSources(const Hyperedge e) const {
-			Assert(bits.areAllPinsSources(e) == timestamps.areAllPinsSources(e));
+			assert(bits.areAllPinsSources(e) == timestamps.areAllPinsSources(e));
 			return bits.areAllPinsSources(e);
 		}
 		
 		inline bool areAllPinsSourceReachable(const Hyperedge e) const {
-			Assert(bits.areAllPinsSourceReachable(e) == timestamps.areAllPinsSourceReachable(e));
+			assert(bits.areAllPinsSourceReachable(e) == timestamps.areAllPinsSourceReachable(e));
 			return bits.areAllPinsSourceReachable(e);
 		}
 		
@@ -143,12 +143,12 @@ namespace whfc {
 		}
 		
 		inline bool areFlowSendingPinsSources(const Hyperedge e) const {
-			Assert(bits.areFlowSendingPinsSources(e) == timestamps.areFlowSendingPinsSources(e));
+			assert(bits.areFlowSendingPinsSources(e) == timestamps.areFlowSendingPinsSources(e));
 			return bits.areFlowSendingPinsSources(e);
 		}
 		
 		inline bool areFlowSendingPinsSourceReachable(const Hyperedge e) const {
-			Assert(bits.areFlowSendingPinsSourceReachable(e) == timestamps.areFlowSendingPinsSourceReachable(e));
+			assert(bits.areFlowSendingPinsSourceReachable(e) == timestamps.areFlowSendingPinsSourceReachable(e));
 			return bits.areFlowSendingPinsSourceReachable(e);
 		}
 		

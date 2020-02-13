@@ -22,10 +22,10 @@ namespace whfc {
 		inline void settleTarget(const Node u) { T.set(u); Base::settleTarget(u); }
 		
 		
-		inline void unreachSource(const Node u) { Assert(isSourceReachable(u)); SR.reset(u); Base::unreachSource(u); }
-		inline void unreachTarget(const Node u) { Assert(isTargetReachable(u)); TR.reset(u); Base::unreachTarget(u); }
-		inline void unsettleSource(const Node u) { Assert(isSource(u)); Base::unsettleSource(u); S.reset(u); unreachSource(u); }
-		inline void unsettleTarget(const Node u) { Assert(isTarget(u)); Base::unsettleTarget(u); T.reset(u); unreachTarget(u); }
+		inline void unreachSource(const Node u) { assert(isSourceReachable(u)); SR.reset(u); Base::unreachSource(u); }
+		inline void unreachTarget(const Node u) { assert(isTargetReachable(u)); TR.reset(u); Base::unreachTarget(u); }
+		inline void unsettleSource(const Node u) { assert(isSource(u)); Base::unsettleSource(u); S.reset(u); unreachSource(u); }
+		inline void unsettleTarget(const Node u) { assert(isTarget(u)); Base::unsettleTarget(u); T.reset(u); unreachTarget(u); }
 
 
 		void flipViewDirection() {
@@ -51,13 +51,13 @@ namespace whfc {
 		}
 		
 		void verifyDisjoint() const {
-			Assert((SR & TR).none());
-			Assert((S & T).none());
+			assert((SR & TR).none());
+			assert((S & T).none());
 		}
 
 		void verifySettledIsSubsetOfReachable() const {
-			Assert(S.is_subset_of(SR));
-			Assert(T.is_subset_of(TR));
+			assert(S.is_subset_of(SR));
+			assert(T.is_subset_of(TR));
 		}
 
 	protected:
@@ -87,13 +87,13 @@ namespace whfc {
 		inline size_t capacity() const { return IN_SETTLED_S.size(); }
 		inline bool areAllPinsSources(const Hyperedge e) const { return OUT_SETTLED_S[e]; }
 		inline bool areAllPinsSourceReachable(const Hyperedge e) const { return OUT_REACHED_S[e]; }
-		inline void settleAllPins(const Hyperedge e) { Assert(!areAllPinsSources(e)); OUT_SETTLED_S.set(e); }
-		inline void reachAllPins(const Hyperedge e) { Assert(!areAllPinsSourceReachable(e)); OUT_REACHED_S.set(e); }
+		inline void settleAllPins(const Hyperedge e) { assert(!areAllPinsSources(e)); OUT_SETTLED_S.set(e); }
+		inline void reachAllPins(const Hyperedge e) { assert(!areAllPinsSourceReachable(e)); OUT_REACHED_S.set(e); }
 
 		inline bool areFlowSendingPinsSources(const Hyperedge e) const { return IN_SETTLED_S[e]; }
 		inline bool areFlowSendingPinsSourceReachable(const Hyperedge e) const { return IN_REACHED_S[e]; }
-		inline void settleFlowSendingPins(const Hyperedge e) { Assert(!areFlowSendingPinsSources(e)); IN_SETTLED_S.set(e); }
-		inline void reachFlowSendingPins(const Hyperedge e) { Assert(!areFlowSendingPinsSourceReachable(e)); IN_REACHED_S.set(e); }
+		inline void settleFlowSendingPins(const Hyperedge e) { assert(!areFlowSendingPinsSources(e)); IN_SETTLED_S.set(e); }
+		inline void reachFlowSendingPins(const Hyperedge e) { assert(!areFlowSendingPinsSourceReachable(e)); IN_REACHED_S.set(e); }
 
 		void resetSourceReachableToSource(bool augmenting_path_available) {
 			//IN_REACHED_S = IN_SETTLED_S;
@@ -123,17 +123,17 @@ namespace whfc {
 		}
 
 		void verifyDisjoint() const {
-			Assert((OUT_REACHED_S & OUT_REACHED_T).none());
-			Assert((OUT_SETTLED_S & OUT_SETTLED_T).none());
-			Assert((IN_REACHED_S & IN_REACHED_T).none());
-			Assert((IN_SETTLED_S & IN_SETTLED_T).none());
+			assert((OUT_REACHED_S & OUT_REACHED_T).none());
+			assert((OUT_SETTLED_S & OUT_SETTLED_T).none());
+			assert((IN_REACHED_S & IN_REACHED_T).none());
+			assert((IN_SETTLED_S & IN_SETTLED_T).none());
 		}
 
 		void verifySettledIsSubsetOfReachable() const {
-			Assert(OUT_SETTLED_S.is_subset_of(OUT_REACHED_S));
-			Assert(IN_SETTLED_S.is_subset_of(IN_REACHED_S));
-			Assert(OUT_SETTLED_T.is_subset_of(OUT_REACHED_T));
-			Assert(IN_SETTLED_T.is_subset_of(IN_REACHED_T));
+			assert(OUT_SETTLED_S.is_subset_of(OUT_REACHED_S));
+			assert(IN_SETTLED_S.is_subset_of(IN_REACHED_S));
+			assert(OUT_SETTLED_T.is_subset_of(OUT_REACHED_T));
+			assert(IN_SETTLED_T.is_subset_of(IN_REACHED_T));
 		}
 
 	protected:

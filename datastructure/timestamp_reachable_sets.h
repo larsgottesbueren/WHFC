@@ -26,10 +26,10 @@ namespace whfc {
 		inline void settle(const Node u) { assert(isSourceReachable(u)); timestamps[u] = sourceSettledTS; Base::settle(u); }
 		inline void settleTarget(const Node u) { assert(!isSourceReachable(u) && isTargetReachable(u)); timestamps[u] = targetSettledTS; Base::settleTarget(u); }
 		
-		inline void unreachSource(const Node u) { Assert(isSourceReachable(u) && !isTargetReachable(u)); timestamps[u] = unreachableTS; Base::unreachSource(u); }
-		inline void unreachTarget(const Node u) { Assert(isTargetReachable(u) && !isSourceReachable(u)); timestamps[u] = unreachableTS; Base::unreachTarget(u); }
-		inline void unsettleSource(const Node u) { Assert(isSource(u)); Base::unsettleSource(u); unreachSource(u); }
-		inline void unsettleTarget(const Node u) { Assert(isTarget(u)); Base::unsettleTarget(u); unreachTarget(u); }
+		inline void unreachSource(const Node u) { assert(isSourceReachable(u) && !isTargetReachable(u)); timestamps[u] = unreachableTS; Base::unreachSource(u); }
+		inline void unreachTarget(const Node u) { assert(isTargetReachable(u) && !isSourceReachable(u)); timestamps[u] = unreachableTS; Base::unreachTarget(u); }
+		inline void unsettleSource(const Node u) { assert(isSource(u)); Base::unsettleSource(u); unreachSource(u); }
+		inline void unsettleTarget(const Node u) { assert(isTarget(u)); Base::unsettleTarget(u); unreachTarget(u); }
 		
 		void flipViewDirection() {
 			LOGGER << "flip";

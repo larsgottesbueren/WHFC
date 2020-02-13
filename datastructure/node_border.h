@@ -46,8 +46,8 @@ public:
 	}
 	
 	void add(const Node u, bool is_tr) {
-		Assert(!mostBalancedCutMode || !is_tr);
-		Assert(!wasAdded(u));
+		assert(!mostBalancedCutMode || !is_tr);
+		assert(!wasAdded(u));
 		was_added.set(u);
 		const HopDistance d = getDistance(u);
 		is_tr |= mostBalancedCutMode;				//reuse target_reachable_bucket_index buckets for nodes inserted during mbc
@@ -67,7 +67,7 @@ public:
 		
 		for (Index i = 0; i < 2; ++i) {
 			clearBuckets(i);
-			Assert(removed_during_most_balanced_cut_mode[i].empty());
+			assert(removed_during_most_balanced_cut_mode[i].empty());
 		}
 		verifyBucketsAreClean();
 		
@@ -146,7 +146,7 @@ private:
 #ifndef NDEBUG
 		for (auto& bb : buckets) {
 			for (Bucket& b : bb) {
-				Assert(b.empty());
+				assert(b.empty());
 			}
 		}
 #endif
@@ -167,7 +167,7 @@ public:
 	}
 	
 	void reset(const size_t newN) {
-		Assert(sourceSide->multiplier == -1);
+		assert(sourceSide->multiplier == -1);
 		sourceSide->reset(newN);
 		targetSide->reset(newN);
 	}

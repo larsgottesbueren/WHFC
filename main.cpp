@@ -23,7 +23,7 @@ namespace whfc {
 		int seed = 42;
 		HyperFlowCutter<Dinic> hfc(hg, seed);
 		hfc.cs.setMaxBlockWeight(0, mbw);
-		hfc.cs.setMaxBlockWeight(1, mbw + (hg.totalNodeWeight() % 2));
+		hfc.cs.setMaxBlockWeight(1, mbw + (hg.totalNodeWeight() % NodeWeight(2)));
 		
 		hfc.runUntilBalancedOrFlowBoundExceeded(s, t);
 		hfc.timer.report(std::cout);

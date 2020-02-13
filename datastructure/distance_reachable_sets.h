@@ -24,7 +24,7 @@ namespace whfc {
 		
 		
 		DistanceReachableNodes(const FlowHypergraph& hg) : Base(hg), distance(hg.numNodes(), unreachableDistance), s(sourceSettledDistance), t(targetSettledDistance) {
-			Assert(4 + hg.numNodes() * 2 < std::numeric_limits<DistanceT>::max());
+			assert(4 + hg.numNodes() * 2 < std::numeric_limits<DistanceT>::max());
 		}
 
 		inline size_t capacity() const { return distance.size(); }
@@ -34,14 +34,14 @@ namespace whfc {
 		inline bool isSourceReachable__unsafe__(const Node u) const { return isSource(u) || distance[u] >= s.base; }	//saves a comparison in Dinic
 		inline bool isSourceReachable(const Node u) const { return isSource(u) || s.contains(distance[u]); }
 		inline bool isTargetReachable(const Node u) const { return isTarget(u) || t.contains(distance[u]); }
-		inline void reach(const Node u) { Assert(u < hg.numNodes()); Assert(!isSourceReachable(u)); distance[u] = runningDistance; Base::reach(u); }
-		inline void settle(const Node u) { Assert(!isSource(u)); distance[u] = sourceSettledDistance; Base::settle(u); }
-		inline void reachTarget(const Node u) { Assert(!isSourceReachable(u) && !isTargetReachable(u)); distance[u] = t.base; Base::reachTarget(u); }
-		inline void settleTarget(const Node u) { Assert(!isSourceReachable(u) && isTargetReachable(u)); distance[u] = targetSettledDistance; Base::settleTarget(u); }
-		inline void unreachSource(const Node u) { Assert(isSourceReachable(u) && !isTargetReachable(u)); distance[u] = unreachableDistance; Base::unreachSource(u); }
-		inline void unreachTarget(const Node u) { Assert(isTargetReachable(u) && !isSourceReachable(u)); distance[u] = unreachableDistance; Base::unreachTarget(u); }
-		inline void unsettleSource(const Node u) { Assert(isSource(u)); Base::unsettleSource(u); unreachSource(u); }
-		inline void unsettleTarget(const Node u) { Assert(isTarget(u)); Base::unsettleTarget(u); unreachTarget(u); }
+		inline void reach(const Node u) { assert(u < hg.numNodes()); assert(!isSourceReachable(u)); distance[u] = runningDistance; Base::reach(u); }
+		inline void settle(const Node u) { assert(!isSource(u)); distance[u] = sourceSettledDistance; Base::settle(u); }
+		inline void reachTarget(const Node u) { assert(!isSourceReachable(u) && !isTargetReachable(u)); distance[u] = t.base; Base::reachTarget(u); }
+		inline void settleTarget(const Node u) { assert(!isSourceReachable(u) && isTargetReachable(u)); distance[u] = targetSettledDistance; Base::settleTarget(u); }
+		inline void unreachSource(const Node u) { assert(isSourceReachable(u) && !isTargetReachable(u)); distance[u] = unreachableDistance; Base::unreachSource(u); }
+		inline void unreachTarget(const Node u) { assert(isTargetReachable(u) && !isSourceReachable(u)); distance[u] = unreachableDistance; Base::unreachTarget(u); }
+		inline void unsettleSource(const Node u) { assert(isSource(u)); Base::unsettleSource(u); unreachSource(u); }
+		inline void unsettleTarget(const Node u) { assert(isTarget(u)); Base::unsettleTarget(u); unreachTarget(u); }
 		
 		void fullReset() {
 			std::fill_n(distance.begin(), hg.numNodes(), unreachableDistance);
@@ -67,7 +67,7 @@ namespace whfc {
 			if (!augmenting_path_available) {
 #ifndef NDEBUG
 				for (Node u : hg.nodeIDs())
-					Assert(!s.contains(distance[u]));
+					assert(!s.contains(distance[u]));
 #endif
 			}
 			if (!isBaseDistanceSafe()) {
@@ -83,7 +83,7 @@ namespace whfc {
 				t.base = resetBaseDistance;
 				runningDistance = t.upper_bound;
 			}
-			Assert(isBaseDistanceSafe());
+			assert(isBaseDistanceSafe());
 			s.base = runningDistance;
 			s.upper_bound = std::numeric_limits<DistanceT>::max();
 			Base::resetSourceReachableToSource();
@@ -99,7 +99,7 @@ namespace whfc {
 		}
 		
 		void verifyDistancesAreStale() const {
-			Assert(std::none_of(distance.begin(), distance.end(), [&](const DistanceT& dist) { return dist >= runningDistance; }));
+			assert(std::none_of(distance.begin(), distance.end(), [&](const DistanceT& dist) { return dist >= runningDistance; }));
 		}
 		
 		bool isDistanceStale(const Node u) const {
@@ -109,9 +109,9 @@ namespace whfc {
 		void verifyDisjoint() const {
 			// disjoint by default
 			// but check whether distance ranges are disjoint
-			Assert(s.base <= s.upper_bound);
-			Assert(t.base <= t.upper_bound);
-			Assert(s.upper_bound <= t.base || t.upper_bound <= s.base);
+			assert(s.base <= s.upper_bound);
+			assert(t.base <= t.upper_bound);
+			assert(s.upper_bound <= t.base || t.upper_bound <= s.base);
 		}
 		
 		void verifySettledIsSubsetOfReachable() const {
@@ -146,22 +146,22 @@ namespace whfc {
 		inline bool areAllPinsSources(const Hyperedge e) const { return outDistance[e] == sourceSettledDistance; }
 		inline bool areAllPinsSourceReachable__unsafe__(const Hyperedge e) const { return areAllPinsSources(e) || outDistance[e] >= s.base; }
 		inline bool areAllPinsSourceReachable(const Hyperedge e) const { return areAllPinsSources(e) || s.contains(outDistance[e]); }
-		inline void settleAllPins(const Hyperedge e) { Assert(!areAllPinsSources(e)); outDistance[e] = sourceSettledDistance; }
-		inline void reachAllPins(const Hyperedge e) { Assert(!areAllPinsSourceReachable(e)); outDistance[e] = runningDistance; }
+		inline void settleAllPins(const Hyperedge e) { assert(!areAllPinsSources(e)); outDistance[e] = sourceSettledDistance; }
+		inline void reachAllPins(const Hyperedge e) { assert(!areAllPinsSourceReachable(e)); outDistance[e] = runningDistance; }
 
 		inline bool areFlowSendingPinsSources(const Hyperedge e) const { return inDistance[e] == sourceSettledDistance; }
 		inline bool areFlowSendingPinsSourceReachable__unsafe__(const Hyperedge e) const { return areFlowSendingPinsSources(e) || inDistance[e] >= s.base; }
 		inline bool areFlowSendingPinsSourceReachable(const Hyperedge e) const { return areFlowSendingPinsSources(e) || s.contains(inDistance[e]); }
-		inline void settleFlowSendingPins(const Hyperedge e) { Assert(!areFlowSendingPinsSources(e)); inDistance[e] = sourceSettledDistance; }
-		inline void reachFlowSendingPins(const Hyperedge e) { Assert(!areFlowSendingPinsSourceReachable(e)); inDistance[e] = runningDistance; }
+		inline void settleFlowSendingPins(const Hyperedge e) { assert(!areFlowSendingPinsSources(e)); inDistance[e] = sourceSettledDistance; }
+		inline void reachFlowSendingPins(const Hyperedge e) { assert(!areFlowSendingPinsSourceReachable(e)); inDistance[e] = runningDistance; }
 
 		void unsettleAllPins(const Hyperedge e) {
-			Assert(areAllPinsSources(e));
+			assert(areAllPinsSources(e));
 			outDistance[e] = unreachableDistance;
 		}
 		
 		void unsettleFlowSendingPins(const Hyperedge e) {
-			Assert(areFlowSendingPinsSourceReachable(e));
+			assert(areFlowSendingPinsSourceReachable(e));
 			inDistance[e] = unreachableDistance;
 		}
 		
@@ -202,8 +202,8 @@ namespace whfc {
 			if (!augmenting_path_available) {
 #ifndef NDEBUG
 				for (Hyperedge e : hg.hyperedgeIDs()) {
-					Assert(!s.contains(inDistance[e]));
-					Assert(!s.contains(outDistance[e]));
+					assert(!s.contains(inDistance[e]));
+					assert(!s.contains(outDistance[e]));
 				}
 #endif
 			}
@@ -238,17 +238,17 @@ namespace whfc {
 		void verifyDisjoint() const { /*disjoint by default*/ }
 		void verifySettledIsSubsetOfReachable() const { /*is subset by default*/ }
 		void verifyDistancesAreStale() const {
-			Assert(std::none_of(outDistance.begin(), outDistance.end(), [&](const DistanceT& dist) { return dist >= runningDistance; }));
-			Assert(std::none_of(inDistance.begin(), inDistance.end(), [&](const DistanceT& dist) { return dist >= runningDistance; }));
+			assert(std::none_of(outDistance.begin(), outDistance.end(), [&](const DistanceT& dist) { return dist >= runningDistance; }));
+			assert(std::none_of(inDistance.begin(), inDistance.end(), [&](const DistanceT& dist) { return dist >= runningDistance; }));
 		}
 		
 		void compareDistances(DistanceReachableNodes& n) {
 			unused(n);
-			Assert(n.sourceSettledDistance == sourceSettledDistance);//same direction?
-			Assert(n.runningDistance == runningDistance);
-			Assert(n.s == s);
-			Assert(n.t == t);
-			Assert(n.isBaseDistanceSafe() == isBaseDistanceSafe());
+			assert(n.sourceSettledDistance == sourceSettledDistance);//same direction?
+			assert(n.runningDistance == runningDistance);
+			assert(n.s == s);
+			assert(n.t == t);
+			assert(n.isBaseDistanceSafe() == isBaseDistanceSafe());
 		}
 		
 		std::vector<DistanceT> inDistance, outDistance;

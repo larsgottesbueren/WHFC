@@ -8,6 +8,7 @@
 #include "../datastructure/isolated_nodes.h"
 #include "../datastructure/bitset_reachable_sets.h"
 #include "../util/math.h"
+#include "../util/random.h"
 
 
 // TODO factor out verification code, maybe even balance checking?
@@ -38,10 +39,10 @@ namespace whfc {
 		int direction;
 		Type t;
 		Move(Node node, int dir, Type t) : node(node), hyperedge(invalidHyperedge), direction(dir), t(t) {
-			Assert(t == Type::SettleNode);
+			assert(t == Type::SettleNode);
 		}
 		Move(Hyperedge hyperedge, int dir, Type t) : node(invalidNode), hyperedge(hyperedge), direction(dir), t(t) {
-			Assert(t == Type::SettleAllPins || t == Type::SettleFlowSendingPins);
+			assert(t == Type::SettleAllPins || t == Type::SettleFlowSendingPins);
 		}
 	};
 	
@@ -85,6 +86,7 @@ namespace whfc {
 		IsolatedNodes isolatedNodes;
 		bool partitionWrittenToNodeSet = false;
 		TimeReporter& timer;
+		Randomizer rng;
 
 		CutterState(FlowHypergraph& _hg, TimeReporter& timer) :
 				hg(_hg),
@@ -121,7 +123,7 @@ namespace whfc {
 
 		inline void addToCut(const Hyperedge e) {
 			//Note: the current implementation of selecting piercing nodes relies on not inserting target-reachable nodes during most balanced cut mode
-			Assert(shouldBeAddedToCut(e));
+			assert(shouldBeAddedToCut(e));
 			for (const Pin& px : hg.pinsOf(e)) {
 				if (canBeSettled(px.pin) && !borderNodes.sourceSide->wasAdded(px.pin) && (!mostBalancedCutMode || !n.isTargetReachable(px.pin))) {
 					borderNodes.sourceSide->add(px.pin, n.isTargetReachable(px.pin));
@@ -144,7 +146,7 @@ namespace whfc {
 		}
 		
 		void settleNode(const Node u, bool check = true) {
-			Assert(!n.isSource(u) && !n.isTarget(u) && (!check || !isIsolated(u)));
+			assert(!n.isSource(u) && !n.isTarget(u) && (!check || !isIsolated(u)));
 			unused(check);
 			
 			if (!n.isSourceReachable(u))
@@ -239,7 +241,7 @@ namespace whfc {
 			if (hg.nodeWeight(s) > maxBlockWeight(0) || hg.nodeWeight(t) > maxBlockWeight(1)) {
 				throw std::runtime_error("Terminal weight already exceeds max block weight at initialization. Consider setting max block weights per side via hfc.cs.setMaxBlockWeight(  side  )");
 			}
-			Assert(sourcePiercingNodes.empty() && targetPiercingNodes.empty());
+			assert(sourcePiercingNodes.empty() && targetPiercingNodes.empty());
 			sourcePiercingNodes.emplace_back(s,false);
 			settleNode(s, false);
 			targetPiercingNodes.emplace_back(t,false);
@@ -268,8 +270,8 @@ namespace whfc {
 		}
 		
 		bool isBalanced() {
-			Assert(hasCut);
-			AssertMsg(!partitionWrittenToNodeSet, "Cannot call isBalanced() once the partition has been written");
+			assert(hasCut);
+			assert(!partitionWrittenToNodeSet && "Cannot call isBalanced() once the partition has been written");
 			
 			const NodeWeight
 					sw = n.sourceReachableWeight,		//cannot be split
@@ -340,9 +342,9 @@ namespace whfc {
 		}
 		
 		NonDynamicCutterState enterMostBalancedCutMode() {
-			Assert(!mostBalancedCutMode);
-			Assert(trackedMoves.empty());
-			Assert(hasCut);
+			assert(!mostBalancedCutMode);
+			assert(trackedMoves.empty());
+			assert(hasCut);
 			mostBalancedCutMode = true;	// activates move tracking
 			borderNodes.enterMostBalancedCutMode();
 			cuts.enterMostBalancedCutMode();
@@ -489,9 +491,9 @@ namespace whfc {
 						   + (sol.assignTrackedIsolatedWeightToSource ? sol.trackedIsolatedWeight : t_iso - sol.trackedIsolatedWeight);
 			NodeWeight t = (sol.assignUnclaimedToSource ? tw : tuw)
 						   + (sol.assignTrackedIsolatedWeightToSource ? t_iso - sol.trackedIsolatedWeight : sol.trackedIsolatedWeight);
-			AssertMsg(s <= maxBlockWeight(currentViewDirection()), "computed assignment violates max block weight on source side");
-			AssertMsg(t <= maxBlockWeight(oppositeViewDirection()), "computed assignment violates max block weight on target side");
-			AssertMsg(isolatedNodes.isSummable(sol.trackedIsolatedWeight), "isolated weight is not summable");
+			assert(s <= maxBlockWeight(currentViewDirection()));
+			assert(t <= maxBlockWeight(oppositeViewDirection()));
+			assert(isolatedNodes.isSummable(sol.trackedIsolatedWeight));
 #endif
 			
 			return sol;
@@ -500,14 +502,14 @@ namespace whfc {
 		// takes the information from mostBalancedIsolatedNodesAssignment()
 		// can be an old run, since the DP solution for trackedIsolatedWeight only contains nodes that were isolated during that run
 		void writePartition(const SimulatedNodeAssignment& r) {
-			AssertMsg(!partitionWrittenToNodeSet, "Partition was already written");
-			AssertMsg(isBalanced(), "Not balanced yet");
+			assert(!partitionWrittenToNodeSet);
+			assert(isBalanced());
 			if (currentViewDirection() != r.direction)
 				flipViewDirection();
 			
 			auto isoSubset = isolatedNodes.extractSubset(r.trackedIsolatedWeight);
 			for (const Node u : isoSubset) {
-				Assert(!n.isSourceReachable(u) && !n.isTargetReachable(u) && isIsolated(u));
+				assert(!n.isSourceReachable(u) && !n.isTargetReachable(u) && isIsolated(u));
 				if (r.assignTrackedIsolatedWeightToSource) {
 					n.reach(u); n.settle(u);
 				}
@@ -534,7 +536,7 @@ namespace whfc {
 				}
 				
 				if (isIsolated(u)) {
-					Assert(isolatedNodes.weight > r.trackedIsolatedWeight);
+					assert(isolatedNodes.weight > r.trackedIsolatedWeight);
 					if (r.assignTrackedIsolatedWeightToSource) {	// these are untracked isolated nodes
 						n.reachTarget(u); n.settleTarget(u);
 					}
@@ -547,7 +549,7 @@ namespace whfc {
 			if (currentViewDirection() != 0)
 				flipViewDirection();
 			
-			Assert(n.sourceWeight + n.targetWeight == hg.totalNodeWeight());
+			assert(n.sourceWeight + n.targetWeight == hg.totalNodeWeight());
 			partitionWrittenToNodeSet = true;
 		}
 		
@@ -559,14 +561,14 @@ namespace whfc {
 			while (trackedMoves.size() > numberOfTrackedMoves) {
 				Move& m = trackedMoves.back();
 				if (m.node != invalidNode) {
-					Assert(m.hyperedge == invalidHyperedge);
+					assert(m.hyperedge == invalidHyperedge);
 					if (m.direction == currentViewDirection())
 						n.unsettleSource(m.node);
 					else
 						n.unsettleTarget(m.node);
 				}
 				else {
-					Assert(m.node == invalidNode);
+					assert(m.node == invalidNode);
 					//for timestamp and distance reachable sets, we would only need unsettleAllPins and unsettleFlowSendingPins, since S and T are disjoint by nature.
 					if (currentViewDirection() == m.direction) {
 						if (m.t == Move::Type::SettleAllPins)
@@ -588,7 +590,7 @@ namespace whfc {
 		void applyMoves(const std::vector<Move>& moves) {
 			for (const Move& m : moves) {
 				if (m.node != invalidNode) {
-					Assert(!n.isSourceReachable(m.node) && !n.isTargetReachable(m.node));
+					assert(!n.isSourceReachable(m.node) && !n.isTargetReachable(m.node));
 					if (m.direction == currentViewDirection()) {
 						n.reach(m.node); n.settle(m.node);
 					}
@@ -597,7 +599,7 @@ namespace whfc {
 					}
 				}
 				else {
-					Assert(m.hyperedge != invalidHyperedge);
+					assert(m.hyperedge != invalidHyperedge);
 					if (currentViewDirection() == m.direction) {
 						if (m.t == Move::Type::SettleAllPins)
 							h.settleAllPins(m.hyperedge);
@@ -645,46 +647,49 @@ namespace whfc {
 				else if (n.isTarget(u))
 					targetExcess += excess;
 				else
-					Assert(excess == 0);
+					assert(excess == 0);
 			}
-			Assert(sourceExcess >= 0 && targetExcess <= 0);
-			Assert(hg.flowSent(sourceExcess) == hg.flowReceived(targetExcess));
-			Assert(sourceExcess == flowValue);
+			assert(sourceExcess >= 0 && targetExcess <= 0);
+			assert(hg.flowSent(sourceExcess) == hg.flowReceived(targetExcess));
+			assert(sourceExcess == flowValue);
 			
 			for (Hyperedge e : hg.hyperedgeIDs()) {
 				Flow flow_in = 0, flow_out = 0;
 				for (Pin& p : hg.pinsOf(e)) {
-					Assert(std::abs(hg.flowSent(p)) <= hg.capacity(e));
+					assert(std::abs(hg.flowSent(p)) <= hg.capacity(e));
 					flow_in += hg.absoluteFlowSent(p);
 					flow_out += hg.absoluteFlowReceived(hg.getInHe(p));
 				}
-				Assert(flow_in >= 0);
-				Assert(flow_in == flow_out);
-				Assert(flow_in == std::abs(hg.flow(e)));
-				Assert(flow_in <= hg.capacity(e));
+				assert(flow_in >= 0);
+				assert(flow_in == flow_out);
+				assert(flow_in == std::abs(hg.flow(e)));
+				assert(flow_in <= hg.capacity(e));
 				
 				for (Pin& p : hg.pinsSendingFlowInto(e))
-					Assert(hg.flowSent(p) > 0);
+					assert(hg.flowSent(p) > 0);
 				for (Pin& p : hg.pinsReceivingFlowFrom(e))
-					Assert(hg.flowReceived(p) > 0);
+					assert(hg.flowReceived(p) > 0);
 				for (Pin& p : hg.pinsWithoutFlow(e))
-					Assert(hg.flowSent(p) == 0);
+					assert(hg.flowSent(p) == 0);
 			}
 #endif
 		}
 		
 		void verifyCutPostConditions() {
-			Assert(hasCut);
+			assert(hasCut);
 			
 #ifndef NDEBUG
+			
 			cuts.sourceSide.cleanUp([&](const Hyperedge& e) { return h.areAllPinsSources(e); });
+			Flow expected_flow = 0;
+			for (const Hyperedge& e : cuts.sourceSide.entries()) {
+				assert(hg.isSaturated(e));
+				expected_flow += hg.capacity(e);
+			}
+			assert(flowValue == expected_flow);
+
+			
 #endif
-			
-			Assert(flowValue ==
-				   std::accumulate(cuts.sourceSide.entries().begin(), cuts.sourceSide.entries().end(), Flow(0),
-								   [&](const Flow& w, const Hyperedge& e) { Assert(hg.isSaturated(e)); return hg.capacity(e) + w; })
-			);
-			
 			verifySetInvariants();
 			verifyFlowConstraints();
 			verifyExtractedCutHyperedgesActuallySplitHypergraph();
@@ -698,18 +703,14 @@ namespace whfc {
 			h.verifyDisjoint();
 			h.verifySettledIsSubsetOfReachable();
 			for (Hyperedge e : hg.hyperedgeIDs()) {
-				Assert(!h.areAllPinsSources(e) ||
-					   std::all_of(hg.pinsOf(e).begin(), hg.pinsOf(e).end(),
-								   [&](const Pin& p) { return n.isSource(p.pin) || isIsolated(p.pin); }));
-				Assert(!h.areAllPinsSourceReachable(e) ||
-					   std::all_of(hg.pinsOf(e).begin(), hg.pinsOf(e).end(),
-								   [&](const Pin& p) { return n.isSourceReachable(p.pin); }));
-				Assert(!h.areFlowSendingPinsSources(e) ||
-					   std::all_of(hg.pinsSendingFlowInto(e).begin(), hg.pinsSendingFlowInto(e).end(),
-								   [&](const Pin& p) { return n.isSource(p.pin) || isIsolated(p.pin); }));
-				Assert(!h.areFlowSendingPinsSourceReachable(e) ||
-					   std::all_of(hg.pinsSendingFlowInto(e).begin(), hg.pinsSendingFlowInto(e).end(),
-								   [&](const Pin& p) { return n.isSourceReachable(p.pin); }));
+				for (const Pin& p : hg.pinsOf(e)) {
+					assert(!h.areAllPinsSources(e) || n.isSource(p.pin) || isIsolated(p.pin));
+					assert(!h.areAllPinsSourceReachable(e) || n.isSourceReachable(p.pin));
+				}
+				for (const Pin& p : hg.pinsSendingFlowInto(e)) {
+					assert(!h.areFlowSendingPinsSources(e) || n.isSource(p.pin) || isIsolated(p.pin));
+					assert(!h.areFlowSendingPinsSourceReachable(e) || n.isSourceReachable(p.pin));
+				}
 			}
 #endif
 		}
@@ -728,15 +729,15 @@ namespace whfc {
 				}
 				if (hasSource && hasOther) {
 					cut_from_partition.push_back(e);
-					Assert(h.areFlowSendingPinsSources(e));
+					assert(h.areFlowSendingPinsSources(e));
 				}
 				
 				if (hasSource && !hasOther)
-					Assert(h.areAllPinsSources(e));
+					assert(h.areAllPinsSources(e));
 			}
 			std::vector<Hyperedge> sorted_cut = cuts.sourceSide.copy();
 			std::sort(sorted_cut.begin(), sorted_cut.end());
-			Assert(sorted_cut == cut_from_partition);
+			assert(sorted_cut == cut_from_partition);
 #endif
 		}
 		
@@ -754,7 +755,7 @@ namespace whfc {
 					cut_weight += hg.capacity(e);
 				}
 			}
-			Assert(flowValue == cut_weight);
+			assert(flowValue == cut_weight);
 #endif
 		}
 		
@@ -781,8 +782,8 @@ namespace whfc {
 						he_seen.set(e);
 						for (auto& pin : hg.pinsOf(e)) {
 							Node v = pin.pin;
-							Assert(!n.isTargetReachable(v));
-							Assert(n.isSourceReachable(v));
+							assert(!n.isTargetReachable(v));
+							assert(n.isSourceReachable(v));
 							if (!node_seen[v]) {
 								node_seen.set(v);
 								queue.push(v);
@@ -794,9 +795,9 @@ namespace whfc {
 			
 			for (Node u : hg.nodeIDs()) {
 				if (n.isTargetReachable(u))
-					Assert(!node_seen[u]);
+					assert(!node_seen[u]);
 				if (n.isSourceReachable(u))
-					Assert(node_seen[u]);
+					assert(node_seen[u]);
 			}
 			
 			queue.clear();
@@ -820,8 +821,8 @@ namespace whfc {
 						he_seen.set(e);
 						for (auto& pin : hg.pinsOf(e)) {
 							Node v = pin.pin;
-							Assert(!n.isSourceReachable(v));
-							//no Assert(n.isTargetReachable(v)) since we removed the source-side cut
+							assert(!n.isSourceReachable(v));
+							//no assert(n.isTargetReachable(v)) since we removed the source-side cut
 							if (!node_seen[v]) {
 								node_seen.set(v);
 								queue.push(v);
@@ -833,9 +834,9 @@ namespace whfc {
 			
 			for (Node u : hg.nodeIDs()) {
 				if (n.isTargetReachable(u))
-					Assert(node_seen[u]);
+					assert(node_seen[u]);
 				if (n.isSourceReachable(u))
-					Assert(!node_seen[u]);
+					assert(!node_seen[u]);
 			}
 #endif
 		}

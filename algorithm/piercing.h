@@ -12,9 +12,9 @@ namespace whfc {
 		explicit Piercer(FlowHypergraph& hg, CutterState<FlowAlgorithm>& cs, TimeReporter& timer) : hg(hg), cs(cs), timer(timer) { }
 
 		const Node findPiercingNode() {
-			Assert(cs.hasCut);
-			Assert(cs.n.sourceWeight == cs.n.sourceReachableWeight);
-			Assert(cs.n.sourceReachableWeight <= cs.n.targetReachableWeight);
+			assert(cs.hasCut);
+			assert(cs.n.sourceWeight == cs.n.sourceReachableWeight);
+			assert(cs.n.sourceReachableWeight <= cs.n.targetReachableWeight);
 			
 			if (cs.notSettledNodeWeight() == 0)
 				return invalidNode;
@@ -30,7 +30,7 @@ namespace whfc {
 				for ( ; d >= border.minOccupiedBucket[reachability_bucket_type]; --d) {
 					NodeBorder::Bucket& b = border.buckets[d][reachability_bucket_type];
 					while (!b.empty()) {
-						Node p = Random::selectAndRemoveRandomElement(b);
+						Node p = cs.rng.selectAndRemoveRandomElement(b);
 				
 						if (cs.mostBalancedCutMode) {
 							border.removed_during_most_balanced_cut_mode[reachability_bucket_type].push_back(p);
@@ -62,7 +62,7 @@ namespace whfc {
 					if (isCandidate(u)) {
 						const HopDistance dist_u = cs.borderNodes.distance.getHopDistanceFromCut(u);
 						if (dist_u >= d) {
-							const uint32_t score_u = Random::randomNumber(1, max_random_score);
+							const uint32_t score_u = cs.rng.randomNumber(1, max_random_score);
 							if (dist_u > d || score_u > rndScore) {
 								rndScore = score_u;
 								p = u;

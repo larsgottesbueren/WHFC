@@ -17,7 +17,7 @@ namespace whfc {
 
 		struct SummableRange {
 			NodeWeight from, to;
-			SummableRange(NodeWeight _from, NodeWeight _to) : from(_from), to(_to) { AssertMsg(_from != NodeWeight::Invalid() && _to != NodeWeight::Invalid(), "Invalid range"); }
+			SummableRange(NodeWeight _from, NodeWeight _to) : from(_from), to(_to) { assert(_from != NodeWeight::Invalid() && _to != NodeWeight::Invalid() && "Invalid range"); }
 			bool inRange(const NodeWeight w) const { return from <= w && w <= to; }
 			bool operator<(const SummableRange& o) const { return std::tie(from, to) < std::tie(o.from, o.to); }
 			bool operator==(const SummableRange& o) const { return from == o.from && to == o.to; }
@@ -33,7 +33,7 @@ namespace whfc {
 			TableEntry() : node(invalidNode), sumsIndex(invalidIndex) { }
 			bool summable() const {
 						//sumsIndex = 0 is reserved for the first range.
-				AssertMsg(sumsIndex == invalidIndex || node != invalidNode || sumsIndex == 0, "Summable but no node");
+				assert(sumsIndex == invalidIndex || node != invalidNode || sumsIndex == 0);
 				return sumsIndex != invalidIndex;
 			}
 		};
@@ -48,15 +48,15 @@ namespace whfc {
 		// Pointers in between are considered stale.
 		// Updating DP Table entries requires computing all sums available with node u.
 		void updateDPTableWithSumRanges() {
-			Assert(useIsolatedNodes);
+			assert(useIsolatedNodes);
 			for (const Node u : nodesNotInTheDPTable) {
 				if (newSumAvailable)
 					nextSumRanges = sumRanges;
-				AssertMsg(nextSumRanges == sumRanges, "nextSumRanges not up to date");
+				assert(nextSumRanges == sumRanges && "nextSumRanges not up to date");
 				newSumAvailable = false;
 
 				const NodeWeight wu = hg.nodeWeight(u);
-				AssertMsg(wu > 0, "Node has zero weight");
+				assert(wu > 0 && "Node has zero weight");
 				for (const SummableRange& sr : sumRanges) {
 					for (NodeWeight new_sum = sr.from + wu, _end = std::min(sr.to + wu, maxSubsetSumWeight); new_sum <= _end; ++new_sum) {
 						if (!isSummable(new_sum)) {
@@ -71,8 +71,8 @@ namespace whfc {
 								SummableRange& leftRange = nextSumRanges[leftIndex], rightRange = nextSumRanges[rightIndex];
 								
 								//merge ranges. keep left range, and extend it to cover the right range
-								AssertMsg(leftRange.to == left, "hasLeft && hasRight: left range does not extend to new_sum-1");
-								AssertMsg(rightRange.from == right, "hasLeft && hasRight: right range does not start at new_sum+1");
+								assert(leftRange.to == left && "hasLeft && hasRight: left range does not extend to new_sum-1");
+								assert(rightRange.from == right && "hasLeft && hasRight: right range does not start at new_sum+1");
 								DPTable[new_sum].sumsIndex = leftIndex; //bridging cell. the index is stale, but we're setting it anyway to mark it as summable
 
 								//extend leftRange to cover rightRange
@@ -90,13 +90,13 @@ namespace whfc {
 							}
 							else if (hasLeft) {
 								//extend left range's .to by +1
-								AssertMsg(nextSumRanges[leftIndex].to == left, "hasLeft: left range does not extend to new_sum-1");
+								assert(nextSumRanges[leftIndex].to == left && "hasLeft: left range does not extend to new_sum-1");
 								nextSumRanges[leftIndex].to = new_sum;
 								DPTable[new_sum].sumsIndex = leftIndex;
 							}
 							else if (hasRight) {
 								//extend right range's .from by -1
-								AssertMsg(nextSumRanges[rightIndex].from == right, "hasRight: right range does not start at new_sum+1");
+								assert(nextSumRanges[rightIndex].from == right && "hasRight: right range does not start at new_sum+1");
 								nextSumRanges[rightIndex].from = new_sum;
 								DPTable[new_sum].sumsIndex = rightIndex;
 							}
@@ -169,7 +169,7 @@ namespace whfc {
 		}
 
 		bool isSummable(const NodeWeight w) const {
-			Assert(w < DPTable.size());
+			assert(w < DPTable.size());
 			return DPTable[w].summable();
 		}
 
@@ -192,10 +192,7 @@ namespace whfc {
 		}
 
 		std::vector<Node> extractSubset(NodeWeight sum) const {
-			AssertMsg(isSummable(sum),
-					  std::string("Trying to extract subset for not achieved subset sum. ")
-					  + (isDPTableUpToDate() ? "Call updateDPTable() before calling this method. There are nodes that are not included in the table yet." : " ")
-			);
+			assert(isSummable(sum));
 			
 			std::vector<Node> result;
 			while (sum > 0) {
@@ -213,7 +210,7 @@ namespace whfc {
 		}
 
 		bool isCandidate(const Node u) const {
-			Assert(useIsolatedNodes);
+			assert(useIsolatedNodes);
 			return mixedIncidentHyperedges[u] == hg.degree(u);
 		}
 

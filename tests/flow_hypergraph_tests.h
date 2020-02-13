@@ -34,20 +34,20 @@ namespace Test {
 			Pin& pu = hg.findPin(e, u);
 			Pin& pv = hg.findPin(e, v);
 			
-			Assert(pu.pin == u);
-			Assert(pv.pin == v);
-			Assert(hg.getPin(inc_u) == pu);
-			Assert(hg.getPin(inc_v) == pv);
+			assert(pu.pin == u);
+			assert(pv.pin == v);
+			assert(hg.getPin(inc_u) == pu);
+			assert(hg.getPin(inc_v) == pv);
 			
 			hg.routeFlow(inc_u, inc_v, 1);
 			
-			Assert(hg.flow(e) == 1);
-			Assert(hg.flowSent(u) == 1);
-			Assert(hg.flowReceived(v) == 1);
-			Assert(hg.flowSent(inc_u) == 1);
-			Assert(hg.flowReceived(inc_v) == 1);
-			Assert(hg.flowSent(hg.findPin(e, u)) == 1);
-			Assert(hg.flowReceived(hg.findPin(e, v)) == 1);
+			assert(hg.flow(e) == 1);
+			assert(hg.flowSent(u) == 1);
+			assert(hg.flowReceived(v) == 1);
+			assert(hg.flowSent(inc_u) == 1);
+			assert(hg.flowReceived(inc_v) == 1);
+			assert(hg.flowSent(hg.findPin(e, u)) == 1);
+			assert(hg.flowReceived(hg.findPin(e, v)) == 1);
 			
 			Node w(9);
 			Hyperedge e2(2);
@@ -55,16 +55,16 @@ namespace Test {
 			InHe& inc_u_e2 = hg.findIncidence(u, e2);
 			hg.routeFlow(inc_u_e2, inc_w_e2, 1);
 			
-			Assert(hg.flow(e2) == 1);
-			Assert(hg.flowSent(inc_u_e2) == 1);
-			Assert(hg.flowReceived(inc_w_e2) == 1);
-			Assert(hg.flowSent(u) == 2);
-			Assert(hg.flowReceived(w) == 1);
+			assert(hg.flow(e2) == 1);
+			assert(hg.flowSent(inc_u_e2) == 1);
+			assert(hg.flowReceived(inc_w_e2) == 1);
+			assert(hg.flowSent(u) == 2);
+			assert(hg.flowReceived(w) == 1);
 			
 			hg.routeFlow(inc_v, inc_u, 1);
-			Assert(hg.flow(e) == 0);
-			Assert(hg.flowSent(inc_u) == 0);
-			Assert(hg.flowReceived(inc_v) == 0);
+			assert(hg.flow(e) == 0);
+			assert(hg.flowSent(inc_u) == 0);
+			assert(hg.flowReceived(inc_v) == 0);
 		}
 		
 		template<typename FlowAlgo>
@@ -81,13 +81,13 @@ namespace Test {
 		}
 		
 		void flowAlgoTest(std::string file, Flow expected_flow, Node s, Node t) {
-			Assert(tryFlowAlgo<BasicFordFulkerson>(file, expected_flow, s, t));
-			Assert(tryFlowAlgo<ScalingFordFulkerson>(file, expected_flow, s, t));
-			Assert(tryFlowAlgo<BasicEdmondsKarp >(file, expected_flow, s, t));
-			Assert(tryFlowAlgo<ScalingEdmondsKarp>(file, expected_flow, s, t));
-			Assert(tryFlowAlgo<BasicDepthFirstFordFulkerson>(file, expected_flow, s, t));
-			Assert(tryFlowAlgo<ScalingDepthFirstFordFulkerson>(file, expected_flow, s, t));
-			Assert(tryFlowAlgo<Dinic>(file, expected_flow, s, t));
+			assert(tryFlowAlgo<BasicFordFulkerson>(file, expected_flow, s, t));
+			assert(tryFlowAlgo<ScalingFordFulkerson>(file, expected_flow, s, t));
+			assert(tryFlowAlgo<BasicEdmondsKarp >(file, expected_flow, s, t));
+			assert(tryFlowAlgo<ScalingEdmondsKarp>(file, expected_flow, s, t));
+			assert(tryFlowAlgo<BasicDepthFirstFordFulkerson>(file, expected_flow, s, t));
+			assert(tryFlowAlgo<ScalingDepthFirstFordFulkerson>(file, expected_flow, s, t));
+			assert(tryFlowAlgo<Dinic>(file, expected_flow, s, t));
 		}
 		
 		void run() {

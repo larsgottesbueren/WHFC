@@ -28,7 +28,7 @@ namespace whfc {
 				upperFlowBound(maxFlow),
 				piercer(hg, cs, timer)
 		{
-			Random::setSeed(seed);
+			cs.rng.setSeed(seed);
 		}
 
 		void reset() {
@@ -158,8 +158,8 @@ namespace whfc {
 			cs.verifyCutPostConditions();
 			cs.flipViewDirection();
 			
-			Assert(cs.n.sourceReachableWeight == cs.n.sourceWeight);
-			Assert(cs.n.targetReachableWeight == cs.n.targetWeight);
+			assert(cs.n.sourceReachableWeight == cs.n.sourceWeight);
+			assert(cs.n.targetReachableWeight == cs.n.targetWeight);
 			
 			NonDynamicCutterState first_balanced_state = cs.enterMostBalancedCutMode();
 			SimulatedNodeAssignment initial_sol = cs.mostBalancedIsolatedNodesAssignment();
@@ -169,7 +169,7 @@ namespace whfc {
 			const size_t mbc_iterations = 7;
 			for (size_t i = 0; i < mbc_iterations && !best_sol.isPerfectlyBalanced(); ++i) {
 				LOGGER << "MBC it" << i;
-				Assert(cs.lessBalancedSide() == cs.currentViewDirection());
+				assert(cs.lessBalancedSide() == cs.currentViewDirection());
 				SimulatedNodeAssignment sol = best_sol;
 				while (!sol.isPerfectlyBalanced() && pierce(true)) {
 					GrowAssimilated<FlowAlgorithm>::grow(cs, flow_algo.getScanList(), true);
