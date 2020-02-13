@@ -71,7 +71,9 @@ namespace Test {
 		bool tryFlowAlgo(std::string file, Flow expected_flow, Node s, Node t) {
 			FlowHypergraph hg = HMetisIO::readFlowHypergraph(file);
 			TimeReporter dummy_timer;
-			CutterState<FlowAlgo> cs(hg, NodeWeight(4000), dummy_timer);
+			CutterState<FlowAlgo> cs(hg, dummy_timer);
+			cs.setMaxBlockWeight(0, hg.nodeWeight(s));
+			cs.setMaxBlockWeight(1, hg.nodeWeight(t));
 			cs.initialize(s,t);
 			FlowAlgo flow(hg);
 			Flow f = flow.exhaustFlow(cs);

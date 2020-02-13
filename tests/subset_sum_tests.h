@@ -37,7 +37,7 @@ namespace Test {
 
 
 		void run() {
-			IsolatedNodes iso(hg, NW::fromOtherValueType(mbw));
+			IsolatedNodes iso(hg, true, NW::fromOtherValueType(mbw));
 			BitVector expected(mbw+1);
 			expected.set(0);
 

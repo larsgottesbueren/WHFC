@@ -1,4 +1,5 @@
 #include <iostream>
+
 #include "util/range.h"
 #include "datastructure/flow_hypergraph.h"
 #include "algorithm/hyperflowcutter.h"
@@ -20,9 +21,11 @@ namespace whfc {
 			throw std::runtime_error("s or t not within node id range");
 		
 		int seed = 42;
-		HyperFlowCutter<Dinic> hfc(hg, mbw, seed);
+		HyperFlowCutter<Dinic> hfc(hg, seed);
+		hfc.cs.setMaxBlockWeight(0, mbw);
+		hfc.cs.setMaxBlockWeight(1, mbw + (hg.totalNodeWeight() % 2));
 		
-		hfc.findCutsUntilBalancedOrFlowBoundExceeded(s, t);
+		hfc.runUntilBalancedOrFlowBoundExceeded(s, t);
 		hfc.timer.report(std::cout);
 	}
 }

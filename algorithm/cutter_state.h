@@ -9,6 +9,9 @@
 #include "../datastructure/bitset_reachable_sets.h"
 #include "../util/math.h"
 
+
+// TODO factor out verification code, maybe even balance checking?
+
 namespace whfc {
 	
 	struct SimulatedNodeAssignment {
@@ -233,6 +236,9 @@ namespace whfc {
 		}
 		
 		void initialize(const Node s, const Node t) {
+			if (hg.nodeWeight(s) > maxBlockWeight(0) || hg.nodeWeight(t) > maxBlockWeight(1)) {
+				throw std::runtime_error("Terminal weight already exceeds max block weight at initialization. Consider setting max block weights per side via hfc.cs.setMaxBlockWeight(  side  )");
+			}
 			Assert(sourcePiercingNodes.empty() && targetPiercingNodes.empty());
 			sourcePiercingNodes.emplace_back(s,false);
 			settleNode(s, false);

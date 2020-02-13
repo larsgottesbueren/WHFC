@@ -8,7 +8,7 @@ namespace whfc {
 	class IsolatedNodes {
 	private:
 		FlowHypergraph& hg;
-		bool useIsolatedNodes =  true;
+		bool useIsolatedNodes = true;
 	public:
 		NodeWeight weight = NodeWeight(0);
 		std::vector<Node> nodes;
