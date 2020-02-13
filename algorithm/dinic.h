@@ -349,8 +349,9 @@ namespace whfc {
 		}
 		
 		Flow recycleDatastructuresFromGrowReachablePhase(CutterState<Type> &cs) {
-			if (!cs.augmentingPathAvailableFromPiercing || std::none_of(cs.sourcePiercingNodes.begin(), cs.sourcePiercingNodes.end(),
-																		[](const auto& sp) { return sp.isReachableFromOppositeSide; })) {
+			if (!cs.augmentingPathAvailableFromPiercing
+				|| std::none_of(cs.sourcePiercingNodes.begin(), cs.sourcePiercingNodes.end(),
+								[](const auto& sp) { return sp.isReachableFromOppositeSide; })) {
 				return 0;
 			}
 			cs.flipViewDirection();
@@ -401,18 +402,17 @@ namespace whfc {
 					for (InHe& inc_u : hg.hyperedgesOf(u)) {
 						const Hyperedge e = inc_u.e;
 						if (hg.capacity(e) >= scaling_capacity && !h.areAllPinsSourceReachable__unsafe__(e)) {
+							
 							auto visit = [&](const Pin& pv, Flow resCap) {
-								if (resCap >= scaling_capacity) {
-									const Node v = pv.pin;
-									assert(augment_flow || !n.isTargetReachable(v));
-									assert(augment_flow || !cs.isIsolated(v) || n.distance[v] == n.s.base);    //checking distance, since the source piercing node is no longer a source at the moment
-									found_target |= n.isTarget(v);
-									if (!n.isTarget(v) && !n.isSourceReachable__unsafe__(v)) {
-										n.reach(v);
-										assert(n.distance[u] + 1 == n.distance[v]);
-										queue.push(v);
-										current_hyperedge[v] = hg.beginIndexHyperedges(v);
-									}
+								const Node v = pv.pin;
+								assert(augment_flow || !n.isTargetReachable(v));
+								assert(augment_flow || !cs.isIsolated(v) || n.distance[v] == n.s.base);    //checking distance, since the source piercing node is no longer a source at the moment
+								found_target |= n.isTarget(v);
+								if (!n.isTarget(v) && !n.isSourceReachable__unsafe__(v)) {
+									n.reach(v);
+									assert(n.distance[u] + 1 == n.distance[v]);
+									queue.push(v);
+									current_hyperedge[v] = hg.beginIndexHyperedges(v);
 								}
 							};
 							
@@ -422,16 +422,21 @@ namespace whfc {
 								h.reachFlowSendingPins(e);
 								assert(n.distance[u] + 1 == h.inDistance[e]);
 								current_flow_sending_pin[e] = hg.pinsSendingFlowIndices(e).begin();
-								for (const Pin& pv : hg.pinsSendingFlowInto(e))
-									visit(pv, residual + hg.absoluteFlowSent(pv));
+								for (const Pin& pv : hg.pinsSendingFlowInto(e)) {
+									const Flow residual_at_v = residual + hg.absoluteFlowSent(pv);
+									if (residual_at_v >= scaling_capacity) {
+										visit(pv, residual_at_v);
+									}
+								}
 							}
 							
 							if (residual >= scaling_capacity) { /* scan all pins */
 								h.reachAllPins(e);
 								assert(n.distance[u] + 1 == h.outDistance[e]);
 								current_pin[e] = hg.pinsNotSendingFlowIndices(e).begin();
-								for (const Pin& pv : hg.pinsNotSendingFlowInto(e))
+								for (const Pin& pv : hg.pinsNotSendingFlowInto(e)) {
 									visit(pv, residual);
+								}
 							}
 						}
 					}
@@ -481,7 +486,7 @@ namespace whfc {
 							}
 						}
 						
-						if (v == invalidNode && /* scan all pins */ req_dist == h.outDistance[e] && residual >= scaling_capacity) {
+						if (v == invalidNode && residual >= scaling_capacity && /* scan all pins */ req_dist == h.outDistance[e]) {
 							for (const PinIndex firstInvalid = hg.pinsNotSendingFlowIndices(e).end(); current_pin[e] < firstInvalid; current_pin[e]++) {
 								const Pin& pv = hg.getPin(current_pin[e]);
 								if (n.isTarget(pv.pin) || n.distance[pv.pin] == req_dist) {

@@ -20,9 +20,7 @@ namespace whfc {
 		}
 		
 		//use to get rid of any allocations
-		FlowHypergraphBuilder(size_t maxNumNodes, size_t maxNumHyperedges, size_t maxNumPins) :
-				Base(maxNumNodes, maxNumHyperedges, maxNumPins)
-		{
+		FlowHypergraphBuilder(size_t maxNumNodes, size_t maxNumHyperedges, size_t maxNumPins) : Base(maxNumNodes, maxNumHyperedges, maxNumPins) {
 			//don't do clean-up here yet, so that we can use the numbers for allocating the remaining datastructures
 		}
 		
