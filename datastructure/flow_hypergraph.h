@@ -87,7 +87,7 @@ namespace whfc {
 				maxHyperedgeCapacity = std::max(maxHyperedgeCapacity, hyperedges[e].capacity);
 			}
 			
-			for (NodeIndex u(numNodes()-1); u > 0; u--)
+			for (Node u(numNodes()-1); u > 0; u--)
 				nodes[u].first_out = nodes[u-1].first_out;	//reset temporarily destroyed first_out
 			nodes[0].first_out = InHeIndex(0);
 			

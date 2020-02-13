@@ -18,7 +18,7 @@ namespace whfc {
 	struct SimulatedNodeAssignment {
 		bool assignUnclaimedToSource = true;
 		bool assignTrackedIsolatedWeightToSource = true;
-		NodeWeight trackedIsolatedWeight = NodeWeight::Invalid();
+		NodeWeight trackedIsolatedWeight = invalidWeight;
 		double imbalanceSourceBlock = std::numeric_limits<double>::max(), imbalanceTargetBlock = std::numeric_limits<double>::max();
 		size_t numberOfTrackedMoves = 0;
 		int direction = 0;
@@ -62,7 +62,7 @@ namespace whfc {
 	public:
 		static constexpr bool log = false;
 		
-		static constexpr bool useIsolatedNodes = false;
+		static constexpr bool useIsolatedNodes = true;
 		
 		using Pin = FlowHypergraph::Pin;
 		
@@ -307,14 +307,14 @@ namespace whfc {
 						tRem = t_mbw - tw,
 						suw = sw + uw,
 						tuw = tw + uw,
-						suwRem = suw <= s_mbw ? s_mbw - suw : NodeWeight::Invalid(),
-						tuwRem = tuw <= t_mbw ? t_mbw - tuw : NodeWeight::Invalid();
+						suwRem = suw <= s_mbw ? s_mbw - suw : invalidWeight,
+						tuwRem = tuw <= t_mbw ? t_mbw - tuw : invalidWeight;
 				
 				bool balanced = false;
 				
 				//sides: (S + U, T) + <ISO> and (S, T + U) + <ISO>
 				for (const IsolatedNodes::SummableRange& sr : isolatedNodes.getSumRanges()) {
-					if (suwRem.isValid()) {
+					if (suwRem != invalidWeight) {
 						//S+U not overloaded. Therefore, try (S + U, T) + <ISO>
 						
 						//allocate as much as possible to S+U, i.e. x = min(suwRem, sr.to), the rest, i.e. iso - x has to go to T
@@ -323,7 +323,7 @@ namespace whfc {
 						balanced |= tRem >= sr.from && suw + (iso - std::min(tRem, sr.to)) <= s_mbw;
 					}
 					
-					if (tuwRem.isValid()) {
+					if (tuwRem != invalidWeight) {
 						//T+U not overloaded. Therefore, try (S, T + U) + <ISO>
 						balanced |= tuwRem >= sr.from && sw + (iso - std::min(tuwRem, sr.to)) <= s_mbw;
 						balanced |= sRem >= sr.from && tuw + (iso - std::min(sRem, sr.to)) <= t_mbw;
@@ -399,8 +399,8 @@ namespace whfc {
 			}
 			else {
 				// can determine an alpha so that both inequalities are tight
-				const NodeWeight x_low = NodeWeight::fromOtherValueType(std::floor(continuous_x));
-				const NodeWeight x_high = NodeWeight::fromOtherValueType(std::ceil(continuous_x));
+				const NodeWeight x_low = std::floor(continuous_x);
+				const NodeWeight x_high = std::ceil(continuous_x);
 				const double imb_low = std::max(imb_a(x_low), imb_b(x_low));
 				const double imb_high = std::max(imb_a(x_high), imb_b(x_high));
 				assignment.trackedIsolatedWeight = imb_low < imb_high ? x_low : x_high;

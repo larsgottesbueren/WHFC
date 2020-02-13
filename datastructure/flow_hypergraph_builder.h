@@ -54,7 +54,6 @@ namespace whfc {
 		void addNode(const NodeWeight w) {
 			nodes.back().weight = w;
 			nodes.push_back({InHeIndex(0), NodeWeight(0)});
-			//return Node::fromOtherValueType(numNodes() - 1);
 		}
 		
 		void startHyperedge(const Flow capacity) {
@@ -99,7 +98,7 @@ namespace whfc {
 				}
 			}
 			
-			for (NodeIndex u(numNodes()-1); u > 0; u--)
+			for (Node u(numNodes()-1); u > 0; u--)
 				nodes[u].first_out = nodes[u-1].first_out;	//reset temporarily destroyed first_out
 			nodes[0].first_out = InHeIndex(0);
 			

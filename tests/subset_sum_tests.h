@@ -14,12 +14,12 @@ namespace Test {
 		std::vector<NW> nodeWeights = {
 			NW(2), NW(2), NW(3), NW(4), NW(2), NW(5), NW(3)
 		};
-		size_t mbw = 12;
+		NodeWeight mbw = NodeWeight(12);
 		FlowHypergraph hg = CreateDummyHypergraphs::noHyperedgesGivenNodeWeights(nodeWeights);
 
 
 
-		BitVector convertDPTableIntoBitvector(const whfc::IsolatedNodes& iso, const size_t ub) {
+		BitVector convertDPTableIntoBitvector(const whfc::IsolatedNodes& iso, const NodeWeight ub) {
 			BitVector res(static_cast<size_t>(ub+1));
 			for (NW x(0); x <= ub; ++x) {
 				if (iso.isSummable(x))
@@ -37,7 +37,7 @@ namespace Test {
 
 
 		void run() {
-			IsolatedNodes iso(hg, true, NW::fromOtherValueType(mbw));
+			IsolatedNodes iso(hg, true, mbw);
 			BitVector expected(mbw+1);
 			expected.set(0);
 

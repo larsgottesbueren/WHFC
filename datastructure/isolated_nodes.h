@@ -17,7 +17,7 @@ namespace whfc {
 
 		struct SummableRange {
 			NodeWeight from, to;
-			SummableRange(NodeWeight _from, NodeWeight _to) : from(_from), to(_to) { assert(_from != NodeWeight::Invalid() && _to != NodeWeight::Invalid() && "Invalid range"); }
+			SummableRange(NodeWeight _from, NodeWeight _to) : from(_from), to(_to) { assert(_from != invalidWeight && _to != invalidWeight && "Invalid range"); }
 			bool inRange(const NodeWeight w) const { return from <= w && w <= to; }
 			bool operator<(const SummableRange& o) const { return std::tie(from, to) < std::tie(o.from, o.to); }
 			bool operator==(const SummableRange& o) const { return from == o.from && to == o.to; }

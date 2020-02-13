@@ -20,28 +20,27 @@ int1 ceil_div(int1 numerator, int2 denominator) {
 
 namespace whfc {
 							//every tagged integer takes as first template argument an integer tag, which is unique to its type
+	
+	
 	using Node = TaggedInteger<0, uint32_t, std::numeric_limits<uint32_t>::max(), 0>;
 	static constexpr Node invalidNode = Node::Invalid();
 	using Hyperedge = TaggedInteger<1, uint32_t, std::numeric_limits<uint32_t>::max(), 0>;
 	static constexpr Hyperedge invalidHyperedge = Hyperedge::Invalid();
+	
+	using PinIndex = TaggedInteger<7, uint32_t, std::numeric_limits<uint32_t>::max(), 0>;
+	using InHeIndex = TaggedInteger<8, uint32_t, std::numeric_limits<uint32_t>::max(), 0>;
+	
+	using NodeWeight = uint32_t;
+	static constexpr NodeWeight invalidWeight = std::numeric_limits<NodeWeight>::max();
+	using HyperedgeWeight = uint32_t;
+	
 	using Flow = int32_t;
 	static constexpr Flow maxFlow = std::numeric_limits<int32_t>::max();
-	using NodeWeight = TaggedInteger<3, uint32_t, std::numeric_limits<uint32_t>::max(), 0>;
-	using HyperedgeWeight = TaggedInteger<4, uint32_t, std::numeric_limits<uint32_t>::max(), 0>;
-
-	using NodeIndex = TaggedInteger<5, uint32_t, std::numeric_limits<uint32_t>::max(), 0>;
-	using HyperedgeIndex = TaggedInteger<6, uint32_t, std::numeric_limits<uint32_t>::max(), 0>;
-	using PinIndex = TaggedInteger<7, uint32_t, std::numeric_limits<uint32_t>::max(), 0>;
-	using HyperedgeIncidenceIndex = TaggedInteger<8, uint32_t, std::numeric_limits<uint32_t>::max(), 0>;
-	using InHeIndex = HyperedgeIncidenceIndex;
 	
 	static_assert(sizeof(Node) == sizeof(uint32_t));
 	static_assert(sizeof(Hyperedge) == sizeof(uint32_t));
-	static_assert(sizeof(NodeWeight) == sizeof(uint32_t));
-	static_assert(sizeof(NodeIndex) == sizeof(uint32_t));
-	static_assert(sizeof(HyperedgeIndex) == sizeof(uint32_t));
 	static_assert(sizeof(PinIndex) == sizeof(uint32_t));
-	static_assert(sizeof(HyperedgeIncidenceIndex) == sizeof(uint32_t));
+	static_assert(sizeof(InHeIndex) == sizeof(uint32_t));
 	
 	using HopDistance = int32_t;
 
