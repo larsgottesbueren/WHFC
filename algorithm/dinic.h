@@ -307,6 +307,7 @@ namespace whfc {
 		}
 		
 		void reset() {
+			// TODO maybe don't reset to full capacity after piercing. maybe something less
 			scaling.initialize(hg.maxHyperedgeCapacity);
 		}
 		
@@ -332,18 +333,24 @@ namespace whfc {
 		
 		Flow growFlowOrSourceReachable(CutterState<Type>& cs) {
 			Flow f = 0;
+			
 			while (scaling.use()) {
-				if (buildLayeredNetwork<true>(cs))
+				if (buildLayeredNetwork<true>(cs)) {
 					f += augmentFlowInLayeredNetwork(cs);
-				else
+					break;
+				}
+				else {
 					scaling.reduceCapacity();
+				}
 			}
+			
 			if (f == 0) {
 				if (buildLayeredNetwork<true>(cs))
 					f += augmentFlowInLayeredNetwork(cs);
 				else
 					scaling.reset();
 			}
+			
 			resetSourcePiercingNodeDistances(cs);
 			return f;
 		}

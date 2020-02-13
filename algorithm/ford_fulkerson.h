@@ -9,6 +9,7 @@
 
 namespace whfc {
 	namespace FlowCommons {
+		
 		template<typename Type>
 		bool incidentToPiercingNodes(const Hyperedge e, CutterState<Type>& cs) {
 			return std::any_of(cs.sourcePiercingNodes.begin(), cs.sourcePiercingNodes.end(), [&](const auto& sp) {
