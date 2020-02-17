@@ -99,7 +99,7 @@ namespace whfc {
 		}
 		
 		void verifyDistancesAreStale() const {
-			assert(std::none_of(distance.begin(), distance.end(), [&](const DistanceT& dist) { return dist >= runningDistance; }));
+			assert(std::none_of(distance.begin(), distance.begin() + hg.numNodes(), [&](const DistanceT& dist) { return dist >= runningDistance; }));
 		}
 		
 		bool isDistanceStale(const Node u) const {
@@ -238,8 +238,8 @@ namespace whfc {
 		void verifyDisjoint() const { /*disjoint by default*/ }
 		void verifySettledIsSubsetOfReachable() const { /*is subset by default*/ }
 		void verifyDistancesAreStale() const {
-			assert(std::none_of(outDistance.begin(), outDistance.end(), [&](const DistanceT& dist) { return dist >= runningDistance; }));
-			assert(std::none_of(inDistance.begin(), inDistance.end(), [&](const DistanceT& dist) { return dist >= runningDistance; }));
+			assert(std::none_of(outDistance.begin(), outDistance.begin() + hg.numHyperedges(), [&](const DistanceT& dist) { return dist >= runningDistance; }));
+			assert(std::none_of(inDistance.begin(), inDistance.begin() + hg.numHyperedges(), [&](const DistanceT& dist) { return dist >= runningDistance; }));
 		}
 		
 		void compareDistances(DistanceReachableNodes& n) {
