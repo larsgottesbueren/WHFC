@@ -410,7 +410,7 @@ namespace whfc {
 						const Hyperedge e = inc_u.e;
 						if (hg.capacity(e) >= scaling_capacity && !h.areAllPinsSourceReachable__unsafe__(e)) {
 							
-							auto visit = [&](const Pin& pv, Flow resCap) {
+							auto visit = [&](const Pin& pv) {
 								const Node v = pv.pin;
 								assert(augment_flow || !n.isTargetReachable(v));
 								assert(augment_flow || !cs.isIsolated(v) || n.distance[v] == n.s.base);    //checking distance, since the source piercing node is no longer a source at the moment
@@ -432,7 +432,7 @@ namespace whfc {
 								for (const Pin& pv : hg.pinsSendingFlowInto(e)) {
 									const Flow residual_at_v = residual + hg.absoluteFlowSent(pv);
 									if (residual_at_v >= scaling_capacity) {
-										visit(pv, residual_at_v);
+										visit(pv);
 									}
 								}
 							}
@@ -442,7 +442,7 @@ namespace whfc {
 								assert(n.distance[u] + 1 == h.outDistance[e]);
 								current_pin[e] = hg.pinsNotSendingFlowIndices(e).begin();
 								for (const Pin& pv : hg.pinsNotSendingFlowInto(e)) {
-									visit(pv, residual);
+									visit(pv);
 								}
 							}
 						}

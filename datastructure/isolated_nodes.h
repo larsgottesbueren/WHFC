@@ -201,12 +201,6 @@ namespace whfc {
 			return result;
 		}
 
-		std::pair<std::vector<Node>, std::vector<Node>> extractBipartition(NodeWeight sum) const {
-			auto first = extractSubset(sum);
-			auto second = setDifference(nodes, first, hg.numNodes());
-			return std::make_pair(std::move(first), std::move(second));
-		}
-
 		bool isCandidate(const Node u) const {
 			assert(useIsolatedNodes);
 			return mixedIncidentHyperedges[u] == hg.degree(u);

@@ -5,7 +5,6 @@
 #include <numeric>
 #include <boost/dynamic_bitset.hpp>
 
-#include "../util/functions.h"
 #include "../util/filter.h"
 
 namespace HackBoostDynamicBitset {
@@ -44,16 +43,5 @@ namespace whfc {
 		size_t n_blocks = HackBoostDynamicBitset::num_blocks(from, n);
 		boost::to_block_range(to, BOI(n_blocks, from, to));
 	}
-	
-	
-	
 
-	//A - B
-	template<typename T>
-	std::vector<T> setDifference(const std::vector<T>& A, const std::vector<T>& B, const size_t universeSize) {
-		BitVector inB(universeSize);
-		for (const T& b : B)
-			inB.set(b);
-		return util::remove_if_copy(A, Function::RandomAccessCallableWrapper(inB));
-	}
 }
