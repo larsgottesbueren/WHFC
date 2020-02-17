@@ -128,12 +128,10 @@ namespace whfc {
 				hasSettledSourcePins(useIsolatedNodes ? hg.numHyperedges() : 0),
 				hasSettledTargetPins(useIsolatedNodes ? hg.numHyperedges() : 0),
 				maxSubsetSumWeight(maxBlockWeight),
-				DPTable(useIsolatedNodes ? maxBlockWeight + 2 : 0U, TableEntry())
+				DPTable(useIsolatedNodes ? maxBlockWeight + 2 : 1U, TableEntry())
 		{
-			if (useIsolatedNodes) {
-				sumRanges.emplace_back(NodeWeight(0), NodeWeight(0));
-				DPTable[0].sumsIndex = 0;
-			}
+			sumRanges.emplace_back(NodeWeight(0), NodeWeight(0));
+			DPTable[0].sumsIndex = 0;
 		}
 		
 		void reset() {
