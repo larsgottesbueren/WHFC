@@ -14,7 +14,8 @@ namespace whfc {
 		const Node findPiercingNode() {
 			assert(cs.hasCut);
 			assert(cs.n.sourceWeight == cs.n.sourceReachableWeight);
-			assert(cs.n.sourceReachableWeight <= cs.n.targetReachableWeight);
+			assert( static_cast<double>(cs.n.sourceReachableWeight) / static_cast<double>(cs.maxBlockWeight(cs.currentViewDirection()))
+				   <= static_cast<double>(cs.n.targetReachableWeight) / static_cast<double>(cs.maxBlockWeight(cs.oppositeViewDirection())) );
 			
 			if (cs.notSettledNodeWeight() == 0)
 				return invalidNode;

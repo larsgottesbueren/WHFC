@@ -97,7 +97,7 @@ namespace whfc {
 			
 			if (cs.hasCut) {
 				cs.verifySetInvariants();
-				if (cs.lessBalancedSide() != cs.currentViewDirection()) {
+				if (cs.sideToGrow() != cs.currentViewDirection()) {
 					cs.flipViewDirection();
 				}
 				timer.start("Grow Assimilated");
@@ -169,7 +169,7 @@ namespace whfc {
 			const size_t mbc_iterations = 7;
 			for (size_t i = 0; i < mbc_iterations && !best_sol.isPerfectlyBalanced(); ++i) {
 				LOGGER << "MBC it" << i;
-				assert(cs.lessBalancedSide() == cs.currentViewDirection());
+				assert(cs.sideToGrow() == cs.currentViewDirection());
 				SimulatedNodeAssignment sol = best_sol;
 				while (!sol.isPerfectlyBalanced() && pierce(true)) {
 					GrowAssimilated<FlowAlgorithm>::grow(cs, flow_algo.getScanList(), true);
@@ -177,7 +177,7 @@ namespace whfc {
 					cs.verifyCutPostConditions();
 					LOGGER << cs.toString();
 					
-					if (cs.lessBalancedSide() != cs.currentViewDirection()) {
+					if (cs.sideToGrow() != cs.currentViewDirection()) {
 						cs.flipViewDirection();
 					}
 					
