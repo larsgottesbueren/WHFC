@@ -500,19 +500,20 @@ namespace whfc {
 			assert(isBalanced());
 			if (currentViewDirection() != r.direction)
 				flipViewDirection();
-			
-			auto isoSubset = isolatedNodes.extractSubset(r.trackedIsolatedWeight);
-			for (const Node u : isoSubset) {
-				assert(!n.isSourceReachable(u) && !n.isTargetReachable(u) && isIsolated(u));
-				if (r.assignTrackedIsolatedWeightToSource) {
-					n.reach(u); n.settle(u);
-				}
-				else {
-					n.reachTarget(u); n.settleTarget(u);
+
+			if constexpr (useIsolatedNodes) {
+				auto isoSubset = isolatedNodes.extractSubset(r.trackedIsolatedWeight);
+				for (const Node u : isoSubset) {
+					assert(!n.isSourceReachable(u) && !n.isTargetReachable(u) && isIsolated(u));
+					if (r.assignTrackedIsolatedWeightToSource) {
+						n.reach(u); n.settle(u);
+					}
+					else {
+						n.reachTarget(u); n.settleTarget(u);
+					}
 				}
 			}
-			
-			
+
 			for (const Node u : hg.nodeIDs()) {
 				if (n.isSourceReachable(u) && !n.isSource(u))
 					n.settle(u);
