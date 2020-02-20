@@ -121,13 +121,15 @@ namespace whfc {
 					break;
 				has_balanced_cut = cs.hasCut && cs.isBalanced(); //no cut ==> run and don't check for balance.
 			}
-			
+
+			LOGGER << V(has_balanced_cut) << V(cs.flowValue) << V(upperFlowBound);
+
 			if (has_balanced_cut && cs.flowValue <= upperFlowBound) {
-				// we know imb(S) > imb(T) ==> if imb(S + U + ISO) >= imb(T) we cannot get better balance
+				assert(cs.sideToGrow() == cs.currentViewDirection());
 				const double imb_S_U_ISO = static_cast<double>(hg.totalNodeWeight() - cs.n.targetReachableWeight) / static_cast<double>(cs.maxBlockWeight(cs.currentViewDirection()));
 				const double imb_T = static_cast<double>(cs.n.targetReachableWeight) / static_cast<double>(cs.maxBlockWeight(cs.oppositeViewDirection()));
-				const bool better_balance_impossible = cs.unclaimedNodeWeight() == 0 || imb_S_U_ISO >= imb_T;
-				
+				const bool better_balance_impossible = cs.unclaimedNodeWeight() == 0 || imb_S_U_ISO <= imb_T;
+				LOGGER << V(better_balance_impossible);
 				if (find_most_balanced && !better_balance_impossible) {
 					mostBalancedCut();
 				}
