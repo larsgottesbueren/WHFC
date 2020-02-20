@@ -28,7 +28,7 @@ namespace whfc {
 		}
 		
 		bool isPerfectlyBalanced() const {
-			return std::abs(imbalanceSourceBlock - imbalanceTargetBlock) < 1e-7;
+			return std::abs(imbalanceSourceBlock - imbalanceTargetBlock) < 1e-9;
 		}
 	};
 	
