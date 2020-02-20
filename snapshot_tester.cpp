@@ -40,9 +40,11 @@ namespace whfc {
 		
 		std::cout << "Reread" << std::endl;
 		HMetisIO::readFlowHypergraphWithBuilder(hg, filename);
-		
+		WHFC_IO::readRandomGeneratorState(filename, hfc.cs.rng);
+
 		std::cout << "Reset" << std::endl;
 		hfc.reset();
+		hfc.upperFlowBound = info.upperFlowBound;
 		std::cout << "Run again" << std::endl;
 		
 		hfc.timer.start();

@@ -194,7 +194,6 @@ namespace whfc {
 					cs.revertMoves(sol.numberOfTrackedMoves);
 					best_moves = cs.trackedMoves;
 				}
-				
 				cs.resetToFirstBalancedState(first_balanced_state);
 			}
 			

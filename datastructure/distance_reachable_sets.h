@@ -161,24 +161,28 @@ namespace whfc {
 		}
 		
 		void unsettleFlowSendingPins(const Hyperedge e) {
-			assert(areFlowSendingPinsSourceReachable(e));
+			assert(areFlowSendingPinsSources(e));
 			inDistance[e] = unreachableDistance;
 		}
 		
 		void settleAllPinsTarget(const Hyperedge e) {
-			settleFlowSendingPins(e);
+			assert(inDistance[e] != targetSettledDistance);
+			inDistance[e] = targetSettledDistance;
 		}
 		
 		void settleFlowSendingPinsTarget(const Hyperedge e) {
-			settleAllPins(e);
+			assert(outDistance[e] != targetSettledDistance);
+			outDistance[e] = targetSettledDistance;
 		}
 		
 		void unsettleAllPinsTarget(const Hyperedge e) {
-			unsettleFlowSendingPins(e);
+			assert(inDistance[e] == targetSettledDistance);
+			inDistance[e] = unreachableDistance;
 		}
 		
 		void unsettleFlowSendingPinsTarget(const Hyperedge e) {
-			unsettleAllPins(e);
+			assert(outDistance[e] == targetSettledDistance);
+			outDistance[e] = unreachableDistance;
 		}
 		
 		inline DistanceT hop() { return ++runningDistance; }
