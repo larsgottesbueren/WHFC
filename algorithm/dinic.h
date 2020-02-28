@@ -29,7 +29,6 @@ namespace whfc {
 		int direction = 0;
 		std::vector<PinIndex> current_flow_sending_pin, current_flow_receiving_pin, current_pin;
 		std::vector<InHeIndex> current_hyperedge;
-		FlowCommons::Scaling scaling;
 		
 		DinicBase(FlowHypergraph& hg) : hg(hg), queue(hg.numNodes()), stack(hg.numNodes()),
 										current_flow_sending_pin(hg.numHyperedges(), PinIndex::Invalid()),
@@ -300,6 +299,8 @@ namespace whfc {
 		static constexpr bool same_traversal_as_grow_assimilated = false;
 		static constexpr bool grow_reachable_marks_flow_sending_pins_when_marking_all_pins = true;
 		static constexpr bool log = false;
+		
+		FlowCommons::Scaling scaling;
 		
 		ScalingDinic(FlowHypergraph& hg) : DinicBase(hg)
 		{
