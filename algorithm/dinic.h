@@ -6,12 +6,10 @@
 #include "ford_fulkerson.h"
 
 namespace whfc {
-	
-	class Dinic {
+	class DinicBase {
 	public:
-		using Type = Dinic;
 		using ScanList = LayeredQueue<Node>;
-
+		
 		using ReachableNodes = DistanceReachableNodes;
 		using ReachableHyperedges = DistanceReachableHyperedges;
 		
@@ -20,9 +18,6 @@ namespace whfc {
 		using PinIndexRange = FlowHypergraph::PinIndexRange;
 		using DistanceT = DistanceReachableNodes::DistanceT;
 		
-		static constexpr bool same_traversal_as_grow_assimilated = false;
-		static constexpr bool grow_reachable_marks_flow_sending_pins_when_marking_all_pins = true;
-		static constexpr bool log = false;
 		
 		FlowHypergraph& hg;
 		LayeredQueue<Node> queue;
@@ -31,20 +26,48 @@ namespace whfc {
 			InHeIndex parent_he_it;
 		};
 		FixedCapacityStack<StackFrame> stack;
-		std::vector<PinIndex> current_flow_sending_pin;
-		std::vector<PinIndex> current_pin;
+		int direction = 0;
+		std::vector<PinIndex> current_flow_sending_pin, current_flow_receiving_pin, current_pin;
 		std::vector<InHeIndex> current_hyperedge;
+		FlowCommons::Scaling scaling;
 		
-		Dinic(FlowHypergraph& hg) : hg(hg), queue(hg.numNodes()), stack(hg.numNodes()),
-									current_flow_sending_pin(hg.numHyperedges(), PinIndex::Invalid()),
-									current_pin(hg.numHyperedges(), PinIndex::Invalid()),
-									current_hyperedge(hg.numNodes(), InHeIndex::Invalid())
+		DinicBase(FlowHypergraph& hg) : hg(hg), queue(hg.numNodes()), stack(hg.numNodes()),
+										current_flow_sending_pin(hg.numHyperedges(), PinIndex::Invalid()),
+										current_flow_receiving_pin(hg.numHyperedges(), PinIndex::Invalid()),
+										current_pin(hg.numHyperedges(), PinIndex::Invalid()),
+										current_hyperedge(hg.numNodes(), InHeIndex::Invalid())
+		{
+		
+		}
+		
+		void flipViewDirection() {
+			std::swap(current_flow_sending_pin, current_flow_receiving_pin);
+			direction = 1 - direction;
+		}
+		
+	};
+	
+	class Dinic : public DinicBase {
+	public:
+		using Type = Dinic;
+		
+		static constexpr bool same_traversal_as_grow_assimilated = false;
+		static constexpr bool grow_reachable_marks_flow_sending_pins_when_marking_all_pins = true;
+		static constexpr bool log = false;
+		
+		Dinic(FlowHypergraph& hg) : DinicBase(hg)
 		{
 			reset();
 		}
 		
 		void reset() {
 		
+		}
+		
+		void alignDirection(CutterState<Type>& cs) {
+			if (direction != cs.currentViewDirection()) {
+				flipViewDirection();
+			}
 		}
 		
 		ScanList& getScanList() {
@@ -96,6 +119,7 @@ namespace whfc {
 		}
 		
 		bool buildLayeredNetwork(CutterState<Type>& cs, const bool augment_flow) {
+			alignDirection(cs);
 			unused(augment_flow);	//for debug builds only
 			cs.clearForSearch();
 			auto& n = cs.n;
@@ -169,6 +193,7 @@ namespace whfc {
 		}
 		
 		Flow augmentFlowInLayeredNetwork(CutterState<Type>& cs) {
+			alignDirection(cs);
 			auto& n = cs.n;
 			auto& h = cs.h;
 			Flow f = 0;
@@ -268,47 +293,29 @@ namespace whfc {
 		
 	};
 	
-	class ScalingDinic {
+	class ScalingDinic : public DinicBase {
 	public:
 		using Type = ScalingDinic;
-		using ScanList = LayeredQueue<Node>;
-		
-		using ReachableNodes = DistanceReachableNodes;
-		using ReachableHyperedges = DistanceReachableHyperedges;
-		
-		using Pin = FlowHypergraph::Pin;
-		using InHe = FlowHypergraph::InHe;
-		using PinIndexRange = FlowHypergraph::PinIndexRange;
-		using DistanceT = DistanceReachableNodes::DistanceT;
 		
 		static constexpr bool same_traversal_as_grow_assimilated = false;
 		static constexpr bool grow_reachable_marks_flow_sending_pins_when_marking_all_pins = true;
 		static constexpr bool log = false;
 		
-		FlowHypergraph& hg;
-		LayeredQueue<Node> queue;
-		struct StackFrame {
-			Node u;
-			InHeIndex parent_he_it;
-		};
-		FixedCapacityStack<StackFrame> stack;
-		std::vector<PinIndex> current_flow_sending_pin;
-		std::vector<PinIndex> current_pin;
-		std::vector<InHeIndex> current_hyperedge;
-		FlowCommons::Scaling scaling;
-		
-		
-		ScalingDinic(FlowHypergraph& hg) : 	hg(hg), queue(hg.numNodes()), stack(hg.numNodes()),
-											current_flow_sending_pin(hg.numHyperedges(), PinIndex::Invalid()),
-											current_pin(hg.numHyperedges(), PinIndex::Invalid()),
-											current_hyperedge(hg.numNodes(), InHeIndex::Invalid())
+		ScalingDinic(FlowHypergraph& hg) : DinicBase(hg)
 		{
 			reset();
 		}
 		
+		
 		void reset() {
 			// TODO maybe don't reset to full capacity after piercing. maybe something less
 			scaling.initialize(hg.maxHyperedgeCapacity);
+		}
+		
+		void alignDirection(CutterState<Type>& cs) {
+			if (direction != cs.currentViewDirection()) {
+				flipViewDirection();
+			}
 		}
 		
 		ScanList& getScanList() {
@@ -388,6 +395,7 @@ namespace whfc {
 		
 		template<bool augment_flow>
 		bool buildLayeredNetwork(CutterState<Type>& cs) {
+			alignDirection(cs);
 			cs.clearForSearch();
 			auto& n = cs.n;
 			auto& h = cs.h;
@@ -457,6 +465,7 @@ namespace whfc {
 		}
 		
 		Flow augmentFlowInLayeredNetwork(CutterState<Type>& cs) {
+			alignDirection(cs);
 			auto& n = cs.n;
 			auto& h = cs.h;
 			Flow f = 0;
