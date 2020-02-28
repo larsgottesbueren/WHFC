@@ -149,6 +149,75 @@ namespace whfc {
 			return !piercingFailedOrFlowBoundReachedWithNonAAPPiercingNode && cs.flowValue <= upperFlowBound && has_balanced_cut;
 		}
 		
+		bool findNextCut(bool reject_piercing_if_it_creates_an_augmenting_path = false) {
+			if (cs.hasCut) {	// false on the first call, true on subsequent calls.
+				const bool early_reject = !pierce(reject_piercing_if_it_creates_an_augmenting_path);
+				if (early_reject) {
+					return false;
+				}
+			}
+			
+			if (cs.augmentingPathAvailableFromPiercing) {
+				cs.hasCut = flow_algo.exhaustFlow(cs);
+				if (cs.hasCut) {
+					cs.flipViewDirection();
+					flow_algo.growReachable(cs);
+				}
+			}
+			else {
+				flow_algo.growReachable(cs);	// don't grow target reachable
+				cs.hasCut = true;
+			}
+			cs.verifyFlowConstraints();
+			
+			if (cs.hasCut) {
+				cs.verifySetInvariants();
+				if (cs.sideToGrow() != cs.currentViewDirection()) {
+					cs.flipViewDirection();
+				}
+				GrowAssimilated<FlowAlgorithm>::grow(cs, flow_algo.getScanList());
+				cs.verifyCutPostConditions();
+			}
+			
+			return cs.hasCut && cs.flowValue <= upperFlowBound;
+		}
+		
+		
+		/*
+		 * Equivalent to runUntilBalancedOrFlowBoundExceeded(s,t) except that it does not use the flow-based interleaving that is necessary when running multiple HFC instances
+		 */
+		bool enumerateCutsUntilBalancedOrFlowBoundExceeded(const Node s, const Node t) {
+			flow_algo.upperFlowBound = upperFlowBound;
+			cs.initialize(s,t);
+			bool has_balanced_cut_below_flow_bound = false;
+			while (!has_balanced_cut_below_flow_bound && findNextCut(cs.flowValue == upperFlowBound)) {
+				has_balanced_cut_below_flow_bound |= cs.isBalanced();
+			}
+			
+			if (has_balanced_cut_below_flow_bound) {
+				assert(cs.sideToGrow() == cs.currentViewDirection());
+				const double imb_S_U_ISO = static_cast<double>(hg.totalNodeWeight() - cs.n.targetReachableWeight) / static_cast<double>(cs.maxBlockWeight(cs.currentViewDirection()));
+				const double imb_T = static_cast<double>(cs.n.targetReachableWeight) / static_cast<double>(cs.maxBlockWeight(cs.oppositeViewDirection()));
+				const bool better_balance_impossible = cs.unclaimedNodeWeight() == 0 || imb_S_U_ISO <= imb_T;
+				LOGGER << V(better_balance_impossible);
+				if (find_most_balanced && !better_balance_impossible) {
+					mostBalancedCut();
+				}
+				else {
+					cs.writePartition();
+				}
+				
+				LOGGER << cs.toString(true);
+				cs.verifyCutInducedByPartitionMatchesFlowValue();
+			}
+			
+			if (cs.currentViewDirection() != 0) {
+				cs.flipViewDirection();
+			}
+			
+			return has_balanced_cut_below_flow_bound;
+		}
+		
 		void mostBalancedCut() {
 			timer.start("MBMC");
 			

@@ -219,7 +219,7 @@ namespace whfc {
 			h.resetSourceReachableToSource(augmentingPathAvailableFromPiercing);
 		}
 		
-		void reset() {
+		void reset() {		// TODO could consolidate with initialize
 			viewDirection = 0;
 			flowValue = 0;
 			n.fullReset();

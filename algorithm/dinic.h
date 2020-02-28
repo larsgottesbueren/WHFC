@@ -30,6 +30,8 @@ namespace whfc {
 		std::vector<PinIndex> current_flow_sending_pin, current_flow_receiving_pin, current_pin;
 		std::vector<InHeIndex> current_hyperedge;
 		
+		Flow upperFlowBound;
+		
 		DinicBase(FlowHypergraph& hg) : hg(hg), queue(hg.numNodes()), stack(hg.numNodes()),
 										current_flow_sending_pin(hg.numHyperedges(), PinIndex::Invalid()),
 										current_flow_receiving_pin(hg.numHyperedges(), PinIndex::Invalid()),
@@ -73,14 +75,20 @@ namespace whfc {
 			return queue;
 		}
 		
-		Flow exhaustFlow(CutterState<Type>& cs) {
-			Flow f = 0;
-			f += recycleDatastructuresFromGrowReachablePhase(cs);
-			while (buildLayeredNetwork(cs, true)) {
-				f += augmentFlowInLayeredNetwork(cs);
+		bool exhaustFlow(CutterState<Type>& cs) {
+			cs.flowValue += recycleDatastructuresFromGrowReachablePhase(cs);
+			bool hasCut = false;
+			while (cs.flowValue <= upperFlowBound) {
+				hasCut = !buildLayeredNetwork(cs, true);
+				if (hasCut || cs.flowValue >= upperFlowBound) {
+					break;
+				}
+				else {
+					cs.flowValue += augmentFlowInLayeredNetwork(cs);
+				}
 			}
 			resetSourcePiercingNodeDistances(cs);
-			return f;
+			return hasCut;
 		}
 		
 		Flow growFlowOrSourceReachable(CutterState<Type>& cs) {
@@ -323,20 +331,30 @@ namespace whfc {
 			return queue;
 		}
 		
-		Flow exhaustFlow(CutterState<Type>& cs) {
+		bool exhaustFlow(CutterState<Type>& cs) {
+			cs.flowValue += recycleDatastructuresFromGrowReachablePhase(cs);
+			
 			scaling.reset();
-			Flow f = 0;
-			while (scaling.use()) {
+			while (cs.flowValue <= upperFlowBound && scaling.use()) {
 				if (buildLayeredNetwork<true>(cs))
-					f += augmentFlowInLayeredNetwork(cs);
+					cs.flowValue += augmentFlowInLayeredNetwork(cs);
 				else
 					scaling.reduceCapacity();
 			}
-			while (buildLayeredNetwork<true>(cs)) {
-				f += augmentFlowInLayeredNetwork(cs);
+			
+			bool hasCut = false;
+			while (cs.flowValue <= upperFlowBound) {
+				hasCut = !buildLayeredNetwork<true>(cs);
+				if (hasCut || cs.flowValue >= upperFlowBound) {
+					break;
+				}
+				else {
+					cs.flowValue += augmentFlowInLayeredNetwork(cs);
+				}
 			}
+			
 			resetSourcePiercingNodeDistances(cs);
-			return f;
+			return hasCut;
 		}
 		
 		Flow growFlowOrSourceReachable(CutterState<Type>& cs) {
