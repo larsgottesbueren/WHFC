@@ -30,7 +30,7 @@ namespace whfc {
 		std::vector<PinIndex> current_flow_sending_pin, current_flow_receiving_pin, current_pin;
 		std::vector<InHeIndex> current_hyperedge;
 		
-		Flow upperFlowBound;
+		Flow upperFlowBound = std::numeric_limits<Flow>::max();
 		
 		DinicBase(FlowHypergraph& hg) : hg(hg), queue(hg.numNodes()), stack(hg.numNodes()),
 										current_flow_sending_pin(hg.numHyperedges(), PinIndex::Invalid()),
