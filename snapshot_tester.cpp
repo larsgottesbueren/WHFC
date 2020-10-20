@@ -14,7 +14,7 @@
 namespace whfc {
 	void runSnapshotTester(const std::string& filename) {
 		
-		using FlowAlgorithm = Dinic;
+		using FlowAlgorithm = BidirectionalDinic;
 		//using FlowAlgorithm = ScalingDinic;
 		
 		WHFC_IO::WHFCInformation info = WHFC_IO::readAdditionalInformation(filename);
