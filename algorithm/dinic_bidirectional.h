@@ -26,7 +26,7 @@ namespace whfc {
 			InHeIndex parent_he_it;
 		};
 		FixedCapacityStack<StackFrame> stack;
-		int direction = 0;
+		int direction = 0, previous_cutter_state_direction = 0;
 		std::vector<PinIndex> current_flow_sending_pin, current_flow_receiving_pin, current_pin;
 		std::vector<InHeIndex> current_hyperedge;
 		
@@ -67,17 +67,12 @@ namespace whfc {
 		
 		}
 		
-		void alignDirection(CutterState<Type>& cs) {
-			if (direction != cs.currentViewDirection()) {
-				flipViewDirection();
-			}
-		}
-		
 		ScanList& getScanList() {
 			return fqueue;
 		}
 		
 		bool exhaustFlow(CutterState<Type>& cs) {
+			prepare(cs);
 			cs.flowValue += recycleDatastructuresFromGrowReachablePhase(cs);
 			bool hasCut = false;
 			while (cs.flowValue <= upperFlowBound) {
@@ -89,19 +84,29 @@ namespace whfc {
 					cs.flowValue += augmentFlowInLayeredNetwork(cs);
 				}
 			}
-			resetSourcePiercingNodeDistances(cs);
+			finish(cs);
 			return hasCut;
 		}
 		
 		Flow growFlowOrSourceReachable(CutterState<Type>& cs) {
+			prepare(cs);
 			Flow f = 0;
 			if (buildLayeredNetwork(cs, true))
 				f += augmentFlowInLayeredNetwork(cs);
-			resetSourcePiercingNodeDistances(cs);
+			finish(cs);
 			return f;
 		}
 		
+		void growReachable(CutterState<Type>& cs) {
+			// TODO do uni-directional only here!
+			prepare(cs);
+			bool found_target = buildLayeredNetwork(cs, false);
+			assert(!found_target); unused(found_target);
+			finish(cs);
+		}
+		
 		Flow recycleDatastructuresFromGrowReachablePhase(CutterState<Type> &cs) {
+			/*
 			if (!cs.augmentingPathAvailableFromPiercing || std::none_of(cs.sourcePiercingNodes.begin(), cs.sourcePiercingNodes.end(),
 																		[](const auto& sp) { return sp.isReachableFromOppositeSide; })) {
 				return 0;
@@ -112,100 +117,177 @@ namespace whfc {
 			resetSourcePiercingNodeDistances(cs);
 			cs.flipViewDirection();
 			return f;
+			 */
+			return 0;		// ignore for now
 		}
 		
-		void growReachable(CutterState<Type>& cs) {
-			bool found_target = buildLayeredNetwork(cs, false);
-			assert(!found_target); unused(found_target);
-			resetSourcePiercingNodeDistances(cs);
-		}
-	
 	private:
 		
-		void resetSourcePiercingNodeDistances(CutterState<Type>& cs, bool reset = true) {
-			for (auto& sp: cs.sourcePiercingNodes)
-				cs.n.setPiercingNodeDistance(sp.node, reset);
+		void prepare(CutterState<Type>& cs) {
+			previous_cutter_state_direction = cs.currentViewDirection();
+			if (previous_cutter_state_direction != 0) {
+				cs.flipViewDirection();
+			}
+			assert(cs.currentViewDirection() == 0);
+		}
+		
+		void finish(CutterState<Type>& cs) {
+			for (auto& sp : cs.sourcePiercingNodes) {
+				cs.n.distance[sp.node] = cs.n.sourceSettledDistance;
+			}
+			for (auto& tp : cs.targetPiercingNodes) {
+				cs.n.distance[tp.node] = cs.n.targetSettledDistance;
+			}
+			if (previous_cutter_state_direction != 0) {
+				cs.flipViewDirection();
+			}
+			assert(cs.currentViewDirection() == previous_cutter_state_direction);
 		}
 		
 		bool buildLayeredNetwork(CutterState<Type>& cs, const bool augment_flow) {
-			alignDirection(cs);
 			unused(augment_flow);	//for debug builds only
 			cs.clearForSearch();
-			auto& n = cs.n;
-			auto& h = cs.h;
-			queue.clear();
-			bool found_target = false;
+			assert(cs.currentViewDirection() == 0);
 			
-			for (auto& sp : cs.sourcePiercingNodes) {
-				n.setPiercingNodeDistance(sp.node, false);
-				assert(n.isSourceReachable(sp.node));
-				queue.push(sp.node);
-				current_hyperedge[sp.node] = hg.beginIndexHyperedges(sp.node);
-			}
-			n.hop(); h.hop(); queue.finishNextLayer();
+			BidirectionalDistanceReachableNodes& n = cs.n;
+			std::vector<DistanceT>& dist = n.distance;
+			BidirectionalDistanceReachableHyperedges& h = cs.h;
+			std::vector<DistanceT>& inDist = h.inDistance, outDist = h.outDistance;
+			fqueue.clear(); bqueue.clear();
+			bool searches_met = false;
 			
-			while (!queue.empty()) {
-				while (!queue.currentLayerEmpty()) {
-					const Node u = queue.pop();
-					for (InHe& inc_u : hg.hyperedgesOf(u)) {
-						const Hyperedge e = inc_u.e;
-						if (!h.areAllPinsSourceReachable__unsafe__(e)) {
-							const bool scanAllPins = !hg.isSaturated(e) || hg.flowReceived(inc_u) > 0;
-							if (!scanAllPins && h.areFlowSendingPinsSourceReachable__unsafe__(e))
-								continue;
-							
-							if (scanAllPins) {
-								h.reachAllPins(e);
-								assert(n.distance[u] + 1 == h.outDistance[e]);
-								current_pin[e] = hg.pinsNotSendingFlowIndices(e).begin();
-							}
-							
-							const bool scanFlowSending = !h.areFlowSendingPinsSourceReachable__unsafe__(e);
-							if (scanFlowSending) {
-								h.reachFlowSendingPins(e);
-								assert(n.distance[u] + 1 == h.inDistance[e]);
-								current_flow_sending_pin[e] = hg.pinsSendingFlowIndices(e).begin();
-							}
-							
-							auto visit = [&](const Pin& pv) {
-								const Node v = pv.pin;
-								assert(augment_flow || !n.isTargetReachable(v));
-								assert(augment_flow || !cs.isIsolated(v) || n.distance[v] == n.s.base);	//checking distance, since the source piercing node is no longer a source at the moment
-								found_target |= n.isTarget(v);
-								if (!n.isTarget(v) && !n.isSourceReachable__unsafe__(v)) {
-									n.reach(v);
-									assert(n.distance[u] + 1 == n.distance[v]);
-									queue.push(v);
-									current_hyperedge[v] = hg.beginIndexHyperedges(v);
-								}
-							};
-							
-							if (scanFlowSending)
-								for (const Pin& pv : hg.pinsSendingFlowInto(e))
-									visit(pv);
-							
-							if (scanAllPins)
-								for (const Pin& pv : hg.pinsNotSendingFlowInto(e))
-									visit(pv);
+			DistanceT flayer = n.s.base, blayer = n.t.upper_bound - 1;
+			const DistanceT f_lb = flayer, b_ub = blayer, meeting_dist = n.meetingDistance;
+			size_t fdeg = 0, bdeg = 0;
+			Node source = cs.sourcePiercingNodes.begin()->node, target = cs.targetPiercingNodes.begin()->node;
+			
+			auto is_source_reachable = [&](Node v) {
+				return (dist[v] >= f_lb && dist[v] <= flayer) || dist[v] == meeting_dist || n.isSource(v);
+			};
+			
+			auto is_target_reachable = [&](Node v) {
+				return (dist[v] <= b_ub && dist[v] >= blayer) || dist[v] == meeting_dist || n.isTarget(v);
+			};
+			
+			auto forward_visit = [&](Node v) {
+				if (!is_source_reachable(v)) {
+					searches_met |= is_target_reachable(v);
+					if (!searches_met) {
+						dist[v] = flayer;
+						fdeg += hg.degree(v);
+						fqueue.push(v);
+					} else {
+						if (!n.isTarget(v)) {
+							dist[v] = meeting_dist;
+						} else {
+							// TODO actually n.isTarget(target) will return false, since we overwrote its distance
+							// the assertion should check whether we meet any targets actually --> so we can do that just always
+							assert(v == target);
 						}
 					}
 				}
-				
-				n.hop(); h.hop(); queue.finishNextLayer();
+			};
+			
+			auto backward_visit = [&](Node v) {
+				if (!is_target_reachable(v)) {
+					searches_met |= is_source_reachable(v);
+					if (!searches_met) {
+						dist[v] = blayer;
+						bdeg += hg.degree(v);
+						bqueue.push(v);
+					} else {
+						if (!n.isSource(v)) {
+							dist[v] = meeting_dist;
+						} else {
+							// TODO actually n.isSource(source) will return false, since we overwrote its distance
+							assert(v == source);
+						}
+					}
+				}
+			};
+			
+			auto finish_forward_layer = [&] {
+				fqueue.finishNextLayer();
+				flayer++;
+			};
+			
+			auto finish_backward_layer = [&] {
+				bqueue.finishNextLayer();
+				blayer--;
+			};
+			
+			for (auto& sp : cs.sourcePiercingNodes) {
+				forward_visit(sp.node);
+			}
+			finish_forward_layer();
+			for (auto& sp: cs.targetPiercingNodes) {
+				backward_visit(sp.node);
+			}
+			finish_backward_layer();
+			
+			while (!searches_met && !fqueue.empty() && !bqueue.empty()) {
+				if (fdeg < bdeg && !fqueue.empty()) {
+					// advance forward search
+					fdeg = 0;
+					while (!fqueue.currentLayerEmpty()) {
+						const Node u = fqueue.pop();
+						for (InHe& inc_u : hg.hyperedgesOf(u)) {
+							const Hyperedge e = inc_u.e;
+							if (!h.areAllPinsSourceReachable(e)) {
+								if (!hg.isSaturated(e) || hg.flowReceived(inc_u) > 0) {
+									// u -> in-node(e) -> out-node(e) -> all pins | or | u -> out-node(e) -> all pins
+									outDist[e] = flayer;
+									for (const Pin& pv : hg.pinsNotSendingFlowInto(e)) {
+										forward_visit(pv.pin);
+									}
+								}
+								if (!h.areFlowSendingPinsSourceReachable(e)) {
+									// u -> in-node(e) -> all pins sending flow into e
+									inDist[e] = flayer;
+									for (const Pin& pv : hg.pinsSendingFlowInto(e)) {
+										forward_visit(pv.pin);
+									}
+								}
+							}
+						}
+					}
+					finish_forward_layer();
+				} else {
+					// advance backward search
+					bdeg = 0;
+					while (!bqueue.currentLayerEmpty()) {
+						const Node u = bqueue.pop();
+						for (InHe& inc_u : hg.hyperedgesOf(u)) {
+							const Hyperedge e = inc_u.e;
+							if (!hg.isSaturated(e) || hg.flowSent(inc_u) > 0) {
+								// u <- in-node(e) <- out-node(e) <- all pins | or | u <- out-node(e) <- all pins
+								
+							}
+						}
+					}
+					finish_backward_layer();
+					
+				}
 			}
 			
-			n.lockInSourceDistance(); h.lockInSourceDistance();
-			h.compareDistances(n);
 			
-			LOGGER_WN << V(found_target) << "#BFS layers =" << (n.s.upper_bound - n.s.base);
-			return found_target;
+			LOGGER_WN << V(searches_met) << "#BFS layers =" << (n.s.upper_bound - n.s.base);
+			return searches_met;
 		}
 		
 		Flow augmentFlowInLayeredNetwork(CutterState<Type>& cs) {
-			alignDirection(cs);
+			assert(cs.currentViewDirection() == 0);
 			auto& n = cs.n;
 			auto& h = cs.h;
 			Flow f = 0;
+			
+			for (Node u : hg.nodeIDs()) {
+				current_hyperedge[u] = hg.beginIndexHyperedges(u);
+			}
+			for (Hyperedge e : hg.hyperedgeIDs()) {
+				current_pin[e] = hg.pinsNotSendingFlowIndices(e).begin();
+				current_flow_sending_pin[e] = hg.pinsSendingFlowIndices(e).begin();
+			}
 			
 			for (auto& sp : cs.sourcePiercingNodes) {
 				assert(stack.empty());

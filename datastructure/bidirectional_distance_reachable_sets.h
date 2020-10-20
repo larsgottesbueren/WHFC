@@ -27,11 +27,18 @@ namespace whfc {
 		
 		inline size_t capacity() const { return distance.size(); }
 		
-		inline bool isSource(const Node u) const { return distance[u] == sourceSettledDistance; }
-		inline bool isTarget(const Node u) const { return distance[u] == targetSettledDistance; }
-		inline bool isSourceReachable__unsafe__(const Node u) const { return isSource(u) || distance[u] >= s.base; }	//saves a comparison in Dinic
-		inline bool isSourceReachable(const Node u) const { return isSource(u) || s.contains(distance[u]); }
-		inline bool isTargetReachable(const Node u) const { return isTarget(u) || t.contains(distance[u]); }
+		inline bool isSource(const Node u) const {
+			return distance[u] == sourceSettledDistance;
+		}
+		inline bool isTarget(const Node u) const {
+			return distance[u] == targetSettledDistance;
+		}
+		inline bool isSourceReachable(const Node u) const {
+			return isSource(u) || s.contains(distance[u]);
+		}
+		inline bool isTargetReachable(const Node u) const {
+			return isTarget(u) || t.contains(distance[u]);
+		}
 		inline void reach(const Node u) { assert(u < hg.numNodes()); assert(!isSourceReachable(u)); distance[u] = runningDistance; Base::reach(u); }
 		inline void settle(const Node u) { assert(!isSource(u)); distance[u] = sourceSettledDistance; Base::settle(u); }
 		inline void reachTarget(const Node u) { assert(!isSourceReachable(u) && !isTargetReachable(u)); distance[u] = t.base; Base::reachTarget(u); }
@@ -92,10 +99,6 @@ namespace whfc {
 			s.upper_bound = runningDistance;
 		}
 		
-		void setPiercingNodeDistance(const Node piercing_node, bool reset) {
-			distance[piercing_node] = reset ? sourceSettledDistance : s.base;
-		}
-		
 		void verifyDistancesAreStale() const {
 			assert(std::none_of(distance.begin(), distance.begin() + hg.numNodes(), [&](const DistanceT& dist) { return dist >= runningDistance; }));
 		}
@@ -129,7 +132,8 @@ namespace whfc {
 		static constexpr DistanceT unreachableDistance = 0;
 		DistanceT sourceSettledDistance = 1, targetSettledDistance = 2;
 		static constexpr DistanceT resetBaseDistance = 3;
-		DistanceT runningDistance = resetBaseDistance;
+		DistanceT meetingDistance = resetBaseDistance;
+		DistanceT runningDistance = resetBaseDistance + 1;
 		BidirectionalDistanceRange s, t;
 	};
 	

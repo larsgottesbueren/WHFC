@@ -159,7 +159,7 @@ namespace whfc {
 			
 			if (cs.augmentingPathAvailableFromPiercing) {
 				cs.hasCut = flow_algo.exhaustFlow(cs);
-				if (cs.hasCut) {
+				if (cs.hasCut) {		// TODO this stuff doesn't work with bidirectional yet!
 					cs.flipViewDirection();
 					flow_algo.growReachable(cs);
 				}
