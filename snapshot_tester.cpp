@@ -7,6 +7,8 @@
 #include "util/random.h"
 #include "datastructure/flow_hypergraph_builder.h"
 #include "algorithm/dinic.h"
+#include "algorithm/dinic_scaling.h"
+#include "algorithm/dinic_bidirectional.h"
 
 
 namespace whfc {

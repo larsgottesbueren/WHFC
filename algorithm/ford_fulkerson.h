@@ -6,61 +6,17 @@
 #include "../datastructure/bitset_reachable_sets.h"
 #include "../datastructure/timestamp_reachable_sets.h"
 #include "../datastructure/reachable_checker.h"
+#include "scaling.h"
 
 namespace whfc {
-	namespace FlowCommons {
-		
-		template<typename Type>
-		bool incidentToPiercingNodes(const Hyperedge e, CutterState<Type>& cs) {
-			return std::any_of(cs.sourcePiercingNodes.begin(), cs.sourcePiercingNodes.end(), [&](const auto& sp) {
-				return std::any_of(cs.hg.pinsOf(e).begin(), cs.hg.pinsOf(e).end(), [&](const auto& pe) {
-					return pe.pin == sp.node;
-				});
+	
+	template<typename Type>
+	bool incidentToPiercingNodes(const Hyperedge e, CutterState<Type>& cs) {
+		return std::any_of(cs.sourcePiercingNodes.begin(), cs.sourcePiercingNodes.end(), [&](const auto& sp) {
+			return std::any_of(cs.hg.pinsOf(e).begin(), cs.hg.pinsOf(e).end(), [&](const auto& pe) {
+				return pe.pin == sp.node;
 			});
-		}
-		
-		class Scaling {
-		private:
-			static constexpr Flow DefaultInitialCapacity = 1 << 24;
-			Flow initialCapacity = DefaultInitialCapacity;
-			Flow capacity = initialCapacity;
-			Flow CutOff = 3; //NOTE choose sensibly
-			bool enabled = true;
-		public:
-			
-			void reduceCapacity() {
-				capacity /= 2;
-			}
-			
-			void reset() {
-				capacity = initialCapacity;
-			}
-
-			Flow getCapacity() const {
-				return use() ? capacity : 1;
-			}
-			
-			void initialize(Flow maxScalingCap) {
-				maxScalingCap = std::min(DefaultInitialCapacity, maxScalingCap);
-				initialCapacity = 1;
-				while (2 * initialCapacity <= maxScalingCap) {
-					initialCapacity *= 2;
-				}
-				capacity = initialCapacity;
-			}
-			
-			void enable() {
-				enabled = true;
-			}
-			
-			void disable() {
-				enabled = false;
-			}
-			
-			bool use() const {
-				return enabled && capacity > CutOff;
-			}
-		};
+		});
 	}
 	
 	template<typename ScanListType, bool use_scaling, bool always_set_parent = true>
@@ -100,7 +56,7 @@ namespace whfc {
 			reset();
 		}
 
-		FlowCommons::Scaling scaling;
+		Scaling scaling;
 
 		void reset() {
 			scaling.initialize(hg.maxHyperedgeCapacity);
@@ -210,7 +166,7 @@ namespace whfc {
 						for (const Pin& pv : scanAllPins ? hg.pinsOf(e) : hg.pinsSendingFlowInto(e)) {
 							const Node v = pv.pin;
 							assert(augment_flow || !n.isTargetReachable(v));
-							assert(!cs.isIsolated(v) || (augment_flow && FlowCommons::incidentToPiercingNodes(e, cs)));
+							assert(!cs.isIsolated(v) || (augment_flow && incidentToPiercingNodes(e, cs)));
 							if (!n.isSourceReachable(v)) {		//don't do VD label propagation
 								if constexpr (augment_flow || always_set_parent)
 									parent[v] = { inc_u_iter, pv.he_inc_iter };
@@ -259,7 +215,7 @@ namespace whfc {
 						for (const Pin& pv : hg.pinsSendingFlowInto(e)) {
 							if (residualCapacity + hg.absoluteFlowSent(pv) >= scaling_capacity) {//residual = flow received by u + residual(e) + flow sent by v
 								const Node v = pv.pin;
-								assert(!cs.isIsolated(v) || FlowCommons::incidentToPiercingNodes(e, cs));
+								assert(!cs.isIsolated(v) || incidentToPiercingNodes(e, cs));
 								if (!n.isSourceReachable(v)) {
 									parent[v] = parent[v] = { inc_u_iter, pv.he_inc_iter };
 									if (n.isTarget(v))
@@ -275,7 +231,7 @@ namespace whfc {
 						h.reachAllPins(e);
 						for (const Pin& pv : hg.pinsNotSendingFlowInto(e)) {
 							const Node v = pv.pin;
-							assert(!cs.isIsolated(v) || FlowCommons::incidentToPiercingNodes(e, cs));
+							assert(!cs.isIsolated(v) || incidentToPiercingNodes(e, cs));
 							if (!n.isSourceReachable(v)) {
 								parent[v] = parent[v] = { inc_u_iter, pv.he_inc_iter };
 								if (n.isTarget(v))
@@ -552,7 +508,7 @@ namespace whfc {
 			return scan_list;
 		}
 		
-		FlowCommons::Scaling scaling;
+		Scaling scaling;
 	};
 	
 	using BasicDepthFirstFordFulkerson = DepthFirstFordFulkerson<false>;
