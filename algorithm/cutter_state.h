@@ -239,6 +239,8 @@ namespace whfc {
 		
 		void initialize(const Node s, const Node t) {
 			if (hg.nodeWeight(s) > maxBlockWeight(0) || hg.nodeWeight(t) > maxBlockWeight(1)) {
+				std::cout << maxBlockWeight(0) << " " << hg.nodeWeight(s);
+				std::cout << " " << maxBlockWeight(1) << " " << hg.nodeWeight(t) << std::endl;
 				throw std::runtime_error("Terminal weight already exceeds max block weight at initialization. Consider setting max block weights per side via hfc.cs.setMaxBlockWeight(  side  )");
 			}
 			assert(sourcePiercingNodes.empty() && targetPiercingNodes.empty());

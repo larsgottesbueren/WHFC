@@ -160,6 +160,18 @@ namespace whfc {
 			return pinsInRange(pinsNotSendingFlowIndices(e));
 		}
 		
+		PinIndexRange pinsNotReceivingFlowIndices(const Hyperedge e) const {
+			if (forwardView()) {
+				return PinIndexRange(beginIndexPins(e), pins_receiving_flow[e].begin());
+			} else {
+				return PinIndexRange(pins_receiving_flow[e].end(), endIndexPins(e));
+			}
+		}
+		
+		PinRange pinsNotReceivingFlowFrom(const Hyperedge e) {
+			return pinsInRange(pinsNotReceivingFlowIndices(e));
+		}
+		
 		PinRange pinsWithoutFlow(const Hyperedge e) {
 			return pinsInRange(pins_without_flow(e));
 		}

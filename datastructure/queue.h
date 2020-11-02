@@ -19,6 +19,7 @@ public:
 	inline void clear() { reinitialize(0); }
 	inline bool empty() const { return qfront == qend; }
 	inline bool currentLayerEmpty() const { return qfront == layerend; }
+	size_type currentLayerSize() const { return layerend - qfront; }
 	inline T pop() { return queue[qfront++]; }
 	inline T previousLayerPop() { return queue[layerfront++]; }
 	inline void finishNextLayer() { layerend = qend; }

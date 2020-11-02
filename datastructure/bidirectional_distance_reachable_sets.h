@@ -9,7 +9,7 @@ namespace whfc {
 		DistanceT base, upper_bound;
 		BidirectionalDistanceRange(const DistanceT d) : base(d), upper_bound(d) { }
 		BidirectionalDistanceRange(const DistanceT base, const DistanceT upper_bound) : base(base), upper_bound(upper_bound) { }
-		bool contains(const DistanceT d) const { return d >= base && d < upper_bound; }
+		bool contains(const DistanceT d) const { return d >= base && d <= upper_bound; }
 		bool operator==(const BidirectionalDistanceRange& o) const { return o.base == base && o.upper_bound == upper_bound; }
 	};
 	
@@ -23,6 +23,10 @@ namespace whfc {
 		
 		BidirectionalDistanceReachableNodes(const FlowHypergraph& hg) : Base(hg), distance(hg.numNodes(), unreachableDistance), s(sourceSettledDistance), t(targetSettledDistance) {
 			assert(4 + hg.numNodes() * 2 < std::numeric_limits<DistanceT>::max());
+			s.base = 3;
+			s.upper_bound = 3;
+			t.base = std::numeric_limits<DistanceT>::max();
+			t.upper_bound = std::numeric_limits<DistanceT>::max();
 		}
 		
 		inline size_t capacity() const { return distance.size(); }

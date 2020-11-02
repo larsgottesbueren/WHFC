@@ -13,3 +13,5 @@ add_executable(WHFC main.cpp)
 add_executable(TESTS run_tests.cpp)
 
 add_executable(SnapshotTester snapshot_tester.cpp)
+
+add_executable(FlowTester flow_tester.cpp)
