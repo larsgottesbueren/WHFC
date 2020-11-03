@@ -8,7 +8,7 @@ namespace whfc {
 		
 		static constexpr bool same_traversal_as_grow_assimilated = false;
 		static constexpr bool grow_reachable_marks_flow_sending_pins_when_marking_all_pins = true;
-		static constexpr bool log = false;
+		static constexpr bool log = true;
 		
 		Dinic(FlowHypergraph& hg) : DinicBase(hg)
 		{
@@ -149,7 +149,7 @@ namespace whfc {
 			n.lockInSourceDistance(); h.lockInSourceDistance();
 			h.compareDistances(n);
 			
-			LOGGER_WN << V(found_target) << "#BFS layers =" << (n.s.upper_bound - n.s.base);
+			LOGGER << V(found_target) << "#BFS layers =" << (n.s.upper_bound - n.s.base);
 			return found_target;
 		}
 		
@@ -171,6 +171,7 @@ namespace whfc {
 					assert(!n.isDistanceStale(u));
 					assert(stack.size() + n.sourceBaseDistance() == req_dist);
 					InHeIndex& he_it = current_hyperedge[u];
+					
 					for ( ; he_it < hg.endIndexHyperedges(u); he_it++) {
 						InHe& inc_u = hg.getInHe(he_it);
 						const Hyperedge e = inc_u.e;
@@ -222,6 +223,7 @@ namespace whfc {
 					
 				}
 			}
+			LOGGER << V(f);
 			assert(f > 0);
 			return f;
 		}

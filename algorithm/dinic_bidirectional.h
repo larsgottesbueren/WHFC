@@ -411,8 +411,6 @@ namespace whfc {
 							const Hyperedge e = inc_u.e;
 							const Flow residual = hg.residualCapacity(e) + hg.absoluteFlowReceived(inc_u);
 							
-							//LOGGER << V(e) << V(residual) << V(hg.capacity(e)) << V(h.inDistance[e]) << V(h.outDistance[e]);
-							
 							if (req_dist_edge == h.inDistance[e]) {
 								for (const PinIndex firstInvalid = hg.pinsSendingFlowIndices(e).end(); current_flow_sending_pin[e] < firstInvalid; current_flow_sending_pin[e]++) {
 									const Pin& pv = hg.getPin(current_flow_sending_pin[e]);
@@ -447,7 +445,7 @@ namespace whfc {
 						
 					} else {
 						// meeting node was visited in layer n.t.base+1
-						const DistanceT req_dist_node = at_meeting_node ? n.t.base + 2 : n.distance[u] - 1;
+						const DistanceT req_dist_node = at_meeting_node ? n.t.base + 2 : n.distance[u] + 1;
 						const DistanceT req_dist_edge = req_dist_node - 1;
 						
 						for ( ; he_it < hg.endIndexHyperedges(u); he_it++) {
