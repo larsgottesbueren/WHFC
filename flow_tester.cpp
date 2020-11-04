@@ -12,12 +12,12 @@ namespace whfc {
 	
 	template<typename FlowAlgorithm>
 	int runSnapshotTester(const std::string& filename) {
-		static constexpr bool log = true;
+		static constexpr bool log = false;
 		
 		WHFC_IO::WHFCInformation info = WHFC_IO::readAdditionalInformation(filename);
 		Node s = info.s;
 		Node t = info.t;
-		std::cout << s << " " << t << " " << info.maxBlockWeight[0] << " " << info.maxBlockWeight[1] << " " << info.upperFlowBound<< std::endl;
+		LOGGER << s << t << info.maxBlockWeight[0] << info.maxBlockWeight[1] << info.upperFlowBound;
 		
 		FlowHypergraphBuilder hg = HMetisIO::readFlowHypergraphWithBuilder(filename);
 		if (s >= hg.numNodes() || t >= hg.numNodes())
@@ -35,7 +35,7 @@ namespace whfc {
 		timer.start();
 		flow_algo.exhaustFlow(cs);
 		timer.stop();
-		std::cout << V(cs.flowValue) << std::endl;
+		LOGGER << V(cs.flowValue);
 		
 		{
 			// test if flow is maximal
@@ -80,7 +80,7 @@ namespace whfc {
 			assert(n_vis < hg.numNodes());
 		}
 		
-		timer.report(std::cout);
+		//timer.report(std::cout);
 		return cs.flowValue;
 	}
 }
@@ -92,7 +92,7 @@ int main(int argc, const char* argv[]) {
 	int f1 = whfc::runSnapshotTester<whfc::BidirectionalDinic>(hgfile);
 	int f2 = whfc::runSnapshotTester<whfc::Dinic>(hgfile);
 	assert(f1 == f2);
-	int f3 = whfc::runSnapshotTester<whfc::ScalingDinic>(hgfile);
-	assert(f2 == f3);
+	//int f3 = whfc::runSnapshotTester<whfc::ScalingDinic>(hgfile);
+	//assert(f2 == f3);
 	return 0;
 }
