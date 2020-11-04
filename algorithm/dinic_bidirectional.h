@@ -327,7 +327,7 @@ namespace whfc {
 									
 								}
 								if (!are_flow_receiving_pins_target_reachable(e)) {
-									// u <- in-node(e) <- all pins sending flow into e
+									// u <- out-node(e) <- all pins receiving flow from e
 									outDist[e] = blayer;
 									// in the DFS: scan all pins
 									scan_for_backward[e] = STATE::ALL;
