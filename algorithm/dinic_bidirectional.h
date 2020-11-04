@@ -269,12 +269,6 @@ namespace whfc {
 						for (InHe& inc_u : hg.hyperedgesOf(u)) {
 							const Hyperedge e = inc_u.e;
 							if (!are_all_pins_source_reachable(e)) {
-								if (are_all_pins_target_reachable(e)) {
-									LOGGER << V(u) << V(e) << V(outDist[e]) << V(inDist[e]);
-									for (Pin pv : hg.pinsOf(e)) {
-										LOGGER << V(pv.pin) << V(hg.flowSent(pv)) << V(dist[pv.pin]);
-									}
-								}
 								assert(!are_all_pins_target_reachable(e));
 								if (!hg.isSaturated(e) || hg.flowReceived(inc_u) > 0) {
 									// u -> in-node(e) -> out-node(e) -> all pins | or | u -> out-node(e) -> all pins
