@@ -56,7 +56,7 @@ namespace whfc {
 		
 		static constexpr bool same_traversal_as_grow_assimilated = false;
 		static constexpr bool grow_reachable_marks_flow_sending_pins_when_marking_all_pins = true;
-		static constexpr bool log = true;
+		static constexpr bool log = false;
 		
 		BidirectionalDinic(FlowHypergraph& hg) : BidirectionalDinicBase(hg)
 		{
@@ -377,16 +377,6 @@ namespace whfc {
 				current_flow_sending_pin[e] = hg.pinsSendingFlowIndices(e).begin();
 			}
 			
-			size_t intersection_size = 0;
-			for (Node u : hg.nodeIDs()) {
-				if (cs.n.distance[u] == meeting_dist) {
-					intersection_size++;
-				}
-			}
-			LOGGER << V(intersection_size) << V(n.s.upper_bound);
-			
-			
-			
 			for (auto& sp : cs.sourcePiercingNodes) {
 				assert(stack.empty());
 				stack.push({ sp.node, InHeIndex::Invalid() });
@@ -420,6 +410,7 @@ namespace whfc {
 									assert(hg.absoluteFlowSent(pv) > 0 || current_flow_sending_pin[e] < hg.pinsSendingFlowIndices(e).begin());
 									// TODO the lookup for flowSent from the pin is expensive since it's not a scan
 									// --> either store flow at both pin and edge-incidence, or avoid lookup by raising iterator!
+									// we can also sync the iterator from the routeFlow function, but that incurs more dense coupling --> bad software design?
 									if (residual + hg.absoluteFlowSent(pv) > 0 && n.distance[pv.pin] == req_dist_node) {
 										v = pv.pin;
 										inc_v_it = pv.he_inc_iter;
