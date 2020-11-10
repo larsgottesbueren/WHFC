@@ -142,21 +142,11 @@ namespace whfc {
 		}
 		
 		
-		enum class STATE {
-			NONE, FLOW_SENDING, ALL,
-		};
-		std::vector<STATE> scan_for_backward;
-		
 		bool buildLayeredNetwork(CutterState<Type>& cs, const bool augment_flow, const bool only_forward) {
 			unused(augment_flow);	//for debug builds only
 			//cs.clearForSearch();
 			assert(cs.currentViewDirection() == 0);
-			
-			if (scan_for_backward.size() != hg.numHyperedges()) {
-				scan_for_backward.resize(hg.numHyperedges(), STATE::NONE);
-			}
-			std::fill(scan_for_backward.begin(), scan_for_backward.end(), STATE::NONE);
-			
+
 			auto& n = cs.n;
 			auto& dist = cs.n.distance;
 			auto& h = cs.h;
@@ -298,19 +288,12 @@ namespace whfc {
 							const Hyperedge e = inc_u.e;
 							if (!are_all_pins_target_reachable(e)) {
 								assert(!are_all_pins_source_reachable(e));
-								// version 1 --> emulate what would happen if we flipped view direction. so this is compatible with growing target_reachable
 								if (!hg.isSaturated(e) || hg.flowSent(inc_u) > 0) {
 									// u <- in-node(e) <- out-node(e) <- all pins | or | u <- out-node(e) <- all pins
 									inDist[e] = blayer;
-									// in the DFS (forward search):
+									// in the DFS:
 									// scan all pins if !hg.isSaturated(e)
 									// scan flow sending pins if flow_sent(inc_u) > 0
-									if (!hg.isSaturated(e)) {
-										scan_for_backward[e] = STATE::ALL;
-									} else if (scan_for_backward[e] != STATE::ALL && hg.flowSent(inc_u) > 0) {
-										scan_for_backward[e] = STATE::FLOW_SENDING;
-									}
-									
 									for (const Pin& pv : hg.pinsNotReceivingFlowFrom(e)) {
 										backward_visit(pv.pin);
 									}
@@ -320,17 +303,11 @@ namespace whfc {
 									// u <- out-node(e) <- all pins receiving flow from e
 									outDist[e] = blayer;
 									// in the DFS: scan all pins
-									scan_for_backward[e] = STATE::ALL;
 									for (const Pin& pv : hg.pinsReceivingFlowFrom(e)) {
 										backward_visit(pv.pin);
 									}
-									
-									
 								}
 							}
-							
-							
-							
 						}
 					}
 					finish_backward_layer();
@@ -378,93 +355,53 @@ namespace whfc {
 					
 					const bool at_meeting_node = n.distance[u] == meeting_dist;
 					const bool in_forward_search = n.distance[u] < n.s.upper_bound;
-					
+					DistanceT req_dist_edge, req_dist_node;
+
 					if (in_forward_search && !at_meeting_node) {
-						const DistanceT req_dist_edge = n.distance[u] + 1;
-						
+						req_dist_edge = n.distance[u] + 1;
 						// -2 since we increment once after scanning the last layer of forward search, and because we want u one layer back
-						const DistanceT req_dist_node = n.distance[u] == n.s.upper_bound - 2 ? meeting_dist : req_dist_edge;	// special case if next layer is intersection
-						
-						for ( ; he_it < hg.endIndexHyperedges(u); he_it++) {
-							InHe& inc_u = hg.getInHe(he_it);
-							const Hyperedge e = inc_u.e;
-							const Flow residual = hg.residualCapacity(e) + hg.absoluteFlowReceived(inc_u);
-							
-							if (req_dist_edge == h.inDistance[e]) {
-								for (const PinIndex firstInvalid = hg.pinsSendingFlowIndices(e).end(); current_flow_sending_pin[e] < firstInvalid; current_flow_sending_pin[e]++) {
-									const Pin& pv = hg.getPin(current_flow_sending_pin[e]);
-									// TODO why are we checking again for absoluteFlowSent(pv) > 0? should always be the case, right?
-									// maybe if flow sending pins are stored at the end of the range and current_flow_sending_pin[e] < hg.flowSendingPinsIndices(e).begin()
-									// because some flow was routed. in this case we could raise current_flow_sending_pin[e]
-									assert(hg.absoluteFlowSent(pv) > 0 || current_flow_sending_pin[e] < hg.pinsSendingFlowIndices(e).begin());
-									// TODO the lookup for flowSent from the pin is expensive since it's not a scan
-									// --> either store flow at both pin and edge-incidence, or avoid lookup by raising iterator!
-									// we can also sync the iterator from the routeFlow function, but that incurs more dense coupling --> bad software design?
-									if (residual + hg.absoluteFlowSent(pv) > 0 && n.distance[pv.pin] == req_dist_node) {
-										next = pv;
-										break;
-									}
-								}
-							}
-							
-							if (next.pin == invalidNode && residual > 0 && h.outDistance[e] == req_dist_edge) {
-								for (const PinIndex firstInvalid = hg.pinsNotSendingFlowIndices(e).end(); current_pin[e] < firstInvalid; current_pin[e]++) {
-									const Pin& pv = hg.getPin(current_pin[e]);
-									if (n.distance[pv.pin] == req_dist_node) {
-										next = pv;
-										break;
-									}
-								}
-							}
-							
-							if (next.pin != invalidNode)
-								break;		//don't advance hyperedge iterator
-						}
-						
+						req_dist_node = n.distance[u] == n.s.upper_bound - 2 ? meeting_dist : req_dist_edge;	// special case if next layer is intersection
 					} else {
 						// meeting node was visited in layer n.t.base+1
-						const DistanceT req_dist_node = at_meeting_node ? n.t.base + 2 : n.distance[u] + 1;
-						const DistanceT req_dist_edge = req_dist_node - 1;
-						
-						for ( ; he_it < hg.endIndexHyperedges(u); he_it++) {
-							InHe& inc_u = hg.getInHe(he_it);
-							const Hyperedge e = inc_u.e;
-							const Flow residual = hg.residualCapacity(e) + hg.absoluteFlowReceived(inc_u);
-							
-							if (	req_dist_edge == h.inDistance[e]
-									&& (scan_for_backward[e] == STATE::FLOW_SENDING || scan_for_backward[e] == STATE::ALL)
-								)
-							{
-								for (const PinIndex firstInvalid = hg.pinsSendingFlowIndices(e).end(); current_flow_sending_pin[e] < firstInvalid; current_flow_sending_pin[e]++) {
-									const Pin& pv = hg.getPin(current_flow_sending_pin[e]);
-									if (residual + hg.absoluteFlowSent(pv) > 0 && n.distance[pv.pin] == req_dist_node) {
-										next = pv;
-										break;
-									}
-								}
-							}
-							
-							if (next.pin == invalidNode
-								&& residual > 0
-								&& (req_dist_edge == h.inDistance[e] || req_dist_edge == h.outDistance[e])
-								&& scan_for_backward[e] == STATE::ALL
-								)
-							{
-								for (const PinIndex firstInvalid = hg.pinsNotSendingFlowIndices(e).end(); current_pin[e] < firstInvalid; current_pin[e]++) {
-									const Pin& pv = hg.getPin(current_pin[e]);
-									if (n.distance[pv.pin] == req_dist_node) {
-										next = pv;
-										break;
-									}
-								}
-							}
-							
-							if (next.pin != invalidNode)
-								break;		//don't advance hyperedge iterator
-						}
-						
+						req_dist_node = at_meeting_node ? n.t.base + 2 : n.distance[u] + 1;
+						req_dist_edge = req_dist_node - 1;
 					}
-					
+
+					for ( ; he_it < hg.endIndexHyperedges(u); he_it++) {
+						InHe& inc_u = hg.getInHe(he_it);
+						const Hyperedge e = inc_u.e;
+						const Flow residual = hg.residualCapacity(e) + hg.absoluteFlowReceived(inc_u);
+
+						if (req_dist_edge == h.inDistance[e]) {
+							for (const PinIndex firstInvalid = hg.pinsSendingFlowIndices(e).end(); current_flow_sending_pin[e] < firstInvalid; current_flow_sending_pin[e]++) {
+								const Pin& pv = hg.getPin(current_flow_sending_pin[e]);
+								// TODO why are we checking again for absoluteFlowSent(pv) > 0? should always be the case, right?
+								// maybe if flow sending pins are stored at the end of the range and current_flow_sending_pin[e] < hg.flowSendingPinsIndices(e).begin()
+								// because some flow was routed. in this case we could raise current_flow_sending_pin[e]
+								assert(hg.absoluteFlowSent(pv) > 0 || current_flow_sending_pin[e] < hg.pinsSendingFlowIndices(e).begin());
+								// TODO the lookup for flowSent from the pin is expensive since it's not a scan
+								// --> either store flow at both pin and edge-incidence, or avoid lookup by raising iterator!
+								// we can also sync the iterator from the routeFlow function, but that incurs more dense coupling --> bad software design?
+								if (residual + hg.absoluteFlowSent(pv) > 0 && n.distance[pv.pin] == req_dist_node) {
+									next = pv;
+									break;
+								}
+							}
+						}
+
+						if (next.pin == invalidNode && residual > 0 && h.outDistance[e] == req_dist_edge) {
+							for (const PinIndex firstInvalid = hg.pinsNotSendingFlowIndices(e).end(); current_pin[e] < firstInvalid; current_pin[e]++) {
+								const Pin& pv = hg.getPin(current_pin[e]);
+								if (n.distance[pv.pin] == req_dist_node) {
+									next = pv;
+									break;
+								}
+							}
+						}
+
+						if (next.pin != invalidNode)
+							break;		//don't advance hyperedge iterator
+					}
 					
 					if (next.pin == invalidNode) {
 						assert(current_hyperedge[u] == hg.endIndexHyperedges(u));
