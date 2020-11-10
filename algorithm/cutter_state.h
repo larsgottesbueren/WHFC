@@ -98,7 +98,7 @@ namespace whfc {
 				isolatedNodes(hg, useIsolatedNodes),
 				timer(timer)
 		{
-			timer.registerCategory("Balance Check");
+			//timer.registerCategory("Balance Check");
 		}
 		
 		inline bool isIsolated(const Node u) const {

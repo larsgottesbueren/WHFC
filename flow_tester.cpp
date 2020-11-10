@@ -80,7 +80,7 @@ namespace whfc {
 			assert(n_vis < hg.numNodes());
 		}
 		
-		//timer.report(std::cout);
+		timer.report(std::cout);
 		return cs.flowValue;
 	}
 }
@@ -89,9 +89,12 @@ int main(int argc, const char* argv[]) {
 	if (argc < 2 || argc > 3)
 		throw std::runtime_error("Usage: ./FlowTester hypergraphfile");
 	std::string hgfile = argv[1];
+	std::cout << "Bidir Dinic" << std::endl;
 	int f1 = whfc::runSnapshotTester<whfc::BidirectionalDinic>(hgfile);
+	std::cout << "Plain Dinic" << std::endl;
 	int f2 = whfc::runSnapshotTester<whfc::Dinic>(hgfile);
 	assert(f1 == f2);
+	(void)(f1); (void)(f2);
 	//int f3 = whfc::runSnapshotTester<whfc::ScalingDinic>(hgfile);
 	//assert(f2 == f3);
 	return 0;

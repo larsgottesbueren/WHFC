@@ -8,7 +8,7 @@ namespace whfc {
 		
 		static constexpr bool same_traversal_as_grow_assimilated = false;
 		static constexpr bool grow_reachable_marks_flow_sending_pins_when_marking_all_pins = true;
-		static constexpr bool log = false;
+		static constexpr bool log = true;
 		
 		Dinic(FlowHypergraph& hg) : DinicBase(hg)
 		{
@@ -95,6 +95,8 @@ namespace whfc {
 				current_hyperedge[sp.node] = hg.beginIndexHyperedges(sp.node);
 			}
 			n.hop(); h.hop(); queue.finishNextLayer();
+
+			size_t nodes_visited = 0, edges_visited = 0, edges_visited_flow_sending = 0;
 			
 			while (!queue.empty()) {
 				while (!queue.currentLayerEmpty()) {
@@ -107,6 +109,7 @@ namespace whfc {
 								continue;
 							
 							if (scanAllPins) {
+								edges_visited++;
 								h.reachAllPins(e);
 								assert(n.distance[u] + 1 == h.outDistance[e]);
 								current_pin[e] = hg.pinsNotSendingFlowIndices(e).begin();
@@ -114,6 +117,7 @@ namespace whfc {
 							
 							const bool scanFlowSending = !h.areFlowSendingPinsSourceReachable__unsafe__(e);
 							if (scanFlowSending) {
+								edges_visited_flow_sending++;
 								h.reachFlowSendingPins(e);
 								assert(n.distance[u] + 1 == h.inDistance[e]);
 								current_flow_sending_pin[e] = hg.pinsSendingFlowIndices(e).begin();
@@ -125,6 +129,7 @@ namespace whfc {
 								assert(augment_flow || !cs.isIsolated(v) || n.distance[v] == n.s.base);	//checking distance, since the source piercing node is no longer a source at the moment
 								found_target |= n.isTarget(v);
 								if (!n.isTarget(v) && !n.isSourceReachable__unsafe__(v)) {
+									nodes_visited++;
 									n.reach(v);
 									assert(n.distance[u] + 1 == n.distance[v]);
 									queue.push(v);
@@ -149,7 +154,7 @@ namespace whfc {
 			n.lockInSourceDistance(); h.lockInSourceDistance();
 			h.compareDistances(n);
 			
-			LOGGER << V(found_target) << "#BFS layers =" << (n.s.upper_bound - n.s.base);
+			LOGGER << V(found_target) << "#BFS layers =" << (n.s.upper_bound - n.s.base) << V(nodes_visited) << V(edges_visited) << V(edges_visited_flow_sending);
 			return found_target;
 		}
 		

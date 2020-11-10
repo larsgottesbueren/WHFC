@@ -52,7 +52,7 @@ namespace whfc {
 		
 		static constexpr bool same_traversal_as_grow_assimilated = false;
 		static constexpr bool grow_reachable_marks_flow_sending_pins_when_marking_all_pins = true;
-		static constexpr bool log = false;
+		static constexpr bool log = true;
 		
 		BidirectionalDinic(FlowHypergraph& hg) : BidirectionalDinicBase(hg)
 		{
@@ -73,7 +73,6 @@ namespace whfc {
 			bool hasCut = false;
 			while (cs.flowValue <= upperFlowBound) {
 				hasCut = !buildLayeredNetwork(cs, true, false);
-				LOGGER << V(hasCut);
 				if (hasCut || cs.flowValue >= upperFlowBound) {
 					break;
 				}
@@ -82,7 +81,6 @@ namespace whfc {
 				}
 			}
 			finish(cs);
-			LOGGER << V(cs.flowValue);
 			return hasCut;
 		}
 		
@@ -117,7 +115,7 @@ namespace whfc {
 			 */
 			return 0;		// ignore for now
 		}
-		
+
 	private:
 		
 		void prepare(CutterState<Type>& cs) {
@@ -158,8 +156,10 @@ namespace whfc {
 			DistanceT flayer = n.s.upper_bound + 1, blayer = n.t.base - 1;
 			const DistanceT f_lb = n.s.upper_bound, meeting_dist = f_lb, b_ub = blayer;
 			size_t fdeg = 0, bdeg = 0;
-			
-			LOGGER << V(flayer) << V(f_lb) << V(meeting_dist) << V(blayer) << V(b_ub);
+
+			size_t fvis_nodes = 0, bvis_nodes = 0, fvis_edges = 0, bvis_edges = 0, fvis_edges_fs = 0, bvis_edges_fr = 0, fvis_pins = 0, bvis_pins = 0;
+			size_t intersection_size = 0;
+
 			assert(std::none_of(dist.begin(), dist.end(), [&](auto x) { return x == meeting_dist || (x > flayer && x < blayer); }));
 			
 			// make piercing nodes single entries. we've stopped piercing multiple nodes a long time ago
@@ -190,11 +190,10 @@ namespace whfc {
 				return inDist[e] == h.sourceSettledDistance || (inDist[e] >= f_lb && inDist[e] <= flayer);
 			};
 			
-			size_t intersection_size = 0;
-			
 			auto forward_visit = [&](Node v) {
 				assert(!n.isTarget(v));		// we overwrote dist[target] and assume we can only find piercing nodes of the opposite side
 				if (!is_source_reachable(v)) {
+					fvis_nodes++;
 					searches_met |= is_target_reachable(v);
 					if (!searches_met) {
 						dist[v] = flayer;
@@ -211,6 +210,7 @@ namespace whfc {
 			auto backward_visit = [&](Node v) {
 				assert(!n.isSource(v)); 	// we overwrote dist[source] and assume we can only find piercing nodes of the opposite side
 				if (!is_target_reachable(v)) {
+					bvis_nodes++;
 					searches_met |= is_source_reachable(v);
 					if (!searches_met) {
 						dist[v] = blayer;
@@ -247,12 +247,9 @@ namespace whfc {
 				finish_backward_layer();
 			}
 			
-			LOGGER << V(fdeg) << V(bdeg) << V(source) << V(dist[source]) << V(target) << V(dist[target]);
-			
 			while (!searches_met && !fqueue.empty() && !bqueue.empty()) {		// TODO this condition is not yet compatible with the only_forward parameter --> fix it later
 				if (fdeg < bdeg && !fqueue.empty()) {
 					// advance forward search
-					LOGGER << "fsearch" << V(fqueue.currentLayerSize()) << V(flayer) << V(fdeg) << V(blayer) << V(bdeg);
 					fdeg = 0;
 					while (!fqueue.currentLayerEmpty()) {
 						const Node u = fqueue.pop();
@@ -263,6 +260,8 @@ namespace whfc {
 								if (!hg.isSaturated(e) || hg.flowReceived(inc_u) > 0) {
 									// u -> in-node(e) -> out-node(e) -> all pins | or | u -> out-node(e) -> all pins
 									outDist[e] = flayer;
+									fvis_edges++;
+									fvis_pins += hg.pinsNotSendingFlowInto(e).size();
 									for (const Pin& pv : hg.pinsNotSendingFlowInto(e)) {
 										forward_visit(pv.pin);
 									}
@@ -270,6 +269,8 @@ namespace whfc {
 								if (!are_flow_sending_pins_source_reachable(e)) {
 									// u -> in-node(e) -> all pins sending flow into e
 									inDist[e] = flayer;
+									fvis_edges_fs++;
+									fvis_pins += hg.pinsSendingFlowInto(e).size();
 									for (const Pin& pv : hg.pinsSendingFlowInto(e)) {
 										forward_visit(pv.pin);
 									}
@@ -280,7 +281,6 @@ namespace whfc {
 					finish_forward_layer();
 				} else {
 					// advance backward search
-					LOGGER << "bsearch" << V(bqueue.currentLayerSize()) << V(flayer) << V(fdeg) << V(blayer) << V(bdeg);
 					bdeg = 0;
 					while (!bqueue.currentLayerEmpty()) {
 						const Node u = bqueue.pop();
@@ -291,6 +291,8 @@ namespace whfc {
 								if (!hg.isSaturated(e) || hg.flowSent(inc_u) > 0) {
 									// u <- in-node(e) <- out-node(e) <- all pins | or | u <- out-node(e) <- all pins
 									inDist[e] = blayer;
+									bvis_edges++;
+									bvis_pins += hg.pinsNotReceivingFlowFrom(e).size();
 									// in the DFS:
 									// scan all pins if !hg.isSaturated(e)
 									// scan flow sending pins if flow_sent(inc_u) > 0
@@ -302,6 +304,8 @@ namespace whfc {
 								if (!are_flow_receiving_pins_target_reachable(e)) {
 									// u <- out-node(e) <- all pins receiving flow from e
 									outDist[e] = blayer;
+									bvis_edges_fr++;
+									bvis_pins += hg.pinsReceivingFlowFrom(e).size();
 									// in the DFS: scan all pins
 									for (const Pin& pv : hg.pinsReceivingFlowFrom(e)) {
 										backward_visit(pv.pin);
@@ -320,8 +324,11 @@ namespace whfc {
 			n.t.base = blayer;				// value not used
 			n.t.upper_bound = b_ub;
 			
-			LOGGER << V(searches_met) << "#flayers =" << (n.s.upper_bound - n.s.base) << "#blayers =" << (n.t.upper_bound - n.t.base) << V(intersection_size);
-			LOGGER << V(f_lb) << V(flayer) << V(b_ub) << V(blayer);
+			//LOGGER << V(searches_met) << "#flayers =" << (n.s.upper_bound - n.s.base) << "#blayers =" << (n.t.upper_bound - n.t.base) << V(intersection_size);
+			//LOGGER << V(f_lb) << V(flayer) << V(b_ub) << V(blayer);
+			LOGGER 	<< V(intersection_size) << V(fvis_pins) << V(bvis_pins)
+					<< V(fvis_nodes) << V(fvis_edges) << V(fvis_edges_fs)
+					<< V(bvis_nodes) << V(bvis_edges) << V(bvis_edges_fr);
 			return searches_met;
 		}
 		
@@ -332,8 +339,6 @@ namespace whfc {
 			
 			const DistanceT meeting_dist = n.s.base - 1;
 			const Node target = cs.targetPiercingNodes.front().node;
-			Node source = cs.sourcePiercingNodes.front().node;
-			
 			Flow f = 0;
 			
 			for (Node u : hg.nodeIDs()) {
@@ -351,8 +356,8 @@ namespace whfc {
 				while (!stack.empty()) {
 					const Node u = stack.top().pin;
 					Pin next;
-					InHeIndex& he_it = current_hyperedge[u];
-					
+
+					// TODO simplify this bit?
 					const bool at_meeting_node = n.distance[u] == meeting_dist;
 					const bool in_forward_search = n.distance[u] < n.s.upper_bound;
 					DistanceT req_dist_edge, req_dist_node;
@@ -367,8 +372,8 @@ namespace whfc {
 						req_dist_edge = req_dist_node - 1;
 					}
 
-					for ( ; he_it < hg.endIndexHyperedges(u); he_it++) {
-						InHe& inc_u = hg.getInHe(he_it);
+					for ( ; current_hyperedge[u] < hg.endIndexHyperedges(u); current_hyperedge[u]++) {
+						InHe& inc_u = hg.getInHe(current_hyperedge[u]);
 						const Hyperedge e = inc_u.e;
 						const Flow residual = hg.residualCapacity(e) + hg.absoluteFlowReceived(inc_u);
 
