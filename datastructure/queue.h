@@ -14,38 +14,38 @@ public:
 	explicit LayeredQueue(const size_type num_elements) : queue(num_elements), layerfront(0), layerend(0), qfront(0), qend(0) { }
 	explicit LayeredQueue(const size_t num_elements) : LayeredQueue(static_cast<size_type>(num_elements)) { }
 	//Note. Use reinitialize() if you want to keep entries in the underlying vector intact, and ensure these won't be pushed again
-	inline void reinitialize(size_type x) { layerfront = x; layerend = x; qfront = x; qend = x; }
-	inline void reinitialize() { reinitialize(queueEnd()); }
-	inline void clear() { reinitialize(0); }
-	inline bool empty() const { return qfront == qend; }
-	inline bool currentLayerEmpty() const { return qfront == layerend; }
+	void reinitialize(size_type x) { layerfront = x; layerend = x; qfront = x; qend = x; }
+	void reinitialize() { reinitialize(queueEnd()); }
+	void clear() { reinitialize(0); }
+	bool empty() const { return qfront == qend; }
+	bool currentLayerEmpty() const { return qfront == layerend; }
 	size_type currentLayerSize() const { return layerend - qfront; }
-	inline T pop() { return queue[qfront++]; }
-	inline T previousLayerPop() { return queue[layerfront++]; }
-	inline void finishNextLayer() { layerend = qend; }
-	inline void push(const T x) { assert(qend < queue.size()); queue[qend++] = x; }
-	inline bool previousLayerEmpty() const { return layerfront == layerend; }
-	inline T capacity() const { return static_cast<T>(queue.size()); }
-	inline std::vector<T>& data() { return queue; }
-	template<typename Func> inline void forAllEverContainedElements(Func f) { for (size_type i = 0; i < qend; i++) { f(queue[i]); } }
-	inline const_range<std::vector<T>> range(size_type __begin, size_type __end) { return { queue.begin() + __begin, queue.cbegin() + __end }; }
-	inline const_range<std::vector<T>> currentLayer() { return range(qfront, layerend); }
-	inline const_range<std::vector<T>> allElements() { return range(0, qend); }
-	inline size_type queueEnd() const { return qend; }
-	inline T popBack() { assert(qend > 0); return queue[--qend]; }
+	T pop() { return queue[qfront++]; }
+	T previousLayerPop() { return queue[layerfront++]; }
+	void finishNextLayer() { layerend = qend; }
+	void push(const T x) { assert(qend < queue.size()); queue[qend++] = x; }
+	bool previousLayerEmpty() const { return layerfront == layerend; }
+	size_t capacity() const { return queue.size(); }
+	std::vector<T>& data() { return queue; }
+	template<typename Func> void forAllEverContainedElements(Func f) { for (size_type i = 0; i < qend; i++) { f(queue[i]); } }
+	const_range<std::vector<T>> range(size_type __begin, size_type __end) { return { queue.begin() + __begin, queue.cbegin() + __end }; }
+	const_range<std::vector<T>> currentLayer() { return range(qfront, layerend); }
+	const_range<std::vector<T>> allElements() { return range(0, qend); }
+	size_type queueEnd() const { return qend; }
+	T popBack() { assert(qend > 0); return queue[--qend]; }
 
-	inline decltype(auto) currentLayerIndices() { return boost::irange<size_type>(qfront, layerend); }
-	inline void truncateQueue(size_type new_end) {
+	decltype(auto) currentLayerIndices() { return boost::irange<size_type>(qfront, layerend); }
+	void truncateQueue(size_type new_end) {
 		qend = std::min(new_end, qend);
 		layerend = std::min(new_end, layerend);
 		qfront = std::min(new_end, qfront);
 		layerfront = std::min(new_end, layerfront);
 	}
 
-	inline T elementAt(const size_type pos) const { return queue[pos]; }
-	inline void setTo(const size_type pos, T element) { queue[pos] = element; }
+	T elementAt(const size_type pos) const { return queue[pos]; }
+	void setTo(const size_type pos, T element) { queue[pos] = element; }
 
-	inline T swapFrontToPositionAndPop(size_type pos) {
+	T swapFrontToPositionAndPop(size_type pos) {
 		std::swap(queue[pos], queue[qfront]);
 		return pop();
 	}
