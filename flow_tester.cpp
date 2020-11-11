@@ -36,7 +36,8 @@ namespace whfc {
 		flow_algo.exhaustFlow(cs);
 		timer.stop();
 		//LOGGER << V(cs.flowValue);
-		
+
+		#ifndef NDEBUG
 		{
 			// test if flow is maximal
 			BitVector vis(hg.numNodes()), he_vis(hg.numHyperedges()), he_flow_sending_vis(hg.numHyperedges());
@@ -79,6 +80,7 @@ namespace whfc {
 			}
 			assert(n_vis < hg.numNodes());
 		}
+		#endif
 		
 		//timer.report(std::cout);
 		return cs.flowValue;
@@ -90,11 +92,10 @@ int main(int argc, const char* argv[]) {
 		throw std::runtime_error("Usage: ./FlowTester hypergraphfile");
 	std::string hgfile = argv[1];
 	std::cout << "Bidir Dinic" << std::endl;
-	int f1 = whfc::runSnapshotTester<whfc::BidirectionalDinic>(hgfile);
-	std::cout << "Plain Dinic" << std::endl;
-	int f2 = whfc::runSnapshotTester<whfc::Dinic>(hgfile);
-	assert(f1 == f2);
-	(void)(f1); (void)(f2);
+	int f1 = whfc::runSnapshotTester<whfc::BidirectionalDinic>(hgfile); (void)(f1);
+	//std::cout << "Plain Dinic" << std::endl;
+	//int f2 = whfc::runSnapshotTester<whfc::Dinic>(hgfile); (void)(f2);
+	//assert(f1 == f2);
 	//int f3 = whfc::runSnapshotTester<whfc::ScalingDinic>(hgfile);
 	//assert(f2 == f3);
 	return 0;

@@ -366,12 +366,10 @@ namespace whfc {
 
 			timer.start("DFS");
 
-			size_t saved = 0;
-
 			for (auto& sp : cs.sourcePiercingNodes) {
 				assert(stack.empty());
 				stack.push({ sp.node, InHeIndex::Invalid() });
-				
+
 				while (!stack.empty()) {
 					const Node u = stack.top().pin;
 					Pin next;
@@ -392,18 +390,20 @@ namespace whfc {
 					}
 
 					for ( ; current_hyperedge[u] < hg.endIndexHyperedges(u); current_hyperedge[u]++) {
-						InHe& inc_u = hg.getInHe(current_hyperedge[u]);
+						const InHe& inc_u = hg.getInHe(current_hyperedge[u]);
 						const Hyperedge e = inc_u.e;
 						const Flow residual = hg.residualCapacity(e) + hg.absoluteFlowReceived(inc_u);
 
 						if (req_dist_edge == h.inDistance[e]) {
-
-							if (current_flow_sending_pin[e] < hg.beginIndexPinsSendingFlow(e)) { current_flow_sending_pin[e] = hg.beginIndexPinsSendingFlow(e); }
+/*							not necessary, if we're only working in forward view :)
+							if (current_flow_sending_pin[e] < hg.beginIndexPinsSendingFlow(e)) {
+								current_flow_sending_pin[e] = hg.beginIndexPinsSendingFlow(e);
+							}
+*/
 							for (const PinIndex firstInvalid = hg.endIndexPinsSendingFlow(e); current_flow_sending_pin[e] < firstInvalid; current_flow_sending_pin[e]++) {
 								const Pin& pv = hg.getPin(current_flow_sending_pin[e]);
-								assert(hg.absoluteFlowSent(pv) > 0 || current_flow_sending_pin[e] < hg.pinsSendingFlowIndices(e).begin());
-								if (/* residual + hg.absoluteFlowSent(pv) > 0 &&*/ n.distance[pv.pin] == req_dist_node) {
-									saved++;
+								assert(hg.absoluteFlowSent(pv) > 0);
+								if (n.distance[pv.pin] == req_dist_node) {
 									next = pv;
 									break;
 								}
@@ -411,6 +411,7 @@ namespace whfc {
 						}
 
 						if (next.pin == invalidNode && residual > 0 && h.outDistance[e] == req_dist_edge) {
+							// eliminating the forwardView() checks helps --> rework flow_hypergraph.h for a version with just bidirectional search later, after testing other optimizations
 							for (const PinIndex firstInvalid = hg.endIndexPinsNotSendingFlow(e); current_pin[e] < firstInvalid; current_pin[e]++) {
 								const Pin& pv = hg.getPin(current_pin[e]);
 								if (n.distance[pv.pin] == req_dist_node) {
@@ -442,8 +443,6 @@ namespace whfc {
 					
 				}
 			}
-
-			std::cout << V(saved) << std::endl;
 
 			timer.stop("DFS");
 
