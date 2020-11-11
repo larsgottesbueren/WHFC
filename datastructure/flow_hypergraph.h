@@ -58,7 +58,7 @@ namespace whfc {
 				incident_hyperedges(_pins.size()),
 				pins_sending_flow(hyperedge_weights.size()),
 				pins_receiving_flow(hyperedge_weights.size()),
-				total_node_weight(boost::accumulate(node_weights, NodeWeight(0)))
+				total_node_weight(0)
 		{
 
 			TimeReporter timer("Construct FlowHypergraph");
@@ -74,22 +74,20 @@ namespace whfc {
 			for (Node u : nodeIDs()) {
 				nodes[u + 1].first_out += nodes[u].first_out;			//prefix sum
 				nodes[u].weight = node_weights[u];						//copy node weights
+				total_node_weight += node_weights[u];
 			}
 			timer.stop("build first_out for nodes");
 			timer.start("build edges");
 
 			for (Hyperedge e : hyperedgeIDs()) {
-				hyperedges[e].capacity = hyperedge_weights[e];
 				hyperedges[e+1].first_out = hyperedges[e].first_out + hyperedge_sizes[e];		//prefix sum
 				for (auto pin_it = beginIndexPins(e); pin_it != endIndexPins(e); pin_it++) {
-					Pin& p = pins[pin_it];
-					InHeIndex ind_he = nodes[p.pin].first_out++;							//destroy first_out temporarily and reset later
+					InHeIndex ind_he = nodes[pins[pin_it].pin].first_out++;							//destroy first_out temporarily and reset later
+					pins[pin_it].he_inc_iter = ind_he;					//set iterator for incident hyperedge -> its position in incident_hyperedges of the node
 					InHe& inc_he = incident_hyperedges[ind_he];
 					inc_he.e = e;
 					inc_he.pin_iter = pin_it;				//set iterator for pin -> its position in the pins of the hyperedge
-					p.he_inc_iter = ind_he;					//set iterator for incident hyperedge -> its position in incident_hyperedges of the node
 				}
-				maxHyperedgeCapacity = std::max(maxHyperedgeCapacity, hyperedges[e].capacity);
 			}
 			timer.stop("build edges");
 			timer.start("restore first_out");
@@ -103,6 +101,8 @@ namespace whfc {
 				pins_sending_flow[e] = PinIndexRange(x,x);	//empty range starting at the first pin of e
 				x += pinCount(e);
 				pins_receiving_flow[e] = PinIndexRange(x, x);	//empty range starting at one past the last pin of e
+				hyperedges[e].capacity = hyperedge_weights[e];
+				maxHyperedgeCapacity = std::max(maxHyperedgeCapacity, hyperedges[e].capacity);
 			}
 			timer.stop("set ranges");
 			timer.report(std::cout);
