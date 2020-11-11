@@ -366,6 +366,8 @@ namespace whfc {
 
 			timer.start("DFS");
 
+			size_t saved = 0;
+
 			for (auto& sp : cs.sourcePiercingNodes) {
 				assert(stack.empty());
 				stack.push({ sp.node, InHeIndex::Invalid() });
@@ -395,16 +397,13 @@ namespace whfc {
 						const Flow residual = hg.residualCapacity(e) + hg.absoluteFlowReceived(inc_u);
 
 						if (req_dist_edge == h.inDistance[e]) {
-							for (const PinIndex firstInvalid = hg.pinsSendingFlowIndices(e).end(); current_flow_sending_pin[e] < firstInvalid; current_flow_sending_pin[e]++) {
+
+							if (current_flow_sending_pin[e] < hg.beginIndexPinsSendingFlow(e)) { current_flow_sending_pin[e] = hg.beginIndexPinsSendingFlow(e); }
+							for (const PinIndex firstInvalid = hg.endIndexPinsSendingFlow(e); current_flow_sending_pin[e] < firstInvalid; current_flow_sending_pin[e]++) {
 								const Pin& pv = hg.getPin(current_flow_sending_pin[e]);
-								// TODO why are we checking again for absoluteFlowSent(pv) > 0? should always be the case, right?
-								// maybe if flow sending pins are stored at the end of the range and current_flow_sending_pin[e] < hg.flowSendingPinsIndices(e).begin()
-								// because some flow was routed. in this case we could raise current_flow_sending_pin[e]
 								assert(hg.absoluteFlowSent(pv) > 0 || current_flow_sending_pin[e] < hg.pinsSendingFlowIndices(e).begin());
-								// TODO the lookup for flowSent from the pin is expensive since it's not a scan
-								// --> either store flow at both pin and edge-incidence, or avoid lookup by raising iterator!
-								// we can also sync the iterator from the routeFlow function, but that incurs more dense coupling --> bad software design?
-								if (residual + hg.absoluteFlowSent(pv) > 0 && n.distance[pv.pin] == req_dist_node) {
+								if (/* residual + hg.absoluteFlowSent(pv) > 0 &&*/ n.distance[pv.pin] == req_dist_node) {
+									saved++;
 									next = pv;
 									break;
 								}
@@ -443,6 +442,8 @@ namespace whfc {
 					
 				}
 			}
+
+			std::cout << V(saved) << std::endl;
 
 			timer.stop("DFS");
 
