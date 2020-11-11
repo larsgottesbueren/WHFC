@@ -4,6 +4,10 @@
 #include "../datastructure/flow_hypergraph.h"
 #include "../datastructure/flow_hypergraph_builder.h"
 
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <sys/mman.h>
+
 namespace whfc {
 	class HMetisIO {
 	private:
@@ -12,6 +16,83 @@ namespace whfc {
 			while (line[0] == '%') {
 				std::getline(f,line);
 			}
+		}
+
+		static int open_file(const std::string& filename) {
+			int fd = open(filename.c_str(), O_RDONLY);
+			if ( fd == -1 ) {
+				throw std::runtime_error("Could not open:" + filename);
+			}
+			return fd;
+		}
+
+		static size_t file_size(int fd) {
+			struct stat file_info;
+			if ( fstat(fd, &file_info) == -1 ) {
+				throw std::runtime_error("Error while getting file stats");
+			}
+			return static_cast<size_t>(file_info.st_size);
+		}
+
+		static char* mmap_file(int fd, const size_t length) {
+			char* mapped_file = (char*) mmap(0, length, PROT_READ, MAP_SHARED, fd, 0);
+			if ( mapped_file == MAP_FAILED ) {
+				close(fd);
+				throw std::runtime_error("Error while mapping file to memory");
+			}
+			return mapped_file;
+		}
+
+		static void munmap_file(char* mapped_file, int fd, const size_t length) {
+			if ( munmap(mapped_file, length) == -1 ) {
+				close(fd);
+				throw std::runtime_error("Error while unmapping file from memory");
+			}
+		}
+
+		static inline void goto_next_line(char* mapped_file, size_t& pos, const size_t length) {
+			for ( ; ; ++pos ) {
+				if ( pos == length || mapped_file[pos] == '\n' ) {
+					++pos;
+					break;
+				}
+			}
+		}
+
+		static void skip_comments(char* mapped_file, size_t& pos, size_t length) {
+			while ( mapped_file[pos] == '%' ) {
+				goto_next_line(mapped_file, pos, length);
+				assert(pos < length);
+			}
+		}
+
+		static inline int64_t read_number(char* mapped_file, size_t& pos, const size_t length) {
+			int64_t number = 0;
+			for ( ; pos < length; ++pos ) {
+				if ( mapped_file[pos] == ' ' || mapped_file[pos] == '\n' ) {
+					while ( mapped_file[pos] == ' ' || mapped_file[pos] == '\n' ) {
+						++pos;
+					}
+					break;
+				}
+				assert(mapped_file[pos] >= '0' && mapped_file[pos] <= '9');
+				number = number * 10 + (mapped_file[pos] - '0');
+			}
+			return number;
+		}
+
+
+		static auto readHeader(char* mapped_file, size_t& pos, const size_t length) {
+			skip_comments(mapped_file, pos, length);
+			int64_t num_edges = read_number(mapped_file, pos, length);
+			int64_t num_nodes = read_number(mapped_file, pos, length);
+			HGType hg_type = HGType::Unweighted;
+			if ( mapped_file[pos - 1] != '\n' ) {
+				hg_type = static_cast<HGType>(read_number(mapped_file, pos, length));
+			}
+			//std::cout << std::endl;
+			assert(mapped_file[pos - 1] == '\n');
+			return std::make_tuple(num_nodes, num_edges, hg_type);
 		}
 		
 	public:
@@ -59,13 +140,14 @@ namespace whfc {
 			
 			bool hasHyperedgeWeights = hg_type == HGType::EdgeAndNodeWeights || hg_type == HGType ::EdgeWeights;
 			bool hasNodeWeights = hg_type == HGType::EdgeAndNodeWeights || hg_type == HGType::NodeWeights;
-			
+
+
 			for (size_t e = 0; e < numHEs; ++e) {
 				mgetline(f, line);
 				std::istringstream iss(line);
 				uint32_t pin;
 				uint32_t he_weight = 1;
-				
+
 				if (hasHyperedgeWeights)
 					iss >> he_weight;
 				
@@ -82,7 +164,7 @@ namespace whfc {
 				if (he_size <= 1)
 					throw std::runtime_error("File: " + filename + " has pin with zero or one pins.");
 			}
-			
+
 			for (Node u(0); u < numNodes; ++u) {
 				NodeWeight nw(1);
 				if (hasNodeWeights) {
@@ -98,9 +180,62 @@ namespace whfc {
 			f.close();
 			return hgb;
 		}
-		
 
 		static FlowHypergraph readFlowHypergraph(const std::string& filename) {
+			int fd = open_file(filename);
+			const size_t length = file_size(fd);
+			char* mapped_file = mmap_file(fd, length);
+			size_t pos = 0;
+
+			auto [num_nodes, num_edges, hg_type] = readHeader(mapped_file, pos, length);
+			bool has_edge_weights = hg_type == HGType::EdgeAndNodeWeights || hg_type == HGType ::EdgeWeights;
+			bool has_node_weights = hg_type == HGType::EdgeAndNodeWeights || hg_type == HGType::NodeWeights;
+
+			std::vector<NodeWeight> node_weights;
+			std::vector<HyperedgeWeight> edge_weights;
+			std::vector<PinIndex> edge_sizes;
+			std::vector<Node> pins;
+
+			edge_weights.reserve(num_edges);
+			edge_sizes.reserve(num_edges);
+			for (int64_t e = 0; e < num_edges; ++e) {
+				skip_comments(mapped_file, pos, length);
+
+				uint32_t he_weight = 1;
+				if (has_edge_weights) {
+					he_weight = read_number(mapped_file, pos, length);
+				}
+				edge_weights.emplace_back(he_weight);
+
+				uint32_t he_size = 0, pin;
+				do {
+					pin = read_number(mapped_file, pos, length);
+					he_size++;
+					pins.emplace_back(pin - 1);
+					if (pin == 0) { throw std::runtime_error("read number didn't give a number"); }
+				} while (mapped_file[pos-1] != '\n');
+
+				edge_sizes.emplace_back(he_size);
+				if (he_size <= 1) { throw std::runtime_error("File: " + filename + " has pin with zero or one pins."); }
+			}
+
+			if (has_node_weights) {
+				node_weights.reserve(num_nodes);
+				for (int64_t u = 0; u < num_nodes; ++u) {
+					node_weights.emplace_back( read_number(mapped_file, pos, length) );
+				}
+			} else {
+				node_weights.resize(num_nodes, 1);
+			}
+
+			skip_comments(mapped_file, pos, length);
+			assert(pos == length);
+
+			return FlowHypergraph(node_weights, edge_weights, edge_sizes, pins);
+		}
+
+
+		static FlowHypergraph readFlowHypergraphOld(const std::string& filename) {
 
 			std::vector<NodeWeight> nodeWeights;
 			std::vector<HyperedgeWeight> hyperedgeWeights;
@@ -120,7 +255,7 @@ namespace whfc {
 			bool hasNodeWeights = hg_type == HGType::EdgeAndNodeWeights || hg_type == HGType::NodeWeights;
 			if (!hasNodeWeights)
 				nodeWeights.resize(numNodes, NodeWeight(1));
-			
+
 			for (size_t e = 0; e < numHEs; ++e) {
 				mgetline(f, line);
 				std::istringstream iss(line);
@@ -165,7 +300,7 @@ namespace whfc {
 			}
 
 			f.close();
-			
+
 			return FlowHypergraph(nodeWeights, hyperedgeWeights, hyperedgeSizes, pins);
 		}
 

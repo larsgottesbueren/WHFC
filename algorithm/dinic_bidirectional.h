@@ -54,6 +54,7 @@ namespace whfc {
 		static constexpr bool log = false;
 
 		static constexpr bool lazy_iterators = false;
+		static constexpr bool prune_iterators = false;
 
 		BidirectionalDinic(FlowHypergraph& hg) : BidirectionalDinicBase(hg)
 		{

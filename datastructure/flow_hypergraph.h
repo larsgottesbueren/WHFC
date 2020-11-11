@@ -2,7 +2,6 @@
 
 #include "../definitions.h"
 #include "../util/unused.h"
-#include <boost/dynamic_bitset.hpp>
 
 namespace whfc {
 
@@ -61,17 +60,24 @@ namespace whfc {
 				pins_receiving_flow(hyperedge_weights.size()),
 				total_node_weight(boost::accumulate(node_weights, NodeWeight(0)))
 		{
+
+			TimeReporter timer("Construct FlowHypergraph");
+			timer.start("copy pins");
 			size_t i = 0;
 			for (const Node p : _pins) {
 				pins[i++].pin = p;					//copy pins
 				nodes[p + 1].first_out++;			//bucket sizes
 			}
+			timer.stop("copy pins");
+			timer.start("build first_out for nodes");
 			
 			for (Node u : nodeIDs()) {
 				nodes[u + 1].first_out += nodes[u].first_out;			//prefix sum
 				nodes[u].weight = node_weights[u];						//copy node weights
 			}
-			
+			timer.stop("build first_out for nodes");
+			timer.start("build edges");
+
 			for (Hyperedge e : hyperedgeIDs()) {
 				hyperedges[e].capacity = hyperedge_weights[e];
 				hyperedges[e+1].first_out = hyperedges[e].first_out + hyperedge_sizes[e];		//prefix sum
@@ -85,17 +91,21 @@ namespace whfc {
 				}
 				maxHyperedgeCapacity = std::max(maxHyperedgeCapacity, hyperedges[e].capacity);
 			}
-			
+			timer.stop("build edges");
+			timer.start("restore first_out");
 			for (Node u(numNodes()-1); u > 0; u--)
 				nodes[u].first_out = nodes[u-1].first_out;	//reset temporarily destroyed first_out
 			nodes[0].first_out = InHeIndex(0);
-			
+			timer.stop("restore first_out");
+			timer.start("set ranges");
 			PinIndex x = PinIndex(0);
 			for (Hyperedge e : hyperedgeIDs()) {
 				pins_sending_flow[e] = PinIndexRange(x,x);	//empty range starting at the first pin of e
 				x += pinCount(e);
 				pins_receiving_flow[e] = PinIndexRange(x, x);	//empty range starting at one past the last pin of e
 			}
+			timer.stop("set ranges");
+			timer.report(std::cout);
 		}
 		
 

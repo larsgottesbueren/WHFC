@@ -13,31 +13,28 @@ namespace whfc {
 	template<typename FlowAlgorithm>
 	int runSnapshotTester(const std::string& filename) {
 		static constexpr bool log = true;
-		TimeReporter timer;
-		timer.start("IO/Graph Construction");
+		TimeReporter timer("IO/Graph Construction");
+		timer.start();
 		WHFC_IO::WHFCInformation info = WHFC_IO::readAdditionalInformation(filename);
 		Node s = info.s;
 		Node t = info.t;
 		//LOGGER << s << t << info.maxBlockWeight[0] << info.maxBlockWeight[1] << info.upperFlowBound;
 		FlowHypergraph hg = HMetisIO::readFlowHypergraph(filename);
-		timer.stop("IO/Graph Construction");
+		timer.stop();
+		timer.report(std::cout);
 
 		if (s >= hg.numNodes() || t >= hg.numNodes())
 			throw std::runtime_error("s or t not within node id range");
 		
 		LOGGER << V(hg.numNodes()) << V(hg.numHyperedges()) << V(hg.numPins());
 
-		timer.start("Alloc");
 		FlowAlgorithm flow_algo(hg);
 		CutterState<FlowAlgorithm> cs(hg, timer);
 		for (int i = 0; i < 2; ++i)
 			cs.setMaxBlockWeight(i, info.maxBlockWeight[i]);
 		cs.initialize(s, t);
-		timer.stop("Alloc");
-		
-		timer.start("Flow");
+
 		flow_algo.exhaustFlow(cs);
-		timer.stop("Flow");
 		//LOGGER << V(cs.flowValue);
 
 		#ifndef NDEBUG
@@ -85,7 +82,7 @@ namespace whfc {
 		}
 		#endif
 		
-		//timer.report(std::cout);
+
 		return cs.flowValue;
 	}
 }
