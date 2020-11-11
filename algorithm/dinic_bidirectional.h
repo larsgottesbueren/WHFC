@@ -52,7 +52,7 @@ namespace whfc {
 		
 		static constexpr bool same_traversal_as_grow_assimilated = false;
 		static constexpr bool grow_reachable_marks_flow_sending_pins_when_marking_all_pins = true;
-		static constexpr bool log = true;
+		static constexpr bool log = false;
 		
 		BidirectionalDinic(FlowHypergraph& hg) : BidirectionalDinicBase(hg)
 		{
@@ -189,20 +189,20 @@ namespace whfc {
 				assert(inDist[e] != meeting_dist);
 				return inDist[e] == h.sourceSettledDistance || (inDist[e] >= f_lb && inDist[e] <= flayer);
 			};
-			
+
 			auto forward_visit = [&](Node v) {
 				assert(!n.isTarget(v));		// we overwrote dist[target] and assume we can only find piercing nodes of the opposite side
 				if (!is_source_reachable(v)) {
-					fvis_nodes++;
-					searches_met |= is_target_reachable(v);
-					if (!searches_met) {
+					if (is_target_reachable(v)) {
+						searches_met = true;
+						dist[v] = meeting_dist;
+						intersection_size++;
+					} else if (!searches_met) {
+						fvis_nodes++;
 						dist[v] = flayer;
 						fdeg += hg.degree(v);
 						fqueue.push(v);
 						// set current_hyperedge[v] = hg.beginIndexHyperedges(v);
-					} else if (is_target_reachable(v)) {
-						dist[v] = meeting_dist;
-						intersection_size++;
 					}
 				}
 			};
@@ -210,16 +210,15 @@ namespace whfc {
 			auto backward_visit = [&](Node v) {
 				assert(!n.isSource(v)); 	// we overwrote dist[source] and assume we can only find piercing nodes of the opposite side
 				if (!is_target_reachable(v)) {
-					bvis_nodes++;
-					searches_met |= is_source_reachable(v);
-					if (!searches_met) {
+					if (is_source_reachable(v)) {
+						searches_met = true;
+						dist[v] = meeting_dist;
+						intersection_size++;
+					} else if (!searches_met) {
+						bvis_nodes++;
 						dist[v] = blayer;
 						bdeg += hg.degree(v);
 						bqueue.push(v);
-						// set current_hyperedge[v] = hg.beginIndexHyperedges(v);
-					} else if (is_source_reachable(v)) {
-						dist[v] = meeting_dist;
-						intersection_size++;
 					}
 				}
 			};
@@ -246,8 +245,8 @@ namespace whfc {
 				}
 				finish_backward_layer();
 			}
-			
-			while (!searches_met && !fqueue.empty() && !bqueue.empty()) {		// TODO this condition is not yet compatible with the only_forward parameter --> fix it later
+
+			while (!searches_met && !fqueue.empty() && !bqueue.empty()) {
 				if (fdeg < bdeg && !fqueue.empty()) {
 					// advance forward search
 					fdeg = 0;

@@ -17,7 +17,7 @@ namespace whfc {
 		WHFC_IO::WHFCInformation info = WHFC_IO::readAdditionalInformation(filename);
 		Node s = info.s;
 		Node t = info.t;
-		LOGGER << s << t << info.maxBlockWeight[0] << info.maxBlockWeight[1] << info.upperFlowBound;
+		//LOGGER << s << t << info.maxBlockWeight[0] << info.maxBlockWeight[1] << info.upperFlowBound;
 		
 		FlowHypergraphBuilder hg = HMetisIO::readFlowHypergraphWithBuilder(filename);
 		if (s >= hg.numNodes() || t >= hg.numNodes())
@@ -35,7 +35,7 @@ namespace whfc {
 		timer.start();
 		flow_algo.exhaustFlow(cs);
 		timer.stop();
-		LOGGER << V(cs.flowValue);
+		//LOGGER << V(cs.flowValue);
 		
 		{
 			// test if flow is maximal
