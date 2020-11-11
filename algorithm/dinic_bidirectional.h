@@ -12,10 +12,9 @@ namespace whfc {
 		
 		using ReachableNodes = BidirectionalDistanceReachableNodes;
 		using ReachableHyperedges = BidirectionalDistanceReachableHyperedges;
-		
+
 		using Pin = FlowHypergraph::Pin;
 		using InHe = FlowHypergraph::InHe;
-		using PinIndexRange = FlowHypergraph::PinIndexRange;
 		using DistanceT = ReachableNodes::DistanceT;
 		
 		
@@ -337,7 +336,8 @@ namespace whfc {
 
 			//LOGGER << V(searches_met) << "#flayers =" << (n.s.upper_bound - n.s.base) << "#blayers =" << (n.t.upper_bound - n.t.base) << V(intersection_size);
 			//LOGGER << V(f_lb) << V(flayer) << V(b_ub) << V(blayer);
-			LOGGER 	<< V(intersection_size) << V(fvis_pins) << V(bvis_pins)
+			LOGGER 	<< "#flayers=" << (n.s.upper_bound - n.s.base) << "#blayers=" << (n.t.upper_bound - n.t.base)
+					<< V(intersection_size) << V(fvis_pins) << V(bvis_pins)
 					<< V(fvis_nodes) << V(fvis_edges) << V(fvis_edges_fs)
 					<< V(bvis_nodes) << V(bvis_edges) << V(bvis_edges_fr);
 			return searches_met;
