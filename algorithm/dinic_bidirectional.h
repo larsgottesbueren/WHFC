@@ -53,7 +53,9 @@ namespace whfc {
 		static constexpr bool same_traversal_as_grow_assimilated = false;
 		static constexpr bool grow_reachable_marks_flow_sending_pins_when_marking_all_pins = true;
 		static constexpr bool log = false;
-		
+
+		static constexpr bool lazy_iterators = false;
+
 		BidirectionalDinic(FlowHypergraph& hg) : BidirectionalDinicBase(hg)
 		{
 			reset();
@@ -81,6 +83,7 @@ namespace whfc {
 				}
 			}
 			finish(cs);
+			timer.report(std::cout);
 			return hasCut;
 		}
 		
@@ -145,6 +148,8 @@ namespace whfc {
 			//cs.clearForSearch();
 			assert(cs.currentViewDirection() == 0);
 
+			timer.start("BFS");
+
 			auto& n = cs.n;
 			auto& dist = cs.n.distance;
 			auto& h = cs.h;
@@ -163,7 +168,7 @@ namespace whfc {
 			assert(std::none_of(dist.begin(), dist.end(), [&](auto x) { return x == meeting_dist || (x > flayer && x < blayer); }));
 			
 			// make piercing nodes single entries. we've stopped piercing multiple nodes a long time ago
-			Node source = cs.sourcePiercingNodes.front().node, target = cs.targetPiercingNodes.front().node;
+			//Node source = cs.sourcePiercingNodes.front().node, target = cs.targetPiercingNodes.front().node;
 			
 			// for prototyping purposes implemented here for now, since we would have to maintain flayer in the ReachableHyperedges object
 			// in the end we'll put it all into the ReachableNodes/Hyperedges object and make it generic so we can run from both sides
@@ -202,7 +207,7 @@ namespace whfc {
 						dist[v] = flayer;
 						fdeg += hg.degree(v);
 						fqueue.push(v);
-						// set current_hyperedge[v] = hg.beginIndexHyperedges(v);
+						if constexpr (lazy_iterators) { current_hyperedge[v] = hg.beginIndexHyperedges(v); }
 					}
 				}
 			};
@@ -219,6 +224,7 @@ namespace whfc {
 						dist[v] = blayer;
 						bdeg += hg.degree(v);
 						bqueue.push(v);
+						if constexpr (lazy_iterators) { current_hyperedge[v] = hg.beginIndexHyperedges(v); }
 					}
 				}
 			};
@@ -259,6 +265,7 @@ namespace whfc {
 								if (!hg.isSaturated(e) || hg.flowReceived(inc_u) > 0) {
 									// u -> in-node(e) -> out-node(e) -> all pins | or | u -> out-node(e) -> all pins
 									outDist[e] = flayer;
+									if constexpr (lazy_iterators) { current_pin[e] = hg.beginIndexPinsNotSendingFlow(e); }
 									fvis_edges++;
 									fvis_pins += hg.pinsNotSendingFlowInto(e).size();
 									for (const Pin& pv : hg.pinsNotSendingFlowInto(e)) {
@@ -268,6 +275,7 @@ namespace whfc {
 								if (!are_flow_sending_pins_source_reachable(e)) {
 									// u -> in-node(e) -> all pins sending flow into e
 									inDist[e] = flayer;
+									if constexpr (lazy_iterators) { current_flow_sending_pin[e] = hg.beginIndexPinsSendingFlow(e); }
 									fvis_edges_fs++;
 									fvis_pins += hg.pinsSendingFlowInto(e).size();
 									for (const Pin& pv : hg.pinsSendingFlowInto(e)) {
@@ -292,6 +300,7 @@ namespace whfc {
 									inDist[e] = blayer;
 									bvis_edges++;
 									bvis_pins += hg.pinsNotReceivingFlowFrom(e).size();
+									if constexpr (lazy_iterators) { if (hg.isSaturated(e)) { current_flow_sending_pin[e] = hg.beginIndexPinsSendingFlow(e); } }
 									// in the DFS:
 									// scan all pins if !hg.isSaturated(e)
 									// scan flow sending pins if flow_sent(inc_u) > 0
@@ -304,6 +313,7 @@ namespace whfc {
 									// u <- out-node(e) <- all pins receiving flow from e
 									outDist[e] = blayer;
 									bvis_edges_fr++;
+									if constexpr (lazy_iterators) { current_pin[e] = hg.beginIndexPinsSendingFlow(e); }
 									bvis_pins += hg.pinsReceivingFlowFrom(e).size();
 									// in the DFS: scan all pins
 									for (const Pin& pv : hg.pinsReceivingFlowFrom(e)) {
@@ -322,7 +332,9 @@ namespace whfc {
 			n.s.upper_bound = flayer;		// value not used
 			n.t.base = blayer;				// value not used
 			n.t.upper_bound = b_ub;
-			
+
+			timer.stop("BFS");
+
 			//LOGGER << V(searches_met) << "#flayers =" << (n.s.upper_bound - n.s.base) << "#blayers =" << (n.t.upper_bound - n.t.base) << V(intersection_size);
 			//LOGGER << V(f_lb) << V(flayer) << V(b_ub) << V(blayer);
 			LOGGER 	<< V(intersection_size) << V(fvis_pins) << V(bvis_pins)
@@ -339,15 +351,21 @@ namespace whfc {
 			const DistanceT meeting_dist = n.s.base - 1;
 			const Node target = cs.targetPiercingNodes.front().node;
 			Flow f = 0;
-			
-			for (Node u : hg.nodeIDs()) {
-				current_hyperedge[u] = hg.beginIndexHyperedges(u);
+
+			if constexpr (!lazy_iterators) {
+				timer.start("Init Iterators");
+				for (Node u : hg.nodeIDs()) {
+					current_hyperedge[u] = hg.beginIndexHyperedges(u);
+				}
+				for (Hyperedge e : hg.hyperedgeIDs()) {
+					current_pin[e] = hg.beginIndexPinsNotSendingFlow(e);
+					current_flow_sending_pin[e] = hg.beginIndexPinsSendingFlow(e);
+				}
+				timer.stop("Init Iterators");
 			}
-			for (Hyperedge e : hg.hyperedgeIDs()) {
-				current_pin[e] = hg.pinsNotSendingFlowIndices(e).begin();
-				current_flow_sending_pin[e] = hg.pinsSendingFlowIndices(e).begin();
-			}
-			
+
+			timer.start("DFS");
+
 			for (auto& sp : cs.sourcePiercingNodes) {
 				assert(stack.empty());
 				stack.push({ sp.node, InHeIndex::Invalid() });
@@ -394,7 +412,7 @@ namespace whfc {
 						}
 
 						if (next.pin == invalidNode && residual > 0 && h.outDistance[e] == req_dist_edge) {
-							for (const PinIndex firstInvalid = hg.pinsNotSendingFlowIndices(e).end(); current_pin[e] < firstInvalid; current_pin[e]++) {
+							for (const PinIndex firstInvalid = hg.endIndexPinsNotSendingFlow(e); current_pin[e] < firstInvalid; current_pin[e]++) {
 								const Pin& pv = hg.getPin(current_pin[e]);
 								if (n.distance[pv.pin] == req_dist_node) {
 									next = pv;
@@ -425,6 +443,9 @@ namespace whfc {
 					
 				}
 			}
+
+			timer.stop("DFS");
+
 			LOGGER << V(f);
 			assert(f > 0);
 			return f;
@@ -455,6 +476,8 @@ namespace whfc {
 			stack.popDownTo(lowest_bottleneck);
 			return bottleneckCapacity;
 		}
-		
+
+		TimeReporter timer;
+
 	};
 }

@@ -28,19 +28,25 @@ namespace whfc {
 		ScanList& getScanList() {
 			return queue;
 		}
-		
+
 		bool exhaustFlow(CutterState<Type>& cs) {
 			cs.flowValue += recycleDatastructuresFromGrowReachablePhase(cs);
 			bool hasCut = false;
+			TimeReporter timer;
 			while (cs.flowValue <= upperFlowBound) {
+				timer.start("BFS");
 				hasCut = !buildLayeredNetwork(cs, true);
+				timer.stop("BFS");
 				if (hasCut || cs.flowValue >= upperFlowBound) {
 					break;
 				}
 				else {
+					timer.start("DFS");
 					cs.flowValue += augmentFlowInLayeredNetwork(cs);
+					timer.stop("DFS");
 				}
 			}
+			timer.report(std::cout);
 			resetSourcePiercingNodeDistances(cs);
 			return hasCut;
 		}

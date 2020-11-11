@@ -80,7 +80,7 @@ namespace whfc {
 			assert(n_vis < hg.numNodes());
 		}
 		
-		timer.report(std::cout);
+		//timer.report(std::cout);
 		return cs.flowValue;
 	}
 }

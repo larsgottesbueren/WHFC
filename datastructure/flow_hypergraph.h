@@ -155,7 +155,14 @@ namespace whfc {
 				return PinIndexRange(beginIndexPins(e), pins_sending_flow[e].begin());
 			}
 		}
-		
+
+		PinIndex beginIndexPinsNotSendingFlow(const Hyperedge e) const {  return forwardView() ? pins_sending_flow[e].end() : beginIndexPins(e); }
+		PinIndex endIndexPinsNotSendingFlow(const Hyperedge e) const {  return forwardView() ? endIndexPins(e) : pins_sending_flow[e].begin(); }
+		PinIndex beginIndexPinsSendingFlow(const Hyperedge e) const {  return pins_sending_flow[e].begin(); }
+		PinIndex endIndexPinsSendingFlow(const Hyperedge e) const {  return pins_sending_flow[e].end(); }
+
+
+
 		PinRange pinsNotSendingFlowInto(const Hyperedge e) {
 			return pinsInRange(pinsNotSendingFlowIndices(e));
 		}
