@@ -252,8 +252,8 @@ namespace whfc {
 				finish_backward_layer();
 			}
 
-			while (!searches_met && !fqueue.empty() && !bqueue.empty()) {
-				if (fdeg < bdeg && !fqueue.empty()) {
+			while (!searches_met && (!fqueue.empty() || !bqueue.empty())) {
+				if (!fqueue.empty() && (fdeg < bdeg || bqueue.empty())) {
 					// advance forward search
 					fdeg = 0;
 					while (!fqueue.currentLayerEmpty()) {
