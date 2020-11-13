@@ -13,15 +13,12 @@ namespace whfc {
 	template<typename FlowAlgorithm>
 	int runSnapshotTester(const std::string& filename) {
 		static constexpr bool log = true;
-		TimeReporter timer("IO/Graph Construction");
-		timer.start();
+		TimeReporter timer;
 		WHFC_IO::WHFCInformation info = WHFC_IO::readAdditionalInformation(filename);
 		Node s = info.s;
 		Node t = info.t;
 		//LOGGER << s << t << info.maxBlockWeight[0] << info.maxBlockWeight[1] << info.upperFlowBound;
 		FlowHypergraph hg = HMetisIO::readFlowHypergraph(filename);
-		timer.stop();
-		timer.report(std::cout);
 
 		if (s >= hg.numNodes() || t >= hg.numNodes())
 			throw std::runtime_error("s or t not within node id range");
@@ -93,8 +90,8 @@ int main(int argc, const char* argv[]) {
 	std::string hgfile = argv[1];
 	std::cout << "Bidir Dinic" << std::endl;
 	int f1 = whfc::runSnapshotTester<whfc::BidirectionalDinic>(hgfile); (void)(f1);
-	//std::cout << "Plain Dinic" << std::endl;
-	//int f2 = whfc::runSnapshotTester<whfc::Dinic>(hgfile); (void)(f2);
+	std::cout << "Plain Dinic" << std::endl;
+	int f2 = whfc::runSnapshotTester<whfc::Dinic>(hgfile); (void)(f2);
 	//assert(f1 == f2);
 	//int f3 = whfc::runSnapshotTester<whfc::ScalingDinic>(hgfile);
 	//assert(f2 == f3);
