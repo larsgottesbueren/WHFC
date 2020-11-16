@@ -249,30 +249,30 @@ namespace whfc {
 
 			const Flow prevFlowU = inc_u.flow;
 			const Flow prevFlowV = inc_v.flow;
+
+			Flow flow_delta_on_u_eOut_eIn_v = std::min({ absoluteFlowSent(inc_v), absoluteFlowReceived(inc_u), flow_delta });
+			inc_u.flow += flowSent(flow_delta_on_u_eOut_eIn_v);
+			inc_v.flow += flowReceived(flow_delta_on_u_eOut_eIn_v);
+			flow(e) -= flow_delta_on_u_eOut_eIn_v;
+			flow_delta -= flow_delta_on_u_eOut_eIn_v;
 			
-			Flow flow_delta_on_v_eOut_eIn_u = std::min({ absoluteFlowSent(inc_v), absoluteFlowReceived(inc_u), flow_delta });
-			inc_u.flow += flowSent(flow_delta_on_v_eOut_eIn_u);
-			inc_v.flow += flowReceived(flow_delta_on_v_eOut_eIn_u);
-			flow(e) -= flow_delta_on_v_eOut_eIn_u;
-			flow_delta -= flow_delta_on_v_eOut_eIn_u;
-			
-			Flow flow_delta_on_v_eOut_u = std::min(flow_delta, absoluteFlowReceived(inc_u));
-			inc_u.flow += flowSent(flow_delta_on_v_eOut_u);
-			inc_v.flow += flowReceived(flow_delta_on_v_eOut_u);
+			Flow flow_delta_on_u_eOut_v = std::min(flow_delta, absoluteFlowReceived(inc_u));
+			inc_u.flow += flowSent(flow_delta_on_u_eOut_v);
+			inc_v.flow += flowReceived(flow_delta_on_u_eOut_v);
 			//does not influence flow(e)
-			flow_delta -= flow_delta_on_v_eOut_u;
+			flow_delta -= flow_delta_on_u_eOut_v;
 			
-			Flow flow_delta_on_v_eIn_u = std::min(flow_delta, absoluteFlowSent(inc_v));
-			inc_u.flow += flowSent(flow_delta_on_v_eIn_u);
-			inc_v.flow += flowReceived(flow_delta_on_v_eIn_u);
+			Flow flow_delta_on_u_eIn_v = std::min(flow_delta, absoluteFlowSent(inc_v));
+			inc_u.flow += flowSent(flow_delta_on_u_eIn_v);
+			inc_v.flow += flowReceived(flow_delta_on_u_eIn_v);
 			//does not influence flow(e)
-			flow_delta -= flow_delta_on_v_eIn_u;
+			flow_delta -= flow_delta_on_u_eIn_v;
 			
-			Flow flow_delta_on_v_eIn_eOut_u = flow_delta;
-			assert(flow_delta_on_v_eIn_eOut_u <= residualCapacity(e));
-			inc_u.flow += flowSent(flow_delta_on_v_eIn_eOut_u);
-			inc_v.flow += flowReceived(flow_delta_on_v_eIn_eOut_u);
-			flow(e) += flow_delta_on_v_eIn_eOut_u;
+			Flow flow_delta_on_u_eIn_eOut_v = flow_delta;
+			assert(flow_delta_on_u_eIn_eOut_v <= residualCapacity(e));
+			inc_u.flow += flowSent(flow_delta_on_u_eIn_eOut_v);
+			inc_v.flow += flowReceived(flow_delta_on_u_eIn_eOut_v);
+			flow(e) += flow_delta_on_u_eIn_eOut_v;
 
 			
 			if (flowReceived(prevFlowU) > 0 && flowSent(inc_u.flow) >= 0)	//u previously received flow and now either has none, or sends flow.
