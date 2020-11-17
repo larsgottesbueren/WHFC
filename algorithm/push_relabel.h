@@ -67,6 +67,7 @@ namespace whfc {
 			prepare(cs);
 			max_level = hg.numNodes() + hg.numHyperedges();
 			const Node target = cs.targetPiercingNodes.front().node;
+			Flow old_excess = excess[target];
 
 			while ( -excess[target] <= upperFlowBound && !active_vertices_and_edges.empty() ) {
 				const Node x = active_vertices_and_edges.front();
@@ -86,7 +87,11 @@ namespace whfc {
 
 			finish(cs);
 			timer.report(std::cout);
-			return false;
+
+			Flow flow_delta = old_excess - excess[target];
+			assert(flow_delta >= 0);
+			cs.flowValue += flow_delta;
+			return flow_delta > 0;
 		}
 
 		Flow growFlowOrSourceReachable(CutterState<Type>& cs) {
