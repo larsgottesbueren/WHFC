@@ -14,6 +14,8 @@ namespace whfc {
 		static constexpr bool same_traversal_as_grow_assimilated = false;
 		static constexpr bool grow_reachable_marks_flow_sending_pins_when_marking_all_pins = true;
 
+		static constexpr bool relabel_to_front = false;
+
 		using Type = PushRelabel;
 		using ScanList = LayeredQueue<Node>;
 		using Pin = FlowHypergraph::Pin;
@@ -68,16 +70,35 @@ namespace whfc {
 			const Node target = cs.targetPiercingNodes.front().node;
 			Flow old_excess = excess[target];
 
-			while (excess[target] <= upperFlowBound && !active_vertices_and_edges.empty()) {
-				const Node x = active_vertices_and_edges.front();
-				active_vertices_and_edges.pop_front();
-				discharge(x);
-				if (excess[x] > 0 && level[x] < max_level) {
-					active_vertices_and_edges.push_back(x);
+			if constexpr (relabel_to_front) {
+				// must insert all non-terminal vertices into the queue, and cannot insert new excess vertices during pushes
+
+				std::vector<Node> front;
+				while (!active_vertices_and_edges.empty()) {
+					const Node x = active_vertices_and_edges.front();
+					active_vertices_and_edges.pop_front();
+					int old_level = level[x];
+					discharge(x);
+
+					if (old_level < level[x]) {
+						// was relabeled --> move to front
+						for (auto it = front.crbegin(); it != front.crend(); ++it) {
+							active_vertices_and_edges.push_front(*it);
+						}
+						front.clear();
+						active_vertices_and_edges.push_front(x);	// will be removed straight away but then kept in front
+					} else {
+						front.push_back(x);
+					}
+				}
+			} else {
+				while (excess[target] <= upperFlowBound && !active_vertices_and_edges.empty()) {
+					const Node x = active_vertices_and_edges.front();
+					active_vertices_and_edges.pop_front();
+					discharge(x);
 				}
 			}
 
-			// relabel-to-front?
 
 			active_vertices_and_edges.clear();
 
@@ -127,11 +148,13 @@ namespace whfc {
 				const Node e_node(inc_he.e + num_nodes);
 				Flow residual = hg.residualCapacity(inc_he.e) + hg.absoluteFlowReceived(inc_he);
 				if (residual > 0 && level[e_node] == level[u] + 1) {
-					// push p4 and p2
-					if (excess[e_node] == 0) {
-						assert(level[e_node] < max_level);
-						active_vertices_and_edges.push_back(e_node);
+					if constexpr (!relabel_to_front) {
+						if (excess[e_node] == 0) {
+							assert(level[e_node] < max_level);
+							active_vertices_and_edges.push_back(e_node);
+						}
 					}
+					// push p4 and p2
 					residual = std::min(residual, excess[u]);
 					excess[e_node] += residual;
 					excess[u] -= residual;
