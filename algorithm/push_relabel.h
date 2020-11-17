@@ -148,7 +148,7 @@ namespace whfc {
 								min_level = std::min(min_level, level[inc_he2.e + num_nodes]);
 							}
 						}
-						level[u] = min_level;
+						level[u] = min_level + 1;
 						current_hyperedge[u] = hg.beginIndexHyperedges(u);
 					}
 				}
