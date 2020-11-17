@@ -144,6 +144,8 @@ namespace whfc {
 
 		void dischargeNode(Node u) {
 			assert(hg.degree(u) > 0);
+			assert(level[u] < max_level);
+
 			const Hyperedge num_nodes(hg.numNodes());	// TaggedInteger conversion...
 			while (excess[u] > 0) {
 				InHe& inc_he = hg.getInHe(current_hyperedge[u]);
@@ -152,7 +154,6 @@ namespace whfc {
 				if (residual > 0 && level[e_node] + 1 == level[u]) {
 					if constexpr (!relabel_to_front) {
 						if (excess[e_node] == 0) {
-							assert(level[e_node] < max_level);
 							active_vertices_and_edges.push_back(e_node);
 						}
 					}
@@ -162,7 +163,7 @@ namespace whfc {
 					excess[u] -= residual;
 					inc_he.flow += residual;
 					// update flow value of hyperedge due to p4. First consume p2 completely, then p4
-					hg.flow(inc_he.e) += std::max(0, residual - hg.absoluteFlowReceived(inc_he));
+					hg.flow(inc_he.e) += std::max(0, residual - hg.absoluteFlowReceived(inc_he));	// TODO actually hg.flowSent(max(0, res - flow_rec(inc_he)) but multiplier is 1 for now?
 
 					assert(hg.flow(inc_he.e) == in_flow(e_node));
 					assert(excess[e_node] == in_flow(e_node) - out_flow(e_node));	// these break running time guarantees in debug mode
@@ -177,6 +178,7 @@ namespace whfc {
 							}
 						}
 						level[u] = min_level + 1;
+						assert(level[u] < max_level);
 						current_hyperedge[u] = hg.beginIndexHyperedges(u);
 					}
 				}
@@ -184,7 +186,37 @@ namespace whfc {
 		}
 
 		void dischargeEdge(Hyperedge e, Node e_node) {
+			assert(!hg.pinsOf(e).empty());
+			assert(level[e_node] < max_level);
+			// if hyperedge has excess we always hit the first pin with appropriate level. --> put it right into push for node?
+			// is it so smart to always push everything out? just leads to lot of relabels to get it back. find out if anyone ever pushes less than possible residual capacity.
 
+			while (excess[e_node] > 0) {
+				Pin& pin = hg.getPin(current_pin[e]);
+				if (level[pin.pin] + 1 == level[e_node]) {
+					if constexpr (!relabel_to_front) {
+						if (excess[pin.pin] == 0) {
+							active_vertices_and_edges.push_back(e_node);
+						}
+					}
+
+					hg.flow(e) -= hg.absoluteFlowSent(pin);		// first push back on p1
+					hg.getInHe(pin).flow -= excess[e_node];		// then dump it all via p2/p4
+					excess[pin.pin] += excess[e_node];
+					excess[e_node] = 0;
+				} else {
+					if (++current_pin[e] == hg.endIndexPins(e)) {
+						// relabel
+						int min_level = std::numeric_limits<int>::max();
+						for (const Pin& pin2 : hg.pinsOf(e)) {
+							min_level = std::min(min_level, level[pin2.pin]);
+						}
+						level[e_node] = min_level + 1;
+						assert(level[e_node] < max_level);
+						current_pin[e] = hg.beginIndexPins(e);
+					}
+				}
+			}
 		}
 
 		void prepare(CutterState<Type>& cs) {
