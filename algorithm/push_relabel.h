@@ -64,6 +64,7 @@ namespace whfc {
 		bool exhaustFlow(CutterState<Type>& cs) {
 			prepare(cs);
 			max_level = hg.numNodes() + hg.numHyperedges();
+			if (active_vertices_and_edges.capacity() < max_level) active_vertices_and_edges.set_capacity(max_level);
 			const Node target = cs.targetPiercingNodes.front().node;
 			Flow old_excess = excess[target];
 
@@ -75,6 +76,8 @@ namespace whfc {
 					active_vertices_and_edges.push_back(x);
 				}
 			}
+
+			// relabel-to-front?
 
 			active_vertices_and_edges.clear();
 
