@@ -149,7 +149,7 @@ namespace whfc {
 				InHe& inc_he = hg.getInHe(current_hyperedge[u]);
 				const Node e_node(inc_he.e + num_nodes);
 				Flow residual = hg.residualCapacity(inc_he.e) + hg.absoluteFlowReceived(inc_he);
-				if (residual > 0 && level[e_node] == level[u] + 1) {
+				if (residual > 0 && level[e_node] + 1 == level[u]) {
 					if constexpr (!relabel_to_front) {
 						if (excess[e_node] == 0) {
 							assert(level[e_node] < max_level);
