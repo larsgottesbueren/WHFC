@@ -33,7 +33,6 @@ namespace whfc {
 
 		std::vector<Flow> excess;
 		boost::circular_buffer<Node> active_vertices_and_edges;
-		BitVector in_active_queue;
 		std::vector<uint32_t> level;
 		uint32_t max_level;
 
@@ -44,7 +43,6 @@ namespace whfc {
 				current_pin(hg.numHyperedges(), PinIndex::Invalid()),
 				current_hyperedge(hg.numNodes(), InHeIndex::Invalid()),
 				excess(hg.numNodes() + hg.numHyperedges(), 0),
-				in_active_queue(hg.numNodes() + hg.numHyperedges(), 0),
 				level(hg.numNodes() + hg.numHyperedges(), 0)
 		{
 
@@ -75,14 +73,9 @@ namespace whfc {
 				discharge(x);
 				if (excess[x] > 0 && level[x] < max_level) {
 					active_vertices_and_edges.push_back(x);
-				} else {
-					in_active_queue.reset(x);
 				}
 			}
 
-			for (Node x : active_vertices_and_edges) {
-				in_active_queue.reset(x);
-			}
 			active_vertices_and_edges.clear();
 
 			finish(cs);
