@@ -6,6 +6,7 @@
 #include "algorithm/dinic_bidirectional.h"
 #include "algorithm/dinic.h"
 #include "algorithm/dinic_scaling.h"
+#include "algorithm/push_relabel.h"
 
 
 namespace whfc {
@@ -92,7 +93,10 @@ int main(int argc, const char* argv[]) {
 	int f1 = whfc::runSnapshotTester<whfc::BidirectionalDinic>(hgfile); (void)(f1);
 	std::cout << "Plain Dinic" << std::endl;
 	int f2 = whfc::runSnapshotTester<whfc::Dinic>(hgfile); (void)(f2);
-	//assert(f1 == f2);
+	assert(f1 == f2);
+	std::cout << "Push Relabel" << std::endl;
+	int f3 = whfc::runSnapshotTester<whfc::PushRelabel>(hgfile); (void)(f3);
+	assert(f1 == f3);
 	//int f3 = whfc::runSnapshotTester<whfc::ScalingDinic>(hgfile);
 	//assert(f2 == f3);
 	return 0;
