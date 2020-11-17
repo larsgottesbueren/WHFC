@@ -33,8 +33,8 @@ namespace whfc {
 
 		std::vector<Flow> excess;
 		boost::circular_buffer<Node> active_vertices_and_edges;
-		std::vector<uint32_t> level;
-		uint32_t max_level;
+		std::vector<int> level;
+		int max_level;
 
 		Flow upperFlowBound = std::numeric_limits<Flow>::max();
 
@@ -142,7 +142,7 @@ namespace whfc {
 					// don't advance iterator if pushed
 					if (++current_hyperedge[u] == hg.endIndexHyperedges(u)) {
 						// relabel
-						uint32_t min_level = std::numeric_limits<uint32_t>::max();
+						int min_level = std::numeric_limits<int>::max();
 						for (const InHe& inc_he2 : hg.hyperedgesOf(u)){
 							if (hg.residualCapacity(inc_he2.e) + hg.absoluteFlowReceived(inc_he2) > 0) {
 								min_level = std::min(min_level, level[inc_he2.e + num_nodes]);
