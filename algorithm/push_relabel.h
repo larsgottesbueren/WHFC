@@ -89,7 +89,7 @@ namespace whfc {
 						}
 						front.clear();
 						active_vertices_and_edges.push_front(x);	// will be removed straight away but then kept in front
-					} else {
+					} else if (level[x] < max_level) {
 						front.push_back(x);
 					}
 				}
