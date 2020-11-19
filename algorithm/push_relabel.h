@@ -192,7 +192,6 @@ namespace whfc {
 							}
 						}
 						level[u] = min_level + 1;
-						assert(level[u] < max_level);
 						current_hyperedge[u] = hg.beginIndexHyperedges(u);
 					}
 				}
