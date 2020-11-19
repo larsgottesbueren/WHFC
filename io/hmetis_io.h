@@ -223,6 +223,7 @@ namespace whfc {
 				node_weights.reserve(num_nodes);
 				for (int64_t u = 0; u < num_nodes; ++u) {
 					node_weights.emplace_back( read_number(mapped_file, pos, length) );
+					if (node_weights.back() == 0) { throw std::runtime_error("read number didn't give a number"); }
 				}
 			} else {
 				node_weights.resize(num_nodes, 1);
