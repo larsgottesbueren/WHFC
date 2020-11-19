@@ -213,7 +213,7 @@ namespace whfc {
 					he_size++;
 					pins.emplace_back(pin - 1);
 					if (pin == 0) { throw std::runtime_error("read number didn't give a number"); }
-				} while (mapped_file[pos-1] != '\n');
+				} while (pos < length && mapped_file[pos-1] != '\n');
 
 				edge_sizes.emplace_back(he_size);
 				if (he_size <= 1) { throw std::runtime_error("File: " + filename + " has pin with zero or one pins."); }
