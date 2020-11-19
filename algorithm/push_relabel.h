@@ -172,10 +172,8 @@ namespace whfc {
 			// push p4 and p2
 			excess[e_node] += residual;
 			excess[u] -= residual;
-			inc_he.flow += residual;
-			// update flow value of hyperedge due to p4. First consume p2 completely, then p4
-			hg.flow(inc_he.e) += std::max(0, residual - hg.absoluteFlowReceived(inc_he));	// TODO actually hg.flowSent(max(0, res - flow_rec(inc_he)) but multiplier is 1 for now?
-
+			hg.flow(inc_he.e) += std::max(0, residual - hg.absoluteFlowReceived(inc_he));	// flow(e) changes only due to p4. first consume p2 completely
+			inc_he.flow += residual;														// inc_he update must be after flow(e) update
 			assert(hg.flow(inc_he.e) == in_flow(e_node));
 			assert(excess[e_node] == in_flow(e_node) - out_flow(e_node));	// these break running time guarantees in debug mode
 		}
