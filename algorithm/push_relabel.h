@@ -83,6 +83,13 @@ namespace whfc {
 			level.assign(hg.numNodes() + hg.numHyperedges(), 0);		// still TODO global relabeling instead of this
 			level[source] = max_level;
 
+			for (Hyperedge e : hg.hyperedgeIDs()) {
+				current_pin[e] = hg.beginIndexPins(e);
+			}
+			for (Node u : hg.nodeIDs()) {
+				current_hyperedge[u] = hg.beginIndexHyperedges(u);
+			}
+
 			for (InHe& in_he : hg.hyperedgesOf(source)) {
 				pushToHyperedge(source, Node(in_he.e + hg.numNodes()), in_he, hg.capacity(in_he.e));
 			}
