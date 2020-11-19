@@ -226,7 +226,6 @@ namespace whfc {
 							min_level = std::min(min_level, level[pin2.pin]);
 						}
 						level[e_node] = min_level + 1;
-						assert(level[e_node] < max_level);
 						current_pin[e] = hg.beginIndexPins(e);
 					}
 				}
