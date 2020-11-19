@@ -265,9 +265,9 @@ namespace whfc {
 				for (Pin& pin : hg.pinsOf(Hyperedge(u - hg.numNodes()))) {
 					const Flow f = hg.getInHe(pin).flow;
 					if (f > 0) {
-						out_flow += f;
+						in_flow += f;
 					} else {
-						in_flow -= f;
+						out_flow -= f;
 					}
 				}
 			}
