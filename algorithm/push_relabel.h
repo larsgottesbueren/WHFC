@@ -221,10 +221,9 @@ namespace whfc {
 			while (excess[e_node] > 0) {
 				Pin& pin = hg.getPin(current_pin[e]);
 				if (level[pin.pin] + 1 == level[e_node]) {
-					LOGGER << "push to node" << V(pin.pin) << V(e) << V(excess[e_node]);
 					if constexpr (!relabel_to_front) {
 						if (excess[pin.pin] == 0) {
-							active_vertices_and_edges.push_back(e_node);
+							active_vertices_and_edges.push_back(pin.pin);
 						}
 					}
 
