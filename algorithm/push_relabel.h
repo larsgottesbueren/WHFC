@@ -66,6 +66,8 @@ namespace whfc {
 			return bfs_queue;
 		}
 
+		static constexpr bool log = true;
+
 		bool exhaustFlow(CutterState<Type>& cs) {
 			prepare(cs);
 			max_level = hg.numNodes() + hg.numHyperedges();
@@ -168,7 +170,6 @@ namespace whfc {
 				}
 			}
 			// push p4 and p2
-			residual = std::min(residual, excess[u]);
 			excess[e_node] += residual;
 			excess[u] -= residual;
 			inc_he.flow += residual;
@@ -183,13 +184,12 @@ namespace whfc {
 			assert(hg.degree(u) > 0);
 			assert(level[u] < max_level);
 
-			const Hyperedge num_nodes(hg.numNodes());	// TaggedInteger conversion...
 			while (excess[u] > 0) {
 				InHe& inc_he = hg.getInHe(current_hyperedge[u]);
-				const Node e_node(inc_he.e + num_nodes);
+				const Node e_node(inc_he.e + hg.numNodes());
 				Flow residual = hg.residualCapacity(inc_he.e) + hg.absoluteFlowReceived(inc_he);
 				if (residual > 0 && level[e_node] + 1 == level[u]) {
-					pushToHyperedge(u, e_node, inc_he, residual);
+					pushToHyperedge(u, e_node, inc_he, std::min(excess[u], residual));
 				} else {
 					// don't advance iterator if pushed
 					if (++current_hyperedge[u] == hg.endIndexHyperedges(u)) {
@@ -197,7 +197,7 @@ namespace whfc {
 						int min_level = std::numeric_limits<int>::max();
 						for (const InHe& inc_he2 : hg.hyperedgesOf(u)){
 							if (hg.residualCapacity(inc_he2.e) + hg.absoluteFlowReceived(inc_he2) > 0) {
-								min_level = std::min(min_level, level[inc_he2.e + num_nodes]);
+								min_level = std::min(min_level, level[inc_he2.e + hg.numNodes()]);
 							}
 						}
 						level[u] = min_level + 1;
