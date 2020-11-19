@@ -79,6 +79,8 @@ namespace whfc {
 				pushToHyperedge(source, Node(in_he.e + hg.numNodes()), in_he, hg.capacity(in_he.e));
 			}
 
+			level.assign(hg.numNodes(), 0);
+			level[source] = max_level;
 
 			if constexpr (relabel_to_front) {
 				// must insert all non-terminal vertices into the queue, and cannot insert new excess vertices during pushes
@@ -102,10 +104,6 @@ namespace whfc {
 					}
 				}
 			} else {
-
-
-
-
 				while (excess[target] <= upperFlowBound && !active_vertices_and_edges.empty()) {
 					const Node x = active_vertices_and_edges.front();
 					active_vertices_and_edges.pop_front();
