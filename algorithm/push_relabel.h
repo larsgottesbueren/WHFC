@@ -75,12 +75,13 @@ namespace whfc {
 			target = cs.targetPiercingNodes.front().node;
 			Flow old_excess = excess[target];
 
+			// do level assignment before excesses are set --> global relabeling doesn't add anything to the active_vertices queue
+			level.assign(hg.numNodes(), 0);		// still TODO global relabeling instead of this
+			level[source] = max_level;
+
 			for (InHe& in_he : hg.hyperedgesOf(source)) {
 				pushToHyperedge(source, Node(in_he.e + hg.numNodes()), in_he, hg.capacity(in_he.e));
 			}
-
-			level.assign(hg.numNodes(), 0);		// still TODO global relabeling
-			level[source] = max_level;
 
 			if constexpr (relabel_to_front) {
 				// must insert all non-terminal vertices into the queue, and cannot insert new excess vertices during pushes
