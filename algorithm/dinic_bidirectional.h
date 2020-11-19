@@ -55,7 +55,7 @@ namespace whfc {
 
 		static constexpr bool lazy_iterators = false;
 
-		BidirectionalDinic(FlowHypergraph& hg) : BidirectionalDinicBase(hg)
+		BidirectionalDinic(FlowHypergraph& hg) : BidirectionalDinicBase(hg), timer("Bidir Dinic")
 		{
 			reset();
 		}

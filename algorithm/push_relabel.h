@@ -47,7 +47,8 @@ namespace whfc {
 				current_pin(hg.numHyperedges(), PinIndex::Invalid()),
 				current_hyperedge(hg.numNodes(), InHeIndex::Invalid()),
 				excess(hg.numNodes() + hg.numHyperedges(), 0),
-				level(hg.numNodes() + hg.numHyperedges(), 0)
+				level(hg.numNodes() + hg.numHyperedges(), 0),
+				timer("Push Relabel")
 		{
 
 		}

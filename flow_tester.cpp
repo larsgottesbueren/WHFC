@@ -89,12 +89,9 @@ int main(int argc, const char* argv[]) {
 	if (argc < 2 || argc > 3)
 		throw std::runtime_error("Usage: ./FlowTester hypergraphfile");
 	std::string hgfile = argv[1];
-	std::cout << "Bidir Dinic" << std::endl;
 	int f1 = whfc::runSnapshotTester<whfc::BidirectionalDinic>(hgfile); (void)(f1);
-	std::cout << "Plain Dinic" << std::endl;
 	int f2 = whfc::runSnapshotTester<whfc::Dinic>(hgfile); (void)(f2);
 	assert(f1 == f2);
-	std::cout << "Push Relabel" << std::endl;
 	int f3 = whfc::runSnapshotTester<whfc::PushRelabel>(hgfile); (void)(f3);
 	assert(f1 == f3);
 	//int f3 = whfc::runSnapshotTester<whfc::ScalingDinic>(hgfile);

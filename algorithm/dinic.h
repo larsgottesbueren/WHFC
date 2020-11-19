@@ -32,7 +32,7 @@ namespace whfc {
 		bool exhaustFlow(CutterState<Type>& cs) {
 			cs.flowValue += recycleDatastructuresFromGrowReachablePhase(cs);
 			bool hasCut = false;
-			TimeReporter timer;
+			TimeReporter timer("Plain Dinic");
 			while (cs.flowValue <= upperFlowBound) {
 				timer.start("BFS");
 				hasCut = !buildLayeredNetwork(cs, true);
