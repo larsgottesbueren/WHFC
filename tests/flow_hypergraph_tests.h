@@ -4,6 +4,7 @@
 #include "../logger.h"
 #include "../algorithm/ford_fulkerson.h"
 #include "../algorithm/dinic.h"
+#include "../algorithm/push_relabel.h"
 
 namespace whfc {
 namespace Test {
@@ -90,6 +91,7 @@ namespace Test {
 			//assert(tryFlowAlgo<BasicDepthFirstFordFulkerson>(file, expected_flow, s, t));
 			//assert(tryFlowAlgo<ScalingDepthFirstFordFulkerson>(file, expected_flow, s, t));
 			assert(tryFlowAlgo<Dinic>(file, expected_flow, s, t));
+			assert(tryFlowAlgo<PushRelabel>(file, expected_flow, s, t));
 		}
 		
 		void run() {
