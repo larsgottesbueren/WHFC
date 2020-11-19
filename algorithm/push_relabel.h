@@ -27,7 +27,7 @@ namespace whfc {
 		FlowHypergraph& hg;
 
 		LayeredQueue<Node> bfs_queue;		// for global relabeling
-		FixedCapacityStack<Pin> stack;	// for flow decomposition
+		FixedCapacityStack<Pin> stack;		// for flow decomposition
 		int direction = 0, previous_cutter_state_direction = 0;
 
 		std::vector<PinIndex> current_pin;
@@ -36,7 +36,9 @@ namespace whfc {
 		std::vector<Flow> excess;
 		boost::circular_buffer<Node> active_vertices_and_edges;
 		std::vector<int> level;
+
 		int max_level;
+		Node source, target;
 
 		Flow upperFlowBound = std::numeric_limits<Flow>::max();
 
@@ -69,8 +71,14 @@ namespace whfc {
 			if (active_vertices_and_edges.capacity() < size_t(max_level)) {
 				active_vertices_and_edges.set_capacity(max_level);
 			}
-			const Node target = cs.targetPiercingNodes.front().node;
+			source = cs.sourcePiercingNodes.front().node;
+			target = cs.targetPiercingNodes.front().node;
 			Flow old_excess = excess[target];
+
+			for (InHe& in_he : hg.hyperedgesOf(source)) {
+				pushToHyperedge(source, Node(in_he.e + hg.numNodes()), in_he, hg.capacity(in_he.e));
+			}
+
 
 			if constexpr (relabel_to_front) {
 				// must insert all non-terminal vertices into the queue, and cannot insert new excess vertices during pushes
@@ -94,6 +102,10 @@ namespace whfc {
 					}
 				}
 			} else {
+
+
+
+
 				while (excess[target] <= upperFlowBound && !active_vertices_and_edges.empty()) {
 					const Node x = active_vertices_and_edges.front();
 					active_vertices_and_edges.pop_front();
@@ -137,9 +149,27 @@ namespace whfc {
 				if (u < hg.numNodes()) {
 					dischargeNode(u);
 				} else {
-					dischargeEdge(Hyperedge(u - hg.numNodes()), u);
+					dischargeHyperedge(Hyperedge(u - hg.numNodes()), u);
 				}
 			}
+		}
+
+		void pushToHyperedge(Node u, Node e_node, InHe& inc_he, Flow residual) {
+			if constexpr (!relabel_to_front) {
+				if (excess[e_node] == 0) {
+					active_vertices_and_edges.push_back(e_node);
+				}
+			}
+			// push p4 and p2
+			residual = std::min(residual, excess[u]);
+			excess[e_node] += residual;
+			excess[u] -= residual;
+			inc_he.flow += residual;
+			// update flow value of hyperedge due to p4. First consume p2 completely, then p4
+			hg.flow(inc_he.e) += std::max(0, residual - hg.absoluteFlowReceived(inc_he));	// TODO actually hg.flowSent(max(0, res - flow_rec(inc_he)) but multiplier is 1 for now?
+
+			assert(hg.flow(inc_he.e) == in_flow(e_node));
+			assert(excess[e_node] == in_flow(e_node) - out_flow(e_node));	// these break running time guarantees in debug mode
 		}
 
 		void dischargeNode(Node u) {
@@ -152,21 +182,7 @@ namespace whfc {
 				const Node e_node(inc_he.e + num_nodes);
 				Flow residual = hg.residualCapacity(inc_he.e) + hg.absoluteFlowReceived(inc_he);
 				if (residual > 0 && level[e_node] + 1 == level[u]) {
-					if constexpr (!relabel_to_front) {
-						if (excess[e_node] == 0) {
-							active_vertices_and_edges.push_back(e_node);
-						}
-					}
-					// push p4 and p2
-					residual = std::min(residual, excess[u]);
-					excess[e_node] += residual;
-					excess[u] -= residual;
-					inc_he.flow += residual;
-					// update flow value of hyperedge due to p4. First consume p2 completely, then p4
-					hg.flow(inc_he.e) += std::max(0, residual - hg.absoluteFlowReceived(inc_he));	// TODO actually hg.flowSent(max(0, res - flow_rec(inc_he)) but multiplier is 1 for now?
-
-					assert(hg.flow(inc_he.e) == in_flow(e_node));
-					assert(excess[e_node] == in_flow(e_node) - out_flow(e_node));	// these break running time guarantees in debug mode
+					pushToHyperedge(u, e_node, inc_he, residual);
 				} else {
 					// don't advance iterator if pushed
 					if (++current_hyperedge[u] == hg.endIndexHyperedges(u)) {
@@ -185,7 +201,7 @@ namespace whfc {
 			}
 		}
 
-		void dischargeEdge(Hyperedge e, Node e_node) {
+		void dischargeHyperedge(Hyperedge e, Node e_node) {
 			assert(!hg.pinsOf(e).empty());
 			assert(level[e_node] < max_level);
 			// if hyperedge has excess we always hit the first pin with appropriate level. --> put it right into push for node?
