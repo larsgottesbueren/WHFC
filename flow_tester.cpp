@@ -97,6 +97,7 @@ int main(int argc, const char* argv[]) {
 	int f2 = whfc::runSnapshotTester<whfc::Dinic>(hgfile); (void)(f2);
 	assert(f1 == f2);
 	int f3 = whfc::runSnapshotTester<whfc::PushRelabel>(hgfile); (void)(f3);
+	std::cout << V(f1) << " " << V(f3) << std::endl;
 	assert(f1 == f3);
 	//int f3 = whfc::runSnapshotTester<whfc::ScalingDinic>(hgfile);
 	//assert(f2 == f3);

@@ -66,7 +66,7 @@ namespace whfc {
 			return bfs_queue;
 		}
 
-		static constexpr bool log = true;
+		static constexpr bool log = false;
 
 		bool exhaustFlow(CutterState<Type>& cs) {
 			prepare(cs);
@@ -91,7 +91,8 @@ namespace whfc {
 			}
 
 			for (InHe& in_he : hg.hyperedgesOf(source)) {
-				pushToHyperedge(source, Node(in_he.e + hg.numNodes()), in_he, hg.capacity(in_he.e));
+				LOGGER << "initial push" << V(in_he.e) << V(hg.residualCapacity(in_he.e) + hg.absoluteFlowReceived(in_he));
+				pushToHyperedge(source, Node(in_he.e + hg.numNodes()), in_he, hg.residualCapacity(in_he.e) + hg.absoluteFlowReceived(in_he));
 			}
 			timer.stop("Levels and Initial Excesses");
 
@@ -120,10 +121,18 @@ namespace whfc {
 				}
 			} else {
 				timer.start("Discharge");
-				while (excess[target] <= upperFlowBound && !active_vertices_and_edges.empty()) {
+				LOGGER << V(active_vertices_and_edges.size());
+				//print();
+				while (/*excess[target] <= upperFlowBound && */ !active_vertices_and_edges.empty()) {
 					const Node x = active_vertices_and_edges.front();
 					active_vertices_and_edges.pop_front();
+					if (x < hg.numNodes()) {
+						LOGGER << "discharge node" << x;
+					} else {
+						LOGGER << "discharge hyperedge" << (x - hg.numNodes());
+					}
 					discharge(x);
+					//print();
 				}
 				timer.stop("Discharge");
 			}
@@ -135,7 +144,7 @@ namespace whfc {
 			timer.report(std::cout);
 
 			Flow flow_delta = excess[target] - old_excess;
-			LOGGER << V(flow_delta);
+			LOGGER << V(flow_delta) << V(excess[target]);
 			assert(flow_delta >= 0);
 			cs.flowValue += flow_delta;
 			return flow_delta > 0;
@@ -158,6 +167,24 @@ namespace whfc {
 		}
 
 	private:
+
+		void print() {
+			std::cout << "----\nexcesses:\t";
+			size_t i = 0;
+			for (Flow& exc : excess) {
+				if (i == hg.numNodes()) { std::cout << "|| "; }
+				std::cout << exc << " ";
+				++i;
+			}
+			std::cout << "\nlevels:\t\t";
+			i = 0;
+			for (int l : level) {
+				if (i == hg.numNodes()) { std::cout << "|| "; }
+				std::cout << l << " ";
+				++i;
+			}
+			std::cout << std::endl;
+		}
 
 		void discharge(Node u) {
 			if (excess[u] > 0 && level[u] < max_level) {
@@ -189,6 +216,8 @@ namespace whfc {
 			assert(hg.degree(u) > 0);
 			assert(level[u] < max_level);
 
+			if (u == target) { LOGGER << V(u) << V(excess[u]) << V(level[u]) << V(hg.degree(u)); }
+
 			while (excess[u] > 0) {
 				InHe& inc_he = hg.getInHe(current_hyperedge[u]);
 				const Node e_node(inc_he.e + hg.numNodes());
@@ -205,6 +234,7 @@ namespace whfc {
 								min_level = std::min(min_level, level[inc_he2.e + hg.numNodes()]);
 							}
 						}
+						LOGGER << "Relabel node" << V(u) << V(level[u]) << V(min_level + 1);
 						level[u] = min_level + 1;
 						current_hyperedge[u] = hg.beginIndexHyperedges(u);
 					}
@@ -222,7 +252,7 @@ namespace whfc {
 				Pin& pin = hg.getPin(current_pin[e]);
 				if (level[pin.pin] + 1 == level[e_node]) {
 					if constexpr (!relabel_to_front) {
-						if (excess[pin.pin] == 0) {
+						if (pin.pin != target && excess[pin.pin] == 0) {
 							active_vertices_and_edges.push_back(pin.pin);
 						}
 					}
@@ -238,6 +268,7 @@ namespace whfc {
 						for (const Pin& pin2 : hg.pinsOf(e)) {
 							min_level = std::min(min_level, level[pin2.pin]);
 						}
+						LOGGER << "Relabel hyperedge" << V(e) << V(level[e_node]) << V(min_level + 1);
 						level[e_node] = min_level + 1;
 						current_pin[e] = hg.beginIndexPins(e);
 					}
