@@ -80,7 +80,7 @@ namespace whfc {
 
 			timer.start("Levels and Initial Excesses");
 			// do level assignment before excesses are set --> global relabeling doesn't add anything to the active_vertices queue
-			level.assign(hg.numNodes(), 0);		// still TODO global relabeling instead of this
+			level.assign(hg.numNodes() + hg.numHyperedges(), 0);		// still TODO global relabeling instead of this
 			level[source] = max_level;
 
 			for (InHe& in_he : hg.hyperedgesOf(source)) {
