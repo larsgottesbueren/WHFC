@@ -76,6 +76,7 @@ namespace whfc {
 			target = cs.targetPiercingNodes.front().node;
 			Flow old_excess = excess[target];
 
+			timer.start("Levels and Initial Excesses");
 			// do level assignment before excesses are set --> global relabeling doesn't add anything to the active_vertices queue
 			level.assign(hg.numNodes(), 0);		// still TODO global relabeling instead of this
 			level[source] = max_level;
@@ -83,6 +84,9 @@ namespace whfc {
 			for (InHe& in_he : hg.hyperedgesOf(source)) {
 				pushToHyperedge(source, Node(in_he.e + hg.numNodes()), in_he, hg.capacity(in_he.e));
 			}
+			timer.stop("Levels and Initial Excesses");
+
+			LOGGER << V(max_level) << V(source) << V(target) << V(excess[source]) << V(excess[target]) << V(active_vertices_and_edges.size());
 
 			if constexpr (relabel_to_front) {
 				// must insert all non-terminal vertices into the queue, and cannot insert new excess vertices during pushes
@@ -106,11 +110,13 @@ namespace whfc {
 					}
 				}
 			} else {
+				timer.start("Discharge");
 				while (excess[target] <= upperFlowBound && !active_vertices_and_edges.empty()) {
 					const Node x = active_vertices_and_edges.front();
 					active_vertices_and_edges.pop_front();
 					discharge(x);
 				}
+				timer.stop("Discharge");
 			}
 
 
@@ -120,6 +126,7 @@ namespace whfc {
 			timer.report(std::cout);
 
 			Flow flow_delta = excess[target] - old_excess;
+			LOGGER << V(flow_delta);
 			assert(flow_delta >= 0);
 			cs.flowValue += flow_delta;
 			return flow_delta > 0;
@@ -142,7 +149,6 @@ namespace whfc {
 		}
 
 	private:
-		static constexpr bool log = false;
 
 		void discharge(Node u) {
 			if (excess[u] > 0 && level[u] < max_level) {
@@ -155,6 +161,7 @@ namespace whfc {
 		}
 
 		void pushToHyperedge(Node u, Node e_node, InHe& inc_he, Flow residual) {
+			//LOGGER << "push to hyperedge" << V(u) << V(e_node) << V(residual);
 			if constexpr (!relabel_to_front) {
 				if (excess[e_node] == 0) {
 					active_vertices_and_edges.push_back(e_node);
@@ -209,6 +216,7 @@ namespace whfc {
 			while (excess[e_node] > 0) {
 				Pin& pin = hg.getPin(current_pin[e]);
 				if (level[pin.pin] + 1 == level[e_node]) {
+					LOGGER << "push to node" << V(pin.pin) << V(e) << V(excess[e_node]);
 					if constexpr (!relabel_to_front) {
 						if (excess[pin.pin] == 0) {
 							active_vertices_and_edges.push_back(e_node);
