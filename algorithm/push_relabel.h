@@ -79,7 +79,7 @@ namespace whfc {
 				pushToHyperedge(source, Node(in_he.e + hg.numNodes()), in_he, hg.capacity(in_he.e));
 			}
 
-			level.assign(hg.numNodes(), 0);
+			level.assign(hg.numNodes(), 0);		// still TODO global relabeling
 			level[source] = max_level;
 
 			if constexpr (relabel_to_front) {
