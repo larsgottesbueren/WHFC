@@ -9,7 +9,7 @@ namespace whfc {
 	public:
 		struct WHFCInformation {
 			std::array<NodeWeight, 2> maxBlockWeight;
-			Flow upperFlowBound;
+			Flow upperFlowBound = -1;
 			Node s, t;
 		};
 		
@@ -31,11 +31,13 @@ namespace whfc {
 			std::string fileSuffix = ".whfc";
 			std::ifstream f(hgpath + fileSuffix);
 			WHFCInformation i;
-			f >> i.maxBlockWeight[0] >> i.maxBlockWeight[1]
-			  >> i.upperFlowBound
-			  >> i.s
-			  >> i.t;
-			f.close();
+			if (f) {
+				f >> i.maxBlockWeight[0] >> i.maxBlockWeight[1]
+				  >> i.upperFlowBound
+				  >> i.s
+				  >> i.t;
+				f.close();
+			}
 			return i;
 		}
 
