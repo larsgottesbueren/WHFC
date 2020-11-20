@@ -22,6 +22,7 @@ namespace whfc {
 		FlowHypergraph hg = HMetisIO::readFlowHypergraph(filename);
 		if (info.upperFlowBound == -1) {	// additional data file doesn't exist
 			s = Node(0); t = Node(hg.numNodes() - 1);
+			for (auto& x : info.maxBlockWeight) { x = std::numeric_limits<NodeWeight>::max(); }
 		}
 
 
@@ -96,6 +97,7 @@ int main(int argc, const char* argv[]) {
 	int f1 = whfc::runSnapshotTester<whfc::BidirectionalDinic>(hgfile); (void)(f1);
 	int f2 = whfc::runSnapshotTester<whfc::Dinic>(hgfile); (void)(f2);
 	assert(f1 == f2);
+	std::cout << V(f1) << std::endl;
 	int f3 = whfc::runSnapshotTester<whfc::PushRelabel>(hgfile); (void)(f3);
 	std::cout << V(f1) << " " << V(f3) << std::endl;
 	assert(f1 == f3);

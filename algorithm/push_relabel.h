@@ -122,7 +122,7 @@ namespace whfc {
 			} else {
 				timer.start("Discharge");
 				LOGGER << V(active_vertices_and_edges.size());
-				//print();
+				print();
 				while (/*excess[target] <= upperFlowBound && */ !active_vertices_and_edges.empty()) {
 					const Node x = active_vertices_and_edges.front();
 					active_vertices_and_edges.pop_front();
@@ -132,7 +132,7 @@ namespace whfc {
 						LOGGER << "discharge hyperedge" << (x - hg.numNodes());
 					}
 					discharge(x);
-					//print();
+					print();
 				}
 				timer.stop("Discharge");
 			}
@@ -183,6 +183,14 @@ namespace whfc {
 				std::cout << l << " ";
 				++i;
 			}
+			std::cout << "\nflow:\t\t";
+			for (Hyperedge e : hg.hyperedgeIDs()) {
+				std::cout << V(e) << " " << V(hg.flow(e)) << " ";
+				for (Pin& pin : hg.pinsOf(e)) {
+					std::cout << ", " << pin.pin << " : " << hg.getInHe(pin).flow;
+				}
+				std::cout << " | ";
+			}
 			std::cout << std::endl;
 		}
 
@@ -197,43 +205,48 @@ namespace whfc {
 		}
 
 		void pushToHyperedge(Node u, Node e_node, InHe& inc_he, Flow residual) {
-			//LOGGER << "push to hyperedge" << V(u) << V(e_node) << V(residual);
+			LOGGER << "push to hyperedge" << V(inc_he.e) << V(inc_he.flow) << V(residual) << V(u) ;
 			if constexpr (!relabel_to_front) {
 				if (excess[e_node] == 0) {
 					active_vertices_and_edges.push_back(e_node);
 				}
 			}
-			// push p4 and p2
 			excess[e_node] += residual;
 			excess[u] -= residual;
-			hg.flow(inc_he.e) += std::max(0, residual - hg.absoluteFlowReceived(inc_he));	// flow(e) changes only due to p4. first consume p2 completely
-			inc_he.flow += residual;														// inc_he update must be after flow(e) update
-			assert(hg.flow(inc_he.e) == in_flow(e_node));
-			assert(excess[e_node] == in_flow(e_node) - out_flow(e_node));	// these break running time guarantees in debug mode
+			hg.flow(inc_he.e) -= std::min(residual, hg.absoluteFlowReceived(inc_he));
+			inc_he.flow += residual;
+
+			assert(hg.flow(inc_he.e) == out_flow(e_node));
+			assert(excess[e_node] == in_flow(e_node) - out_flow(e_node));	// breaks running time in debug mode
 		}
 
 		void dischargeNode(Node u) {
+			assert(u != source && u != target);
 			assert(hg.degree(u) > 0);
 			assert(level[u] < max_level);
-
-			if (u == target) { LOGGER << V(u) << V(excess[u]) << V(level[u]) << V(hg.degree(u)); }
 
 			while (excess[u] > 0) {
 				InHe& inc_he = hg.getInHe(current_hyperedge[u]);
 				const Node e_node(inc_he.e + hg.numNodes());
-				Flow residual = hg.residualCapacity(inc_he.e) + hg.absoluteFlowReceived(inc_he);
-				if (residual > 0 && level[e_node] + 1 == level[u]) {
-					pushToHyperedge(u, e_node, inc_he, std::min(excess[u], residual));
+				//Flow residual = hg.residualCapacity(inc_he.e) + hg.absoluteFlowReceived(inc_he);
+				//if (residual > 0 && level[e_node] + 1 == level[u]) {
+				//	pushToHyperedge(u, e_node, inc_he, std::min(excess[u], residual));
+				if (level[e_node] + 1 == level[u]) {
+					// dump it all to edge_in. never makes sense to push more than cap(e)
+					// can push cap(e)-flow(e) to edge_out, and push at most flow(e) back to other pins sending flow in.
+					pushToHyperedge(u, e_node, inc_he, excess[u] /* std::min(excess[u], hg.capacity(e) */ );
 				} else {
 					// don't advance iterator if pushed
 					if (++current_hyperedge[u] == hg.endIndexHyperedges(u)) {
 						// relabel
 						int min_level = std::numeric_limits<int>::max();
 						for (const InHe& inc_he2 : hg.hyperedgesOf(u)){
-							if (hg.residualCapacity(inc_he2.e) + hg.absoluteFlowReceived(inc_he2) > 0) {
+							//if (hg.residualCapacity(inc_he2.e) + hg.absoluteFlowReceived(inc_he2) > 0) {
+								assert(level[u] <= level[inc_he2.e + hg.numNodes()] + 1);	// how is this assert ever gonna hold ?
 								min_level = std::min(min_level, level[inc_he2.e + hg.numNodes()]);
-							}
+							//}
 						}
+						assert(min_level >= level[u]);
 						LOGGER << "Relabel node" << V(u) << V(level[u]) << V(min_level + 1);
 						level[u] = min_level + 1;
 						current_hyperedge[u] = hg.beginIndexHyperedges(u);
@@ -245,29 +258,43 @@ namespace whfc {
 		void dischargeHyperedge(Hyperedge e, Node e_node) {
 			assert(!hg.pinsOf(e).empty());
 			assert(level[e_node] < max_level);
-			// if hyperedge has excess we always hit the first pin with appropriate level. --> put it right into push for node?
-			// is it so smart to always push everything out? just leads to lot of relabels to get it back. find out if anyone ever pushes less than possible residual capacity.
 
 			while (excess[e_node] > 0) {
 				Pin& pin = hg.getPin(current_pin[e]);
-				if (level[pin.pin] + 1 == level[e_node]) {
+				Flow residual = std::min(hg.residualCapacity(e) + hg.absoluteFlowSent(pin), excess[e_node]);
+				if (level[pin.pin] + 1 == level[e_node] && residual > 0) {
+					LOGGER << "push to node" << V(pin.pin) << V(hg.getInHe(pin).flow) << V(e) << V(excess[e_node]) << V(residual);
 					if constexpr (!relabel_to_front) {
 						if (pin.pin != target && excess[pin.pin] == 0) {
 							active_vertices_and_edges.push_back(pin.pin);
 						}
 					}
 
-					hg.flow(e) -= hg.absoluteFlowSent(pin);		// first push back on p1
-					hg.getInHe(pin).flow -= excess[e_node];		// then dump it all via p2/p4
-					excess[pin.pin] += excess[e_node];
-					excess[e_node] = 0;
+					hg.flow(e) += std::max(0, residual - hg.absoluteFlowSent(pin));		// drain flow sent first, then push the rest
+					hg.getInHe(pin).flow -= residual;
+					excess[e_node] -= residual;
+					excess[pin.pin] += residual;
+
+					assert(hg.flow(e) == out_flow(e_node));
+					assert(excess[e_node] == in_flow(e_node) - out_flow(e_node));
 				} else {
 					if (++current_pin[e] == hg.endIndexPins(e)) {
 						// relabel
 						int min_level = std::numeric_limits<int>::max();
 						for (const Pin& pin2 : hg.pinsOf(e)) {
-							min_level = std::min(min_level, level[pin2.pin]);
+							if (hg.residualCapacity(e) + hg.absoluteFlowSent(pin2) > 0) {
+								assert(level[e_node] <= level[pin2.pin] + 1);
+								min_level = std::min(min_level, level[pin2.pin]);
+							}
 						}
+						if (min_level == std::numeric_limits<int>::max()) {
+							LOGGER << V(e) << V(hg.flow(e)) << V(in_flow(e_node)) << V(out_flow(e_node)) << V(excess[e_node]) << V(hg.capacity(e));
+							for (Pin& p2 : hg.pinsOf(e)) {
+								LOGGER << V(p2.pin) << V(hg.getInHe(p2).flow) << V(level[p2.pin]);
+							}
+							std::abort();
+						}
+						assert(min_level >= level[e_node]);
 						LOGGER << "Relabel hyperedge" << V(e) << V(level[e_node]) << V(min_level + 1);
 						level[e_node] = min_level + 1;
 						current_pin[e] = hg.beginIndexPins(e);
