@@ -9,7 +9,6 @@
 
 #include <cstdlib>
 #include <memory>
-#include <cxxabi.h>
 
 // Introducing namespace Meta, which shall contain all functions used for template meta programming
 
@@ -124,73 +123,6 @@ namespace Meta {
 
 	template<typename T, typename LIST>
 	inline constexpr bool Contains() {return Implementation::Contains<T, LIST>::Value;}
-
-	// TO STRING (for Types)
-
-	namespace Implementation {
-		inline std::string type(const char* name) noexcept {
-			int status = -4;
-			std::unique_ptr<char, void(*)(void*)> res {
-					abi::__cxa_demangle(name, NULL, NULL, &status),
-					std::free
-			};
-			return (status==0) ? res.get() : name;
-		}
-
-		inline std::string type(const std::string& name) noexcept {
-			return type(name.c_str());
-		}
-
-
-/*
-		inline std::string cleanType(const char* name) noexcept {
-			std::string typeID = type(name);
-			typeID = typeID.substr(9, typeID.size() - 10);
-			typeID = String::replaceAll(typeID, "> ", ">");
-			typeID = String::replaceAll(typeID, "::__debug::", "::");
-			size_t i = String::firstIndexOf(typeID, ", std::allocator<");
-			while (i < typeID.size()) {
-				int parenthesisCount = 1;
-				size_t j;
-				for (j = i + 17; j < typeID.size(); j++) {
-					if (parenthesisCount == 0) break;
-					if (typeID[j] == '<') parenthesisCount++;
-					if (typeID[j] == '>') parenthesisCount--;
-				}
-				typeID = typeID.substr(0, i) + typeID.substr(j);
-				i = String::firstIndexOf(typeID, ", std::allocator<");
-			}
-			return typeID;
-		}
-
-
-
-		inline std::string cleanType(const std::string& name) noexcept {
-			return cleanType(name.c_str());
-		}
-
-
-
-		template<typename T>
-		struct Type;
-		*/
-	}
-
-	/*
-	template<typename T>
-	inline std::string type(T&&) noexcept {
-		return Implementation::cleanType(typeid(ID<T&&>).name());
-	}
-
-	template<typename T>
-	inline std::string type() noexcept {
-		return Implementation::cleanType(typeid(ID<T>).name());
-	}
-
-	template<typename T>
-	struct Type {Type(){Implementation::Type<T> type;}};
-
-	*/
 
 	// MAKE CONST
 
