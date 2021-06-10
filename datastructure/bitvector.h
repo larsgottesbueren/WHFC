@@ -17,7 +17,7 @@ namespace HackBoostDynamicBitset {
 	};
 	
 	template <typename Block, typename Allocator>
-	size_t num_blocks(const boost::dynamic_bitset<Block, Allocator>& b, size_t pos) {
+	inline size_t num_blocks(const boost::dynamic_bitset<Block, Allocator>& b, size_t pos) {
 		if (pos == 0)
 			return 0;
 		return ((pos-1) / b.bits_per_block) + 1;
@@ -37,8 +37,8 @@ namespace boost {
 namespace whfc {
 	
 	using BitVector = boost::dynamic_bitset<>;
-	
-	void bitvector_copy_first_n(BitVector& to, BitVector& from, size_t n) {
+
+	inline void bitvector_copy_first_n(BitVector& to, BitVector& from, size_t n) {
 		using BOI = HackBoostDynamicBitset::BlockOutputIterator;
 		size_t n_blocks = HackBoostDynamicBitset::num_blocks(from, n);
 		boost::to_block_range(to, BOI(n_blocks, from, to));
