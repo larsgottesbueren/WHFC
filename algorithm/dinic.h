@@ -21,7 +21,7 @@ namespace whfc {
 
 
 		FlowHypergraph& hg;
-    size_t num_nodes, num_edges;
+		size_t num_nodes, num_edges;
 		LayeredQueue<Node> queue;
 		struct StackFrame {
 			Node u;
