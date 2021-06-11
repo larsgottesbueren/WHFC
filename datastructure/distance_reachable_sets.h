@@ -12,23 +12,23 @@ namespace whfc {
 		bool contains(const DistanceT d) const { return d >= base && d < upper_bound; }
 		bool operator==(const DistanceRange& o) const { return o.base == base && o.upper_bound == upper_bound; }
 	};
-	
+
 	class DistanceReachableHyperedges;
-	
+
 	class DistanceReachableNodes : public ReachableNodesBase {
 	public:
 		friend class DistanceReachableHyperedges;
-		
+
 		using Base = ReachableNodesBase;
 		using DistanceT = DistanceRange::DistanceT;
-		
-		
+
+
 		DistanceReachableNodes(const FlowHypergraph& hg) : Base(hg), distance(hg.numNodes(), unreachableDistance), s(sourceSettledDistance), t(targetSettledDistance) {
 			assert(4 + hg.numNodes() * 2 < std::numeric_limits<DistanceT>::max());
 		}
 
 		inline size_t capacity() const { return distance.size(); }
-		
+
 		inline bool isSource(const Node u) const { return distance[u] == sourceSettledDistance; }
 		inline bool isTarget(const Node u) const { return distance[u] == targetSettledDistance; }
 		inline bool isSourceReachable__unsafe__(const Node u) const { return isSource(u) || distance[u] >= s.base; }	//saves a comparison in Dinic
@@ -42,8 +42,9 @@ namespace whfc {
 		inline void unreachTarget(const Node u) { assert(isTargetReachable(u) && !isSourceReachable(u)); distance[u] = unreachableDistance; Base::unreachTarget(u); }
 		inline void unsettleSource(const Node u) { assert(isSource(u)); Base::unsettleSource(u); unreachSource(u); }
 		inline void unsettleTarget(const Node u) { assert(isTarget(u)); Base::unsettleTarget(u); unreachTarget(u); }
-		
+
 		void fullReset() {
+      distance.resize(hg.numNodes());
 			std::fill_n(distance.begin(), hg.numNodes(), unreachableDistance);
 			sourceSettledDistance = 1;
 			targetSettledDistance = 2;
@@ -52,7 +53,7 @@ namespace whfc {
 			t = DistanceRange(targetSettledDistance);
 			Base::fullReset();
 		}
-		
+
 		inline DistanceT hop() {
 			return ++runningDistance;
 		}
@@ -93,19 +94,19 @@ namespace whfc {
 			verifyDistancesAreStale();
 			s.upper_bound = runningDistance;
 		}
-		
+
 		void setPiercingNodeDistance(const Node piercing_node, bool reset) {
 			distance[piercing_node] = reset ? sourceSettledDistance : s.base;
 		}
-		
+
 		void verifyDistancesAreStale() const {
 			assert(std::none_of(distance.begin(), distance.begin() + hg.numNodes(), [&](const DistanceT& dist) { return dist >= runningDistance; }));
 		}
-		
+
 		bool isDistanceStale(const Node u) const {
 			return distance[u] < s.base;
 		}
-		
+
 		void verifyDisjoint() const {
 			// disjoint by default
 			// but check whether distance ranges are disjoint
@@ -113,21 +114,21 @@ namespace whfc {
 			assert(t.base <= t.upper_bound);
 			assert(s.upper_bound <= t.base || t.upper_bound <= s.base);
 		}
-		
+
 		void verifySettledIsSubsetOfReachable() const {
 			// subset by default
 		}
-		
+
 		DistanceT sourceBaseDistance() const {
 			return s.base;
 		}
-		
+
 		inline bool isBaseDistanceSafe() const {
 			return hg.numNodes() + static_cast<size_t>(runningDistance) < static_cast<size_t>(std::numeric_limits<DistanceT>::max());
 		}
-		
+
 		std::vector<DistanceT> distance;
-		
+
 		static constexpr DistanceT unreachableDistance = 0;
 		DistanceT sourceSettledDistance = 1, targetSettledDistance = 2;
 		static constexpr DistanceT resetBaseDistance = 3;
@@ -138,10 +139,10 @@ namespace whfc {
 	class DistanceReachableHyperedges {
 	public:
 		using DistanceT = DistanceReachableNodes::DistanceT;
-		
+
 		DistanceReachableHyperedges(const FlowHypergraph& hg) : inDistance(hg.numHyperedges(), unreachableDistance), outDistance(hg.numHyperedges(), unreachableDistance),
 																hg(hg), s(sourceSettledDistance), t(targetSettledDistance) { }
-		
+
 		inline size_t capacity() const { return outDistance.size(); }
 		inline bool areAllPinsSources(const Hyperedge e) const { return outDistance[e] == sourceSettledDistance; }
 		inline bool areAllPinsSourceReachable__unsafe__(const Hyperedge e) const { return areAllPinsSources(e) || outDistance[e] >= s.base; }
@@ -159,32 +160,32 @@ namespace whfc {
 			assert(areAllPinsSources(e));
 			outDistance[e] = unreachableDistance;
 		}
-		
+
 		void unsettleFlowSendingPins(const Hyperedge e) {
 			assert(areFlowSendingPinsSources(e));
 			inDistance[e] = unreachableDistance;
 		}
-		
+
 		void settleAllPinsTarget(const Hyperedge e) {
 			assert(inDistance[e] != targetSettledDistance);
 			inDistance[e] = targetSettledDistance;
 		}
-		
+
 		void settleFlowSendingPinsTarget(const Hyperedge e) {
 			assert(outDistance[e] != targetSettledDistance);
 			outDistance[e] = targetSettledDistance;
 		}
-		
+
 		void unsettleAllPinsTarget(const Hyperedge e) {
 			assert(inDistance[e] == targetSettledDistance);
 			inDistance[e] = unreachableDistance;
 		}
-		
+
 		void unsettleFlowSendingPinsTarget(const Hyperedge e) {
 			assert(outDistance[e] == targetSettledDistance);
 			outDistance[e] = unreachableDistance;
 		}
-		
+
 		inline DistanceT hop() { return ++runningDistance; }
 
 		void flipViewDirection() {
@@ -194,6 +195,8 @@ namespace whfc {
 		}
 
 		void fullReset() {
+      inDistance.resize(hg.numHyperedges());
+      outDistance.resize(hg.numHyperedges());
 			std::fill_n(inDistance.begin(), hg.numHyperedges(), unreachableDistance);
 			std::fill_n(outDistance.begin(), hg.numHyperedges(), unreachableDistance);
 			sourceSettledDistance = 1; targetSettledDistance = 2;
@@ -201,7 +204,7 @@ namespace whfc {
 			s = DistanceRange(sourceSettledDistance);
 			t = DistanceRange(targetSettledDistance);
 		}
-		
+
 		void resetSourceReachableToSource(bool augmenting_path_available) {
 			if (!augmenting_path_available) {
 #ifndef NDEBUG
@@ -238,14 +241,14 @@ namespace whfc {
 			verifyDistancesAreStale();
 			s.upper_bound = runningDistance;
 		}
-		
+
 		void verifyDisjoint() const { /*disjoint by default*/ }
 		void verifySettledIsSubsetOfReachable() const { /*is subset by default*/ }
 		void verifyDistancesAreStale() const {
 			assert(std::none_of(outDistance.begin(), outDistance.begin() + hg.numHyperedges(), [&](const DistanceT& dist) { return dist >= runningDistance; }));
 			assert(std::none_of(inDistance.begin(), inDistance.begin() + hg.numHyperedges(), [&](const DistanceT& dist) { return dist >= runningDistance; }));
 		}
-		
+
 		void compareDistances(DistanceReachableNodes& n) {
 			unused(n);
 			assert(n.sourceSettledDistance == sourceSettledDistance);//same direction?
@@ -254,7 +257,7 @@ namespace whfc {
 			assert(n.t == t);
 			assert(n.isBaseDistanceSafe() == isBaseDistanceSafe());
 		}
-		
+
 		std::vector<DistanceT> inDistance, outDistance;
 	//protected:
 		const FlowHypergraph& hg;
@@ -263,9 +266,9 @@ namespace whfc {
 		static constexpr DistanceT resetBaseDistance = 3;
 		DistanceT runningDistance = resetBaseDistance;
 		DistanceRange s, t;
-		
+
 		inline bool isBaseDistanceSafe() const { return hg.numNodes() + static_cast<size_t>(runningDistance) < static_cast<size_t>(std::numeric_limits<DistanceT>::max()) ; }
-		
+
 	};
 
 }
