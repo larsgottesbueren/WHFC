@@ -63,7 +63,7 @@ public:
 
 	void reset(const size_t newN) {
 		mostBalancedCutMode = false;
-    was_added.resize(newN);
+		was_added.resize(newN);
 		was_added.reset(0, newN);
 
 		for (Index i = 0; i < 2; ++i) {

@@ -35,7 +35,7 @@ namespace whfc {
 		Flow upperFlowBound = std::numeric_limits<Flow>::max();
 
 		DinicBase(FlowHypergraph& hg) : hg(hg), num_nodes(hg.numNodes()), num_edges(hg.numHyperedges()),
-                    queue(hg.numNodes()), stack(hg.numNodes()),
+										queue(hg.numNodes()), stack(hg.numNodes()),
 										current_flow_sending_pin(hg.numHyperedges(), PinIndex::Invalid()),
 										current_flow_receiving_pin(hg.numHyperedges(), PinIndex::Invalid()),
 										current_pin(hg.numHyperedges(), PinIndex::Invalid()),
@@ -65,21 +65,21 @@ namespace whfc {
 		}
 
 		void reset() {
-      if ( hg.numNodes() > num_nodes ) {
-        num_nodes = hg.numNodes();
-        LayeredQueue<Node> tmp_queue(num_nodes);
-        std::swap(queue, tmp_queue);
-        FixedCapacityStack<StackFrame> tmp_stack(num_nodes);
-        std::swap(stack, tmp_stack);
-        current_hyperedge.assign(num_nodes, InHeIndex::Invalid());
-      }
+			if ( hg.numNodes() > num_nodes ) {
+				num_nodes = hg.numNodes();
+				LayeredQueue<Node> tmp_queue(num_nodes);
+				std::swap(queue, tmp_queue);
+				FixedCapacityStack<StackFrame> tmp_stack(num_nodes);
+				std::swap(stack, tmp_stack);
+				current_hyperedge.assign(num_nodes, InHeIndex::Invalid());
+			}
 
-      if ( hg.numHyperedges() > num_edges ) {
-        num_edges = hg.numHyperedges();
-        current_flow_sending_pin.assign(num_edges, PinIndex::Invalid());
-        current_flow_receiving_pin.assign(num_edges, PinIndex::Invalid());
-        current_pin.assign(num_edges, PinIndex::Invalid());
-      }
+			if ( hg.numHyperedges() > num_edges ) {
+				num_edges = hg.numHyperedges();
+				current_flow_sending_pin.assign(num_edges, PinIndex::Invalid());
+				current_flow_receiving_pin.assign(num_edges, PinIndex::Invalid());
+				current_pin.assign(num_edges, PinIndex::Invalid());
+			}
 		}
 
 		void alignDirection(CutterState<Type>& cs) {

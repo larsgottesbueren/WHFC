@@ -70,7 +70,7 @@ namespace whfc {
 		}
 
 		void reset(size_t newN) {
-      was_added.resize(newN);
+			was_added.resize(newN);
 			was_added.reset(0, newN);
 			elements.clear();
 			persistent_begin = 0;
