@@ -28,7 +28,9 @@ namespace whfc {
 		}
 		
 	public:
-		explicit PersistentSet(const size_t nT) : was_added(nT) { }
+		explicit PersistentSet(const size_t nT) {
+			was_added.reserve(nT);
+		}
 		
 		bool wasAdded(const T x) const {
 			return was_added[x];
@@ -70,6 +72,7 @@ namespace whfc {
 		}
 		
 		void reset(size_t newN) {
+			was_added.resize(newN);
 			was_added.reset(0, newN);
 			elements.clear();
 			persistent_begin = 0;

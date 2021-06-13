@@ -44,7 +44,7 @@ namespace whfc {
 		inline void unsettleTarget(const Node u) { assert(isTarget(u)); Base::unsettleTarget(u); unreachTarget(u); }
 		
 		void fullReset() {
-			std::fill_n(distance.begin(), hg.numNodes(), unreachableDistance);
+			distance.assign(hg.numNodes(), unreachableDistance);
 			sourceSettledDistance = 1;
 			targetSettledDistance = 2;
 			runningDistance = resetBaseDistance;
@@ -194,8 +194,8 @@ namespace whfc {
 		}
 
 		void fullReset() {
-			std::fill_n(inDistance.begin(), hg.numHyperedges(), unreachableDistance);
-			std::fill_n(outDistance.begin(), hg.numHyperedges(), unreachableDistance);
+			inDistance.assign(hg.numHyperedges(), unreachableDistance);
+			outDistance.assign(hg.numHyperedges(), unreachableDistance);
 			sourceSettledDistance = 1; targetSettledDistance = 2;
 			runningDistance = resetBaseDistance;
 			s = DistanceRange(sourceSettledDistance);

@@ -32,14 +32,16 @@ namespace whfc {
 		std::vector<InHeIndex> current_hyperedge;
 		
 		Flow upperFlowBound = std::numeric_limits<Flow>::max();
+
+		void reset() {
+			current_flow_sending_pin.resize(hg.numHyperedges(), PinIndex::Invalid());
+			current_flow_receiving_pin.resize(hg.numHyperedges(), PinIndex::Invalid());
+			current_pin.resize(hg.numHyperedges(), PinIndex::Invalid());
+			current_hyperedge.resize(hg.numNodes(), InHeIndex::Invalid());
+		}
 		
-		DinicBase(FlowHypergraph& hg) : hg(hg), queue(hg.numNodes()), stack(hg.numNodes()),
-										current_flow_sending_pin(hg.numHyperedges(), PinIndex::Invalid()),
-										current_flow_receiving_pin(hg.numHyperedges(), PinIndex::Invalid()),
-										current_pin(hg.numHyperedges(), PinIndex::Invalid()),
-										current_hyperedge(hg.numNodes(), InHeIndex::Invalid())
-		{
-		
+		DinicBase(FlowHypergraph& hg) : hg(hg), queue(hg.numNodes()), stack(hg.numNodes()) {
+			reset();
 		}
 		
 		void flipViewDirection() {
@@ -57,15 +59,8 @@ namespace whfc {
 		static constexpr bool grow_reachable_marks_flow_sending_pins_when_marking_all_pins = true;
 		static constexpr bool log = false;
 		
-		Dinic(FlowHypergraph& hg) : DinicBase(hg)
-		{
-			reset();
-		}
-		
-		void reset() {
-		
-		}
-		
+		Dinic(FlowHypergraph& hg) : DinicBase(hg) { }
+
 		void alignDirection(CutterState<Type>& cs) {
 			if (direction != cs.currentViewDirection()) {
 				flipViewDirection();
@@ -313,13 +308,14 @@ namespace whfc {
 		
 		ScalingDinic(FlowHypergraph& hg) : DinicBase(hg)
 		{
-			reset();
+			scaling.initialize(hg.maxHyperedgeCapacity);
 		}
 		
 		
 		void reset() {
 			// TODO maybe don't reset to full capacity after piercing. maybe something less
 			scaling.initialize(hg.maxHyperedgeCapacity);
+			DinicBase::reset();
 		}
 		
 		void alignDirection(CutterState<Type>& cs) {

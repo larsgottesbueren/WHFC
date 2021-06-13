@@ -136,15 +136,17 @@ namespace whfc {
 		
 		void reset() {
 			if (useIsolatedNodes) {
-				std::fill_n(mixedIncidentHyperedges.begin(), hg.numNodes(), InHeIndex(0));
-				std::fill_n(DPTable.begin(), weight + 1, TableEntry());
+				mixedIncidentHyperedges.assign(hg.numNodes(), InHeIndex(0));
+				DPTable.assign(weight + 1, TableEntry());
 				sumRanges.clear();
 				nextSumRanges.clear();
 				newSumAvailable = true;
 				nodes.clear();
 				nodesNotInTheDPTable.clear();
 				weight = NodeWeight(0);
+				hasSettledSourcePins.resize( hg.numHyperedges());
 				hasSettledSourcePins.reset(0, hg.numHyperedges());
+				hasSettledTargetPins.resize( hg.numHyperedges());
 				hasSettledTargetPins.reset(0, hg.numHyperedges());
 				sumRanges.emplace_back(NodeWeight(0), NodeWeight(0));
 				DPTable[0].sumsIndex = 0;

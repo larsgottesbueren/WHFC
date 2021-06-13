@@ -20,7 +20,9 @@ public:
 	HopDistance& operator[](const size_t idx) {
 		return distance[idx];
 	}
-	
+
+	void resize(size_t n) { distance.resize(n, 0); }
+
 	int multiplier = -1;
 	std::vector<HopDistance> distance;
 };
@@ -63,6 +65,7 @@ public:
 	
 	void reset(const size_t newN) {
 		mostBalancedCutMode = false;
+		was_added.resize(newN);
 		was_added.reset(0, newN);
 		
 		for (Index i = 0; i < 2; ++i) {
@@ -170,6 +173,8 @@ public:
 		assert(sourceSide->multiplier == -1);
 		sourceSide->reset(newN);
 		targetSide->reset(newN);
+
+		// TODO distance has to be resized earlier. so they can already be set while constructing the flow hypergraph
 	}
 	
 	void enterMostBalancedCutMode() {
