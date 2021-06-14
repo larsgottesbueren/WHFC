@@ -6,7 +6,6 @@
 #include "../datastructure/node_border.h"
 #include "../datastructure/flow_hypergraph.h"
 #include "../datastructure/isolated_nodes.h"
-#include "../datastructure/bitset_reachable_sets.h"
 #include "../util/math.h"
 #include "../util/random.h"
 

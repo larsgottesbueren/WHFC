@@ -4,7 +4,6 @@
 #include "../datastructure/queue.h"
 #include "../datastructure/stack.h"
 #include "../datastructure/distance_reachable_sets.h"
-#include "ford_fulkerson.h"
 
 namespace whfc {
 	class DinicBase {
@@ -295,7 +294,51 @@ namespace whfc {
 		}
 		
 	};
-	
+
+
+	class Scaling {
+	private:
+		static constexpr Flow DefaultInitialCapacity = 1 << 24;
+		Flow initialCapacity = DefaultInitialCapacity;
+		Flow capacity = initialCapacity;
+		Flow CutOff = 3; //NOTE choose sensibly
+		bool enabled = true;
+	public:
+
+		void reduceCapacity() {
+			capacity /= 2;
+		}
+
+		void reset() {
+			capacity = initialCapacity;
+		}
+
+		Flow getCapacity() const {
+			return use() ? capacity : 1;
+		}
+
+		void initialize(Flow maxScalingCap) {
+			maxScalingCap = std::min(DefaultInitialCapacity, maxScalingCap);
+			initialCapacity = 1;
+			while (2 * initialCapacity <= maxScalingCap) {
+				initialCapacity *= 2;
+			}
+			capacity = initialCapacity;
+		}
+
+		void enable() {
+			enabled = true;
+		}
+
+		void disable() {
+			enabled = false;
+		}
+
+		bool use() const {
+			return enabled && capacity > CutOff;
+		}
+	};
+
 	class ScalingDinic : public DinicBase {
 	public:
 		using Type = ScalingDinic;
@@ -304,7 +347,7 @@ namespace whfc {
 		static constexpr bool grow_reachable_marks_flow_sending_pins_when_marking_all_pins = true;
 		static constexpr bool log = false;
 		
-		FlowCommons::Scaling scaling;
+		Scaling scaling;
 		
 		ScalingDinic(FlowHypergraph& hg) : DinicBase(hg)
 		{

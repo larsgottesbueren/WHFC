@@ -2,7 +2,6 @@
 
 #include "../io/hmetis_io.h"
 #include "../logger.h"
-#include "../algorithm/ford_fulkerson.h"
 #include "../algorithm/dinic.h"
 
 namespace whfc {
@@ -83,12 +82,6 @@ namespace Test {
 		}
 		
 		void flowAlgoTest(std::string file, Flow expected_flow, Node s, Node t) {
-			//assert(tryFlowAlgo<BasicFordFulkerson>(file, expected_flow, s, t));
-			//assert(tryFlowAlgo<ScalingFordFulkerson>(file, expected_flow, s, t));
-			//assert(tryFlowAlgo<BasicEdmondsKarp >(file, expected_flow, s, t));
-			//assert(tryFlowAlgo<ScalingEdmondsKarp>(file, expected_flow, s, t));
-			//assert(tryFlowAlgo<BasicDepthFirstFordFulkerson>(file, expected_flow, s, t));
-			//assert(tryFlowAlgo<ScalingDepthFirstFordFulkerson>(file, expected_flow, s, t));
 			assert(tryFlowAlgo<Dinic>(file, expected_flow, s, t));
 		}
 		
