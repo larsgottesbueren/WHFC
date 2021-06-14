@@ -18,8 +18,10 @@ namespace whfc {
 		Node s = info.s;
 		Node t = info.t;
 		std::cout << s << " " << t << " " << info.maxBlockWeight[0] << " " << info.maxBlockWeight[1] << " " << info.upperFlowBound<< std::endl;
+
+		FlowHypergraphBuilder hg;
+		HMetisIO::readFlowHypergraphWithBuilder(hg, filename);
 		
-		FlowHypergraphBuilder hg = HMetisIO::readFlowHypergraphWithBuilder(filename);
 		if (s >= hg.numNodes() || t >= hg.numNodes())
 			throw std::runtime_error("s or t not within node id range");
 		

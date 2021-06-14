@@ -16,9 +16,8 @@ int1 ceil_div(int1 numerator, int2 denominator) {
 	return numerator/denominator + (numerator % denominator == 0 ? 0 : 1);
 }
 
-
 namespace whfc {
-		//every tagged integer takes as first template argument an integer tag, which is unique to its type
+	//every tagged integer takes as first template argument an integer tag, which is unique to its type
 	using Node = TaggedInteger<0, uint32_t, std::numeric_limits<uint32_t>::max(), 0>;
 	static constexpr Node invalidNode = Node::Invalid();
 	using Hyperedge = TaggedInteger<1, uint32_t, std::numeric_limits<uint32_t>::max(), 0>;

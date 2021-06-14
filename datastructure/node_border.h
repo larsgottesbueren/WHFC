@@ -14,10 +14,12 @@ public:
 	}
 	
 	HopDistance getHopDistanceFromCut(const Node x, const int own_multiplier) const {
+		assert(x < distance.size());
 		return std::max(own_multiplier * distance[x], 0); // distances of vertices on opposite side are negative --> throw away
 	}
 	
 	HopDistance& operator[](const size_t idx) {
+		assert(idx < distance.size());
 		return distance[idx];
 	}
 
@@ -170,11 +172,10 @@ public:
 	}
 	
 	void reset(const size_t newN) {
+		distance.resize(newN);		// resize here in case distances are not used. however, users have to resize themselves at construction time
 		assert(sourceSide->multiplier == -1);
 		sourceSide->reset(newN);
 		targetSide->reset(newN);
-
-		// TODO distance has to be resized earlier. so they can already be set while constructing the flow hypergraph
 	}
 	
 	void enterMostBalancedCutMode() {

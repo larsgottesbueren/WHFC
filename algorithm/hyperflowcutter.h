@@ -29,6 +29,7 @@ namespace whfc {
 				piercer(hg, cs, timer)
 		{
 			cs.rng.setSeed(seed);
+			reset();
 		}
 
 		void reset() {
