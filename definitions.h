@@ -6,7 +6,6 @@
 #include <random>
 #include <chrono>
 #include <algorithm>
-#include <boost/dynamic_bitset.hpp>
 #include "logger.h"
 #include "util/timer.h"
 #include "util/range.h"

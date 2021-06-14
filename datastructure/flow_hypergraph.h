@@ -2,7 +2,6 @@
 
 #include "../definitions.h"
 #include "../util/unused.h"
-#include <boost/dynamic_bitset.hpp>
 
 namespace whfc {
 
