@@ -3,6 +3,7 @@
 #include "io/whfc_io.h"
 #include "algorithm/parallel_push_relabel.h"
 
+#include <tbb/task_scheduler_init.h>
 
 namespace whfc {
 	void runSnapshotTester(const std::string& filename) {
@@ -23,9 +24,11 @@ namespace whfc {
 }
 
 int main(int argc, const char* argv[]) {
-	if (argc < 2 || argc > 3)
-		throw std::runtime_error("Usage: ./FlowTester hypergraphfile");
+	if (argc != 3)
+		throw std::runtime_error("Usage: ./FlowTester hypergraphfile #threads");
 	std::string hgfile = argv[1];
+	int threads = std::stoi(argv[2]);
+	tbb::task_scheduler_init tsi(threads);
 	whfc::runSnapshotTester(hgfile);
 	return 0;
 }
