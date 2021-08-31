@@ -28,6 +28,7 @@ public:
 		while (true) {
 			if (work_since_last_global_relabel > global_relabel_work_threshold) {
 				globalRelabel(source, target);
+				work_since_last_global_relabel = 0;
 			}
 			if (next_active.empty()) {
 				break;
