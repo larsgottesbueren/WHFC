@@ -1,5 +1,10 @@
 cmake_minimum_required(VERSION 3.10)
 project(WHFC)
+
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+find_package(TBB REQUIRED)
+include_directories(SYSTEM ${TBB_INCLUDE_DIRS})
+
 set(CMAKE_CXX_STANDARD 17)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Wall -Wpedantic -Wunused")
@@ -13,3 +18,6 @@ add_executable(WHFC main.cpp)
 add_executable(TESTS run_tests.cpp)
 
 add_executable(SnapshotTester snapshot_tester.cpp)
+
+add_executable(FlowTester flow_tester.cpp)
+target_link_libraries(FlowTester ${TBB_LIBRARIES})
