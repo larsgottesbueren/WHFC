@@ -1,8 +1,10 @@
 #include <iostream>
 #include "io/hmetis_io.h"
 #include "io/whfc_io.h"
+
 #include "algorithm/parallel_push_relabel.h"
 
+#include "util/tbb_thread_pinning.h"
 #include <tbb/task_scheduler_init.h>
 
 namespace whfc {
@@ -29,6 +31,8 @@ int main(int argc, const char* argv[]) {
 	std::string hgfile = argv[1];
 	int threads = std::stoi(argv[2]);
 	tbb::task_scheduler_init tsi(threads);
+	whfc::pinning_observer thread_pinner;
+	thread_pinner.observe(true);
 	whfc::runSnapshotTester(hgfile);
 	return 0;
 }
