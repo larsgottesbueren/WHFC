@@ -5,11 +5,6 @@
 #include <iostream>
 #include <thread>
 
-//Warning: this is Linux only!
-
-//For community detection we pin to as few sockets as possible, to avoid NUMA, even if that sacrifices caches.
-//The current "scheme" expects the cores of a NUMA node to have consecutive IDs. Need to adapt for machines where this is not the case.
-
 //simplified the example from https://software.intel.com/en-us/blogs/2013/10/31/applying-intel-threading-building-blocks-observers-for-thread-affinity-on-intel
 
 namespace whfc {
