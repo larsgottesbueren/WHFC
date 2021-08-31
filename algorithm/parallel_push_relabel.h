@@ -17,33 +17,129 @@ using vec = std::vector<T, tbb::scalable_allocator<T> >;
 class ParallelPushRelabel {
 public:
 	using Type = ParallelPushRelabel;
+	static constexpr bool log = true;
 
 	explicit ParallelPushRelabel(FlowHypergraph& hg) : hg(hg), next_active(0) { }
 
 
-	Flow computeFlow(Node source, Node target) {
+	Flow computeFlow(Node s, Node t) {
+		source = s; target = t;
 		clearDatastructures();
 		work_since_last_global_relabel = std::numeric_limits<size_t>::max();
-		saturateSourceEdges(source);
-		while (true) {
+		saturateSourceEdges();
+		while (!next_active.empty()) {
+			size_t num_active = next_active.size();
+			next_active.swap_container(active);
 			if (work_since_last_global_relabel > global_relabel_work_threshold) {
-				globalRelabel(source, target);
+				globalRelabel();
 				work_since_last_global_relabel = 0;
 			}
-			if (next_active.empty()) {
-				break;
-			}
-			dischargeActiveNodes();
+			dischargeActiveNodes(num_active);
 		}
 		flowDecomposition();
 		return excess[target];
 	}
 
-	void dischargeActiveNodes() {
+	void dischargeActiveNodes(size_t num_active) {
+		if (++round == 0) {
+			last_activated.assign(max_level, 0);
+		}
+		next_active.clear();
+		tbb::parallel_for(0UL, num_active, [&](size_t i) {
+			const Node u = active[i];
+			if (level[u] >= max_level) {
+				return;
+			}
+			if (isHypernode(u)) {
+				dischargeHypernode(u);
+			} else if (isOutNode(u)) {
+				LOGGER << "discharge out node";
+			} else {
+				LOGGER << "discharge in node";
+			}
+		});
+	}
+
+	void dischargeHypernode(Node u) {
+		auto next_active_handle = next_active.local_buffer();
+		auto push = [&](Node v) { if (v != target && activate(v)) next_active_handle.push_back(v); };
+		size_t work = 0;
+
+		Flow my_excess = excess[u];
+		int my_level = level[u];
+		while (my_excess > 0 && my_level < max_level) {
+			int new_level = max_level;
+			bool skipped = false;
+
+			auto i = hg.beginIndexHyperedges(u);
+			for ( ; my_excess > 0 && i < hg.endIndexHyperedges(u); ++i) {
+				Hyperedge e = hg.getInHe(i).e; Node e_in = edgeToInNode(e);
+				if (my_level == level[e_in] + 1) {
+					if (excess[e_in] > 0 && !winEdge(u, e_in)) {
+						skipped = true;
+						continue;
+					}
+					flow[inNodeIncidenceIndex(i)] += my_excess;	// inf cap. TODO but does it make sense to push more than the hyperedge can take??? my sequential code has this as well but commented out
+					__atomic_fetch_add(&excess_diff[e_in], my_excess, __ATOMIC_RELAXED);
+					my_excess -= my_excess;
+					push(e_in);
+				} else if (my_level <= level[e_in]) {
+					new_level = std::min(new_level, level[e_in] + 1);
+				}
+			}
+			work += i - hg.beginIndexHyperedges(u);
+
+			if (my_excess == 0) {
+				break;
+			}
+
+			for (i = hg.beginIndexHyperedges(u); my_excess > 0 && u < hg.endIndexHyperedges(u); ++i) {
+				Hyperedge e = hg.getInHe(i).e; Node e_out = edgeToOutNode(e);
+				if (my_level == level[e_out] + 1) {
+					Flow residual = std::min(my_excess, flow[outNodeIncidenceIndex(i)]);
+					if (residual > 0) {
+						flow[outNodeIncidenceIndex(i)] -= residual;
+						my_excess -= residual;
+						__atomic_fetch_add(&excess_diff[e_out], residual, __ATOMIC_RELAXED);
+						push(e_out);
+					}
+				} else if (my_level <= level[e_out] && flow[outNodeIncidenceIndex(i)] > 0) {
+					new_level = std::min(new_level, level[e_out] + 1);
+				}
+			}
+			work += i - hg.beginIndexHyperedges(u);
+
+			if (my_excess == 0 || skipped) {
+				break;
+			}
+
+			my_level = new_level;	// relabel
+		}
+
+		if (my_level != level[u]) {		// make relabel visible
+			next_level[u] = my_level;
+		}
+		if (my_excess < excess[u]) {	// go again in the next round excess left
+			push(u);
+		}
+		__atomic_fetch_sub(&excess_diff[u], (excess[u] - my_excess), __ATOMIC_RELAXED);		// update excess (in the second pass that applies the updates)
+	}
+
+	void dischargeInNode(Node e_in) {
+		while (excess[e_in] > 0) {
+
+		}
 
 	}
 
-	void globalRelabel(Node source, Node target) {
+	void dischargeOutNode(Node e_out) {
+		while (excess[e_out] > 0) {
+
+		}
+
+	}
+
+	void globalRelabel() {
 		level.assign(max_level, max_level);
 
 		next_active.clear();
@@ -55,7 +151,7 @@ public:
 			tbb::parallel_for(first, last, [&](size_t i) {
 				auto next_layer = next_active.local_buffer();
 				auto push = [&](const Node v) {
-					if (level[v] != max_level && __atomic_exchange_n(&level[v], dist, __ATOMIC_ACQ_REL) == max_level) {
+					if (level[v] != max_level && __atomic_exchange_n(&level[v], dist, __ATOMIC_ACQ_REL) != max_level) {
 						next_layer.push_back(v);
 					}
 				};
@@ -98,7 +194,7 @@ public:
 		}
 	}
 
-	void saturateSourceEdges(Node source) {
+	void saturateSourceEdges() {
 		level[source] = max_level;
 		for (InHeIndex inc_iter : hg.incidentHyperedgeIndices(source)) {
 			const Hyperedge e = hg.getInHe(inc_iter).e;
@@ -106,6 +202,7 @@ public:
 			excess[source] -= d;
 			excess[edgeToInNode(e)] += d;
 			flow[inNodeIncidenceIndex(inc_iter)] += d;
+			next_active.push_back_atomic(edgeToInNode(e));
 		}
 	}
 
@@ -116,22 +213,30 @@ public:
 	void clearDatastructures() {
 		out_node_offset = hg.numPins();
 		bridge_node_offset = 2 * hg.numPins();
+
 		max_level = hg.numNodes() + 2 * hg.numHyperedges();
+
 		flow.assign(2 * hg.numPins() + hg.numHyperedges(), 0);
 		excess.assign(max_level, 0);
 		level.assign(max_level, 0);
+
 		next_active.adapt_capacity(max_level);
 		active.resize(max_level);
+		last_activated.assign(max_level, 0);
+		round = 0;
+
 		global_relabel_work_threshold = (global_relabel_alpha * max_level + 2 * hg.numPins() + hg.numHyperedges()) / global_relabel_frequency;
 	}
 
 private:
 	int max_level = 0;
 	FlowHypergraph& hg;
-	vec<Flow> flow, excess;
-	vec<int> level;
+	vec<Flow> flow, excess, excess_diff;
+	vec<int> level, next_level;
 	BufferedVector<Node> next_active;
 	vec<Node> active;
+
+	Node source, target;
 
 	static constexpr size_t global_relabel_alpha = 6;
 	static constexpr size_t global_relabel_frequency = 5;
@@ -141,7 +246,7 @@ private:
 
 	size_t inNodeIncidenceIndex(InHeIndex inc_he_ind) const { return inc_he_ind; }
 	size_t outNodeIncidenceIndex(InHeIndex inc_he_ind) const { return inc_he_ind + out_node_offset; }
-	size_t bridgeNodeIndex(Hyperedge he) const { return he + 2 * bridge_node_offset; }
+	size_t bridgeNodeIndex(Hyperedge he) const { return he + bridge_node_offset; }
 
 	bool isHypernode(Node u) const { return u < hg.numNodes(); }
 	bool isInNode(Node u) const { return u >= hg.numNodes() && u < hg.numNodes() + hg.numHyperedges(); }
@@ -150,6 +255,17 @@ private:
 	Hyperedge outNodeToEdge(Node u) const { return Hyperedge(u - hg.numNodes() - hg.numHyperedges()); }
 	Node edgeToInNode(Hyperedge e) const { return Node(e + hg.numNodes()); }
 	Node edgeToOutNode(Hyperedge e) const { return Node(e + hg.numNodes() + hg.numHyperedges()); }
+
+	bool winEdge(Node u, Node v) {
+		return level[u] == level[v] + 1 || level[u] < level[v] - 1 || (level[u] == level[v] && u < v);
+	}
+
+	vec<uint32_t> last_activated;
+	uint32_t round = 0;
+	bool activate(Node u) {
+		return last_activated[u] != round && __atomic_exchange_n(&last_activated[u], round, __ATOMIC_ACQ_REL) != round;
+	}
+
 };
 
 }
