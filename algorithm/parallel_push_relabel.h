@@ -35,6 +35,7 @@ public:
 				work_since_last_global_relabel = 0;
 			}
 			dischargeActiveNodes(num_active);
+			applyUpdates(num_active);
 		}
 		flowDecomposition();
 		return excess[target];
@@ -57,6 +58,21 @@ public:
 			} else {
 				LOGGER << "discharge in node";
 			}
+		});
+		next_active.finalize();
+	}
+
+	void applyUpdates(size_t num_active) {
+		tbb::parallel_for(0UL, num_active, [&](size_t i) {
+			const Node u = active[i];
+			level[u] = next_level[u];
+			excess[u] += excess_diff[u];
+			excess_diff[u] = 0;
+		});
+		tbb::parallel_for(0UL, next_active.size(), [&](size_t i) {
+			const Node u = next_active[i];
+			excess[u] += excess_diff[u];
+			excess_diff[u] = 0;
 		});
 	}
 
@@ -131,7 +147,7 @@ public:
 
 	void dischargeInNode(Node e_in) {
 		Flow my_excess = excess[e_in];
-		while (excess[e_in] > 0) {
+		while (my_excess > 0) {
 
 		}
 
