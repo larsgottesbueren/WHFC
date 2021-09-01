@@ -25,7 +25,6 @@ public:
 	Flow computeFlow(Node s, Node t) {
 		source = s; target = t;
 		clearDatastructures();
-		work_since_last_global_relabel = std::numeric_limits<size_t>::max();
 		saturateSourceEdges();
 		while (!next_active.empty()) {
 			size_t num_active = next_active.size();
@@ -377,7 +376,8 @@ public:
 		active.resize(max_level);
 		last_activated.assign(max_level, 0);
 		round = 0;
-
+		
+		work_since_last_global_relabel = std::numeric_limits<size_t>::max();
 		global_relabel_work_threshold = (global_relabel_alpha * max_level + 2 * hg.numPins() + hg.numHyperedges()) / global_relabel_frequency;
 	}
 
