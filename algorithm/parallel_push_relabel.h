@@ -95,9 +95,10 @@ public:
 						skipped = true;
 						continue;
 					}
-					flow[inNodeIncidenceIndex(i)] += my_excess;	// inf cap. TODO but does it make sense to push more than the hyperedge can take??? my sequential code has this as well but commented out
-					__atomic_fetch_add(&excess_diff[e_in], my_excess, __ATOMIC_RELAXED);
-					my_excess -= my_excess;
+					const Flow d = my_excess; 	// inf cap. TODO but does it make sense to push more than the hyperedge can take??? my sequential code has this as well but commented out
+					flow[inNodeIncidenceIndex(i)] += d;
+					__atomic_fetch_add(&excess_diff[e_in], d, __ATOMIC_RELAXED);
+					my_excess -= d;
 					push(e_in);
 				} else if (my_level <= level[e_in]) {
 					new_level = std::min(new_level, level[e_in] + 1);
@@ -116,11 +117,11 @@ public:
 						skipped = true;
 						continue;
 					}
-					Flow residual = std::min(my_excess, flow[outNodeIncidenceIndex(i)]);
-					if (residual > 0) {
-						flow[outNodeIncidenceIndex(i)] -= residual;
-						my_excess -= residual;
-						__atomic_fetch_add(&excess_diff[e_out], residual, __ATOMIC_RELAXED);
+					const Flow d = std::min(my_excess, flow[outNodeIncidenceIndex(i)]);
+					if (d > 0) {
+						flow[outNodeIncidenceIndex(i)] -= d;
+						my_excess -= d;
+						__atomic_fetch_add(&excess_diff[e_out], d, __ATOMIC_RELAXED);
 						push(e_out);
 					}
 				} else if (my_level <= level[e_out] && flow[outNodeIncidenceIndex(i)] > 0) {
