@@ -80,14 +80,15 @@ public:
 		auto next_active_handle = next_active.local_buffer();
 		auto push = [&](Node v) { if (v != target && activate(v)) next_active_handle.push_back(v); };
 		size_t work = 0;
-
 		Flow my_excess = excess[u];
 		int my_level = level[u];
+
 		while (my_excess > 0 && my_level < max_level) {
 			int new_level = max_level;
 			bool skipped = false;
 
 			auto i = hg.beginIndexHyperedges(u);
+			// push to in-nodes of incident nets
 			for ( ; my_excess > 0 && i < hg.endIndexHyperedges(u); ++i) {
 				Hyperedge e = hg.getInHe(i).e; Node e_in = edgeToInNode(e);
 				if (my_level == level[e_in] + 1) {
@@ -97,8 +98,8 @@ public:
 					}
 					const Flow d = my_excess; 	// inf cap. TODO but does it make sense to push more than the hyperedge can take??? my sequential code has this as well but commented out
 					flow[inNodeIncidenceIndex(i)] += d;
-					__atomic_fetch_add(&excess_diff[e_in], d, __ATOMIC_RELAXED);
 					my_excess -= d;
+					__atomic_fetch_add(&excess_diff[e_in], d, __ATOMIC_RELAXED);
 					push(e_in);
 				} else if (my_level <= level[e_in]) {
 					new_level = std::min(new_level, level[e_in] + 1);
@@ -110,6 +111,7 @@ public:
 				break;
 			}
 
+			// push back to out-nodes of incident nets
 			for (i = hg.beginIndexHyperedges(u); my_excess > 0 && u < hg.endIndexHyperedges(u); ++i) {
 				Hyperedge e = hg.getInHe(i).e; Node e_out = edgeToOutNode(e);
 				if (my_level == level[e_out] + 1) {
@@ -133,7 +135,6 @@ public:
 			if (my_excess == 0 || skipped) {
 				break;
 			}
-
 			my_level = new_level;	// relabel
 		}
 
@@ -147,11 +148,71 @@ public:
 	}
 
 	void dischargeInNode(Node e_in) {
+		auto next_active_handle = next_active.local_buffer();
+		auto push = [&](Node v) { if (v != target && activate(v)) next_active_handle.push_back(v); };
+		size_t work = 0;
 		Flow my_excess = excess[e_in];
-		while (my_excess > 0) {
+		int my_level = level[e_in];
+		Hyperedge e = inNodeToEdge(e_in);
+		Node e_out = edgeToOutNode(e);
 
+		while (my_excess > 0 && my_level < max_level) {
+			int new_level = max_level;
+			bool skipped = false;
+
+			// push through bridge edge
+			if (my_level == level[e_out] + 1) {
+				if (excess[e_out] > 0 && !winEdge(e_in, e_out)) {
+					skipped = true;
+				} else {
+					Flow d = std::min(hg.capacity(e) - flow[bridgeEdgeIndex(e)], my_excess);
+					if (d > 0) {
+						flow[bridgeEdgeIndex(e)] += d;
+						my_excess -= d;
+						__atomic_fetch_add(&excess_diff[e_out], d, __ATOMIC_RELAXED);
+						push(e_out);
+					}
+				}
+			} else if (my_level <= level[e_out] && flow[bridgeEdgeIndex(e)] < hg.capacity(e)) {
+				new_level = std::min(new_level, level[e_out]);
+			}
+
+			// push back to pins
+			auto i = hg.beginIndexPins(e);
+			for ( ; my_excess > 0 && i < hg.endIndexPins(e); ++i) {
+				Node v = hg.getPin(i).pin;
+				size_t j = inNodeIncidenceIndex(hg.getPin(i).he_inc_iter);
+				Flow d = flow[j];
+				if (my_level == level[v] + 1) {
+					if (excess[v] > 0 && !winEdge(e_in, v)) {
+						skipped = true;
+					} else {
+						if (d > 0) {
+							d = std::min(d, my_excess);
+							flow[j] -= d;
+							my_excess -= d;
+							__atomic_fetch_add(&excess_diff[v], d, __ATOMIC_RELAXED);
+							push(v);
+						}
+					}
+				} else if (my_level <= level[v] && d > 0) {
+					new_level = std::min(new_level, level[v]);
+				}
+			}
+
+			if (my_excess == 0 || skipped) {
+				break;
+			}
+			my_level = new_level; 	// relabel
 		}
 
+		if (my_level != level[e_in]) {		// make relabel visible
+			next_level[e_in] = my_level;
+		}
+		if (my_level < max_level && my_excess < excess[e_in]) {	// go again in the next round if excess left
+			push(e_in);
+		}
+		__atomic_fetch_sub(&excess_diff[e_in], (excess[e_in] - my_excess), __ATOMIC_RELAXED); // excess[u] serves as indicator for other nodes that u is active --> update later
 	}
 
 	void dischargeOutNode(Node e_out) {
@@ -188,7 +249,7 @@ public:
 					}
 				} else if (isOutNode(u)) {
 					const Hyperedge e = outNodeToEdge(u);
-					if (flow[bridgeNodeIndex(e)] < hg.capacity(e)) { // to e_in if flow(e_in, e_out) < capacity(e)
+					if (flow[bridgeEdgeIndex(e)] < hg.capacity(e)) { // to e_in if flow(e_in, e_out) < capacity(e)
 						push(edgeToInNode(e));
 					}
 					for (const auto& pin : hg.pinsOf(e)) { // to v if flow(e_out, v) > 0
@@ -199,7 +260,7 @@ public:
 				} else {
 					assert(isInNode(u));
 					const Hyperedge e = inNodeToEdge(u);
-					if (flow[bridgeNodeIndex(e)] > 0) { // to e_out if flow(e_in, e_out) > 0
+					if (flow[bridgeEdgeIndex(e)] > 0) { // to e_out if flow(e_in, e_out) > 0
 						push(edgeToOutNode(e));
 					}
 					for (const auto& pin : hg.pinsOf(e)) { // to v always
@@ -268,7 +329,7 @@ private:
 
 	size_t inNodeIncidenceIndex(InHeIndex inc_he_ind) const { return inc_he_ind; }
 	size_t outNodeIncidenceIndex(InHeIndex inc_he_ind) const { return inc_he_ind + out_node_offset; }
-	size_t bridgeNodeIndex(Hyperedge he) const { return he + bridge_node_offset; }
+	size_t bridgeEdgeIndex(Hyperedge he) const { return he + bridge_node_offset; }
 
 	bool isHypernode(Node u) const { return u < hg.numNodes(); }
 	bool isInNode(Node u) const { return u >= hg.numNodes() && u < hg.numNodes() + hg.numHyperedges(); }
