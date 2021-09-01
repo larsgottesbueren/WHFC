@@ -46,20 +46,22 @@ public:
 			last_activated.assign(max_level, 0);
 		}
 		next_active.clear();
+		tbb::enumerable_thread_specific<size_t> work;
 		tbb::parallel_for(0UL, num_active, [&](size_t i) {
 			const Node u = active[i];
 			if (level[u] >= max_level) {
 				return;
 			}
 			if (isHypernode(u)) {
-				dischargeHypernode(u);
+				work.local() += dischargeHypernode(u);
 			} else if (isOutNode(u)) {
-				LOGGER << "discharge out node";
+				work.local() += dischargeOutNode(u);
 			} else {
-				LOGGER << "discharge in node";
+				work.local() += dischargeInNode(u);
 			}
 		});
 		next_active.finalize();
+		work_since_last_global_relabel += work.combine(std::plus<>());
 	}
 
 	void applyUpdates(size_t num_active) {
@@ -367,7 +369,9 @@ public:
 
 		flow.assign(2 * hg.numPins() + hg.numHyperedges(), 0);
 		excess.assign(max_level, 0);
+		excess_diff.assign(max_level, 0);
 		level.assign(max_level, 0);
+		next_level.assign(max_level, 0);
 
 		next_active.adapt_capacity(max_level);
 		active.resize(max_level);
