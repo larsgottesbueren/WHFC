@@ -76,7 +76,7 @@ public:
 		});
 	}
 
-	void dischargeHypernode(Node u) {
+	size_t dischargeHypernode(Node u) {
 		auto next_active_handle = next_active.local_buffer();
 		auto push = [&](Node v) { if (v != target && activate(v)) next_active_handle.push_back(v); };
 		size_t work = 0;
@@ -145,22 +145,23 @@ public:
 			push(u);
 		}
 		__atomic_fetch_sub(&excess_diff[u], (excess[u] - my_excess), __ATOMIC_RELAXED); // excess[u] serves as indicator for other nodes that u is active --> update later
+		return work;
 	}
 
-	void dischargeInNode(Node e_in) {
+	size_t dischargeInNode(Node e_in) {
 		auto next_active_handle = next_active.local_buffer();
 		auto push = [&](Node v) { if (v != target && activate(v)) next_active_handle.push_back(v); };
 		size_t work = 0;
 		Flow my_excess = excess[e_in];
 		int my_level = level[e_in];
 		Hyperedge e = inNodeToEdge(e_in);
-		Node e_out = edgeToOutNode(e);
 
 		while (my_excess > 0 && my_level < max_level) {
 			int new_level = max_level;
 			bool skipped = false;
 
 			// push through bridge edge
+			Node e_out = edgeToOutNode(e);
 			if (my_level == level[e_out] + 1) {
 				if (excess[e_out] > 0 && !winEdge(e_in, e_out)) {
 					skipped = true;
@@ -199,6 +200,7 @@ public:
 					new_level = std::min(new_level, level[v]);
 				}
 			}
+			work += i - hg.beginIndexPins(e);
 
 			if (my_excess == 0 || skipped) {
 				break;
@@ -213,13 +215,77 @@ public:
 			push(e_in);
 		}
 		__atomic_fetch_sub(&excess_diff[e_in], (excess[e_in] - my_excess), __ATOMIC_RELAXED); // excess[u] serves as indicator for other nodes that u is active --> update later
+		return work;
 	}
 
-	void dischargeOutNode(Node e_out) {
-		while (excess[e_out] > 0) {
+	size_t dischargeOutNode(Node e_out) {
+		auto next_active_handle = next_active.local_buffer();
+		auto push = [&](Node v) { if (v != target && activate(v)) next_active_handle.push_back(v); };
+		size_t work = 0;
+		Flow my_excess = excess[e_out];
+		int my_level = level[e_out];
+		Hyperedge e = inNodeToEdge(e_out);
 
+		while (my_excess > 0) {
+			int new_level = max_level;
+			bool skipped = false;
+
+			// push out to pins
+			auto i = hg.beginIndexPins(e);
+			for ( ; my_excess > 0 && i < hg.endIndexPins(e); ++i) {
+				Node v = hg.getPin(i).pin;
+				Flow d = my_excess;
+				if (my_level == level[v] + 1) {
+					if (excess[v] > 0 && !winEdge(e_out, v)) {
+						skipped = true;
+					} else {
+						flow[outNodeIncidenceIndex(hg.getPin(i).he_inc_iter)] -= d;
+						my_excess -= d;
+						__atomic_fetch_add(&excess_diff[v], d, __ATOMIC_RELAXED);
+						push(v);
+					}
+				} else if (my_level <= level[v] && d > 0) {
+					new_level = std::min(new_level, level[v]);
+				}
+			}
+			work += i - hg.beginIndexPins(e);
+
+			if (my_excess == 0) {
+				break;
+			}
+
+			// push back through bridge edge
+			Node e_in = edgeToInNode(e);
+			if (my_level == level[e_in] + 1) {
+				if (excess[e_in] > 0 && !winEdge(e_out, e_in)) {
+					skipped = true;
+				} else {
+					Flow d = std::min(flow[bridgeEdgeIndex(e)], my_excess);
+					if (d > 0) {
+						flow[bridgeEdgeIndex(e)] -= d;
+						my_excess -= d;
+						__atomic_fetch_add(&excess_diff[e_out], d, __ATOMIC_RELAXED);
+						push(e_in);
+					}
+				}
+			} else if (my_level <= level[e_in] && flow[bridgeEdgeIndex(e)] > 0) {
+				new_level = std::min(new_level, level[e_in]);
+			}
+
+			if (my_excess == 0 || skipped) {
+				break;
+			}
+			my_level = new_level; 	// relabel
 		}
 
+		if (my_level != level[e_out]) {		// make relabel visible
+			next_level[e_out] = my_level;
+		}
+		if (my_level < max_level && my_excess < excess[e_out]) {	// go again in the next round if excess left
+			push(e_out);
+		}
+		__atomic_fetch_sub(&excess_diff[e_out], (excess[e_out] - my_excess), __ATOMIC_RELAXED); // excess[u] serves as indicator for other nodes that u is active --> update later
+		return work;
 	}
 
 	void globalRelabel() {
