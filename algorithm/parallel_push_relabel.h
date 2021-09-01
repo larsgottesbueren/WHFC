@@ -96,6 +96,10 @@ public:
 			for (i = hg.beginIndexHyperedges(u); my_excess > 0 && u < hg.endIndexHyperedges(u); ++i) {
 				Hyperedge e = hg.getInHe(i).e; Node e_out = edgeToOutNode(e);
 				if (my_level == level[e_out] + 1) {
+					if (excess[e_out] > 0 && !winEdge(u, e_out)) {
+						skipped = true;
+						continue;
+					}
 					Flow residual = std::min(my_excess, flow[outNodeIncidenceIndex(i)]);
 					if (residual > 0) {
 						flow[outNodeIncidenceIndex(i)] -= residual;
@@ -119,13 +123,14 @@ public:
 		if (my_level != level[u]) {		// make relabel visible
 			next_level[u] = my_level;
 		}
-		if (my_excess < excess[u]) {	// go again in the next round excess left
+		if (my_level < max_level && my_excess < excess[u]) {	// go again in the next round if excess left
 			push(u);
 		}
-		__atomic_fetch_sub(&excess_diff[u], (excess[u] - my_excess), __ATOMIC_RELAXED);		// update excess (in the second pass that applies the updates)
+		__atomic_fetch_sub(&excess_diff[u], (excess[u] - my_excess), __ATOMIC_RELAXED); // excess[u] serves as indicator for other nodes that u is active --> update later
 	}
 
 	void dischargeInNode(Node e_in) {
+		Flow my_excess = excess[e_in];
 		while (excess[e_in] > 0) {
 
 		}
