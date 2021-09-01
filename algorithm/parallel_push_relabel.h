@@ -200,7 +200,7 @@ public:
 					new_level = std::min(new_level, level[v]);
 				}
 			}
-			work += i - hg.beginIndexPins(e);
+			work += i - hg.beginIndexPins(e) + 6;
 
 			if (my_excess == 0 || skipped) {
 				break;
@@ -248,7 +248,7 @@ public:
 					new_level = std::min(new_level, level[v]);
 				}
 			}
-			work += i - hg.beginIndexPins(e);
+			work += i - hg.beginIndexPins(e) + 6;
 
 			if (my_excess == 0) {
 				break;
