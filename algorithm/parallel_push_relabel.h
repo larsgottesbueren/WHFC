@@ -17,7 +17,7 @@ using vec = std::vector<T, tbb::scalable_allocator<T> >;
 class ParallelPushRelabel {
 public:
 	using Type = ParallelPushRelabel;
-	static constexpr bool log = true;
+	static constexpr bool log = false;
 
 	explicit ParallelPushRelabel(FlowHypergraph& hg) : hg(hg), next_active(0) { }
 
@@ -30,13 +30,21 @@ public:
 			size_t num_active = next_active.size();
 			next_active.swap_container(active);
 			if (work_since_last_global_relabel > global_relabel_work_threshold) {
-				globalRelabel();
+				// LOGGER << "global relabel";
+				// globalRelabel();
 				work_since_last_global_relabel = 0;
 			}
 			dischargeActiveNodes(num_active);
 			applyUpdates(num_active);
 		}
 		flowDecomposition();
+		// target node is never pushed to active set --> apply update separately.
+		// TODO once we get multiple target nodes, this may require changes.
+		//  the values are only needed to determine the flow diff
+		if (excess_diff[target] > 0) {
+			excess[target] += excess_diff[target];
+			excess_diff[target] = 0;
+		}
 		return excess[target];
 	}
 
@@ -44,20 +52,15 @@ public:
 		if (++round == 0) {
 			last_activated.assign(max_level, 0);
 		}
+
 		next_active.clear();
 		tbb::enumerable_thread_specific<size_t> work;
 		tbb::parallel_for(0UL, num_active, [&](size_t i) {
 			const Node u = active[i];
-			if (level[u] >= max_level) {
-				return;
-			}
-			if (isHypernode(u)) {
-				work.local() += dischargeHypernode(u);
-			} else if (isOutNode(u)) {
-				work.local() += dischargeOutNode(u);
-			} else {
-				work.local() += dischargeInNode(u);
-			}
+			if (level[u] >= max_level) { return; }
+			if (isHypernode(u)) { work.local() += dischargeHypernode(u); }
+			else if (isOutNode(u)) { work.local() += dischargeOutNode(u); }
+			else { work.local() += dischargeInNode(u); }
 		});
 		next_active.finalize();
 		work_since_last_global_relabel += work.combine(std::plus<>());
@@ -103,7 +106,7 @@ public:
 					__atomic_fetch_add(&excess_diff[e_in], d, __ATOMIC_RELAXED);
 					push(e_in);
 				} else if (my_level <= level[e_in]) {
-					new_level = std::min(new_level, level[e_in] + 1);
+					new_level = std::min(new_level, level[e_in]);
 				}
 			}
 			work += i - hg.beginIndexHyperedges(u);
@@ -113,7 +116,7 @@ public:
 			}
 
 			// push back to out-nodes of incident nets
-			for (i = hg.beginIndexHyperedges(u); my_excess > 0 && u < hg.endIndexHyperedges(u); ++i) {
+			for (i = hg.beginIndexHyperedges(u); my_excess > 0 && i < hg.endIndexHyperedges(u); ++i) {
 				Hyperedge e = hg.getInHe(i).e; Node e_out = edgeToOutNode(e);
 				if (my_level == level[e_out] + 1) {
 					if (excess[e_out] > 0 && !winEdge(u, e_out)) {
@@ -128,7 +131,7 @@ public:
 						push(e_out);
 					}
 				} else if (my_level <= level[e_out] && flow[outNodeIncidenceIndex(i)] > 0) {
-					new_level = std::min(new_level, level[e_out] + 1);
+					new_level = std::min(new_level, level[e_out]);
 				}
 			}
 			work += i - hg.beginIndexHyperedges(u);
@@ -136,13 +139,13 @@ public:
 			if (my_excess == 0 || skipped) {
 				break;
 			}
-			my_level = new_level;	// relabel
+			my_level = new_level + 1;	// relabel
 		}
 
 		if (my_level != level[u]) {		// make relabel visible
 			next_level[u] = my_level;
 		}
-		if (my_level < max_level && my_excess < excess[u]) {	// go again in the next round if excess left
+		if (my_level < max_level && my_excess > 0) {	// go again in the next round if excess left
 			push(u);
 		}
 		__atomic_fetch_sub(&excess_diff[u], (excess[u] - my_excess), __ATOMIC_RELAXED); // excess[u] serves as indicator for other nodes that u is active --> update later
@@ -155,14 +158,13 @@ public:
 		size_t work = 0;
 		Flow my_excess = excess[e_in];
 		int my_level = level[e_in];
-		Hyperedge e = inNodeToEdge(e_in);
-
+		Hyperedge e = inNodeToEdge(e_in); assert(e < hg.numHyperedges());
+		Node e_out = edgeToOutNode(e);
 		while (my_excess > 0 && my_level < max_level) {
 			int new_level = max_level;
 			bool skipped = false;
 
 			// push through bridge edge
-			Node e_out = edgeToOutNode(e);
 			if (my_level == level[e_out] + 1) {
 				if (excess[e_out] > 0 && !winEdge(e_in, e_out)) {
 					skipped = true;
@@ -206,13 +208,13 @@ public:
 			if (my_excess == 0 || skipped) {
 				break;
 			}
-			my_level = new_level; 	// relabel
+			my_level = new_level + 1; 	// relabel
 		}
 
 		if (my_level != level[e_in]) {		// make relabel visible
 			next_level[e_in] = my_level;
 		}
-		if (my_level < max_level && my_excess < excess[e_in]) {	// go again in the next round if excess left
+		if (my_level < max_level && my_excess > 0) {	// go again in the next round if excess left
 			push(e_in);
 		}
 		__atomic_fetch_sub(&excess_diff[e_in], (excess[e_in] - my_excess), __ATOMIC_RELAXED); // excess[u] serves as indicator for other nodes that u is active --> update later
@@ -225,9 +227,10 @@ public:
 		size_t work = 0;
 		Flow my_excess = excess[e_out];
 		int my_level = level[e_out];
-		Hyperedge e = inNodeToEdge(e_out);
+		Hyperedge e = outNodeToEdge(e_out); assert(e < hg.numHyperedges());
+		Node e_in = edgeToInNode(e);
 
-		while (my_excess > 0) {
+		while (my_excess > 0 && my_level < max_level) {
 			int new_level = max_level;
 			bool skipped = false;
 
@@ -240,7 +243,7 @@ public:
 					if (excess[v] > 0 && !winEdge(e_out, v)) {
 						skipped = true;
 					} else {
-						flow[outNodeIncidenceIndex(hg.getPin(i).he_inc_iter)] -= d;
+						flow[outNodeIncidenceIndex(hg.getPin(i).he_inc_iter)] += d;
 						my_excess -= d;
 						__atomic_fetch_add(&excess_diff[v], d, __ATOMIC_RELAXED);
 						push(v);
@@ -256,7 +259,6 @@ public:
 			}
 
 			// push back through bridge edge
-			Node e_in = edgeToInNode(e);
 			if (my_level == level[e_in] + 1) {
 				if (excess[e_in] > 0 && !winEdge(e_out, e_in)) {
 					skipped = true;
@@ -276,13 +278,13 @@ public:
 			if (my_excess == 0 || skipped) {
 				break;
 			}
-			my_level = new_level; 	// relabel
+			my_level = new_level + 1; 	// relabel
 		}
 
 		if (my_level != level[e_out]) {		// make relabel visible
 			next_level[e_out] = my_level;
 		}
-		if (my_level < max_level && my_excess < excess[e_out]) {	// go again in the next round if excess left
+		if (my_level < max_level && my_excess > 0) {	// go again in the next round if excess left
 			push(e_out);
 		}
 		__atomic_fetch_sub(&excess_diff[e_out], (excess[e_out] - my_excess), __ATOMIC_RELAXED); // excess[u] serves as indicator for other nodes that u is active --> update later
@@ -376,7 +378,7 @@ public:
 		active.resize(max_level);
 		last_activated.assign(max_level, 0);
 		round = 0;
-		
+
 		work_since_last_global_relabel = std::numeric_limits<size_t>::max();
 		global_relabel_work_threshold = (global_relabel_alpha * max_level + 2 * hg.numPins() + hg.numHyperedges()) / global_relabel_frequency;
 	}
@@ -401,13 +403,15 @@ private:
 	size_t outNodeIncidenceIndex(InHeIndex inc_he_ind) const { return inc_he_ind + out_node_offset; }
 	size_t bridgeEdgeIndex(Hyperedge he) const { return he + bridge_node_offset; }
 
+	// hypernodes | in-nodes | out-nodes
+	// [0..n - 1][n..n+m-1][n+m..n+2m]
 	bool isHypernode(Node u) const { return u < hg.numNodes(); }
 	bool isInNode(Node u) const { return u >= hg.numNodes() && u < hg.numNodes() + hg.numHyperedges(); }
-	bool isOutNode(Node u) const { return u >= hg.numNodes() + hg.numHyperedges(); }
-	Hyperedge inNodeToEdge(Node u) const { return Hyperedge(u - hg.numNodes()); }
-	Hyperedge outNodeToEdge(Node u) const { return Hyperedge(u - hg.numNodes() - hg.numHyperedges()); }
-	Node edgeToInNode(Hyperedge e) const { return Node(e + hg.numNodes()); }
-	Node edgeToOutNode(Hyperedge e) const { return Node(e + hg.numNodes() + hg.numHyperedges()); }
+	bool isOutNode(Node u) const { assert(u < hg.numNodes() + 2 * hg.numHyperedges()); return u >= hg.numNodes() + hg.numHyperedges(); }
+	Hyperedge inNodeToEdge(Node u) const { assert(isInNode(u)); return Hyperedge(u - hg.numNodes()); }
+	Hyperedge outNodeToEdge(Node u) const { assert(isOutNode(u)); return Hyperedge(u - hg.numNodes() - hg.numHyperedges()); }
+	Node edgeToInNode(Hyperedge e) const { assert(e < hg.numHyperedges()); return Node(e + hg.numNodes()); }
+	Node edgeToOutNode(Hyperedge e) const { assert(e < hg.numHyperedges()); return Node(e + hg.numNodes() + hg.numHyperedges()); }
 
 	bool winEdge(Node u, Node v) {
 		return level[u] == level[v] + 1 || level[u] < level[v] - 1 || (level[u] == level[v] && u < v);
