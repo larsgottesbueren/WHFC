@@ -18,7 +18,7 @@ using vec = std::vector<T, tbb::scalable_allocator<T> >;
 class ParallelPushRelabel {
 public:
 	using Type = ParallelPushRelabel;
-	static constexpr bool log = true;
+	static constexpr bool log = false;
 
 	explicit ParallelPushRelabel(FlowHypergraph& hg) : hg(hg), next_active(0) { }
 
@@ -352,6 +352,7 @@ public:
 	}
 
 	void checkPreflowConstraints() {
+		#ifndef NDEBUG
 		for (size_t i = 0; i < flow.size(); ++i) {
 			assert(flow[i] >= 0);
 		}
@@ -391,9 +392,11 @@ public:
 				assert(in - out == excess[edgeToOutNode(e)]);
 			}
 		}
+		#endif
 	}
 
 	void checkLevelConstraints() {
+		#ifndef NDEBUG
 		// level[u] <= level[v] + 1 for residual edges (u,v)
 		for (Node u : hg.nodeIDs()) {
 			for (InHeIndex in_he : hg.incidentHyperedgeIndices(u)) {
@@ -420,6 +423,7 @@ public:
 				assert(level[edgeToInNode(e)] <= level[edgeToOutNode(e)] + 1);
 			}
 		}
+		#endif
 	}
 
 	void saturateSourceEdges() {
