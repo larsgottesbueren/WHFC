@@ -25,24 +25,25 @@ namespace whfc {
 		if (s >= hg.numNodes() || t >= hg.numNodes())
 			throw std::runtime_error("s or t not within node id range");
 
+		TimeReporter tr;
+		tr.start("push relabel");
 		ParallelPushRelabel pr(hg);
 		Flow f = pr.computeFlow(s, t);
+		tr.stop("push relabel");
 		LOGGER << "Push-Relabel f =" << f;
 
 		int seed = 42;
+		tr.start("dinitz");
 		HyperFlowCutter<Dinic> hfc(hg, seed);
 		for (int i = 0; i < 2; ++i) hfc.cs.setMaxBlockWeight(i, info.maxBlockWeight[i]);
 		hfc.cs.initialize(s, t);
 		hfc.flow_algo.exhaustFlow(hfc.cs);
+		tr.stop("dinitz");
 		hfc.cs.flipViewDirection();
 		hfc.flow_algo.growReachable(hfc.cs);
 		hfc.cs.flipViewDirection();
 		LOGGER <<"Dinic. f =" <<  hfc.cs.flowValue;
-		size_t num_target_side_nodes = 0;
-		for (Node u : hg.nodeIDs()) {
-			num_target_side_nodes += static_cast<size_t>(hfc.cs.n.isTargetReachable(u));
-		}
-		LOGGER << V(num_target_side_nodes);
+		tr.report(std::cout);
 	}
 
 

@@ -27,22 +27,20 @@ public:
 		source = s; target = t;
 		clearDatastructures();
 		saturateSourceEdges();
-		// checkPreflowConstraints();
 		size_t num_discharges = 0;
 		while (!next_active.empty()) {
 			size_t num_active = next_active.size();
 			next_active.swap_container(active);
 			if (work_since_last_global_relabel > global_relabel_work_threshold) {
-				// LOGGER << "global relabel";
-				// globalRelabel();
+				globalRelabel();
 				work_since_last_global_relabel = 0;
 			}
-			if ((++num_discharges) % 100 == 0) {
-				LOGGER << V(num_discharges) << V(excess_diff[target]) << V(num_active);
-			}
+			++num_discharges;
+			LOGGER << V(num_discharges) << V(excess_diff[target]) << V(num_active);
 			dischargeActiveNodes(num_active);
 			applyUpdates(num_active);
 			checkPreflowConstraints();
+			checkLevelConstraints();
 		}
 		LOGGER << V(num_discharges) << V(excess_diff[target]);
 		flowDecomposition();
@@ -148,9 +146,7 @@ public:
 			my_level = new_level + 1;	// relabel
 		}
 
-		if (my_level != level[u]) {		// make relabel visible
-			next_level[u] = my_level;
-		}
+		next_level[u] = my_level;	// make relabel visible
 		if (my_level < max_level && my_excess > 0) {	// go again in the next round if excess left
 			push(u);
 		}
@@ -220,9 +216,7 @@ public:
 			my_level = new_level + 1; 	// relabel
 		}
 
-		if (my_level != level[e_in]) {		// make relabel visible
-			next_level[e_in] = my_level;
-		}
+		next_level[e_in] = my_level; 	// make relabel visible
 		if (my_level < max_level && my_excess > 0) {	// go again in the next round if excess left
 			push(e_in);
 		}
@@ -292,9 +286,7 @@ public:
 			my_level = new_level + 1; 	// relabel
 		}
 
-		if (my_level != level[e_out]) {		// make relabel visible
-			next_level[e_out] = my_level;
-		}
+		next_level[e_out] = my_level; 	// make relabel visible
 		if (my_level < max_level && my_excess > 0) {	// go again in the next round if excess left
 			push(e_out);
 		}
@@ -303,7 +295,7 @@ public:
 	}
 
 	void globalRelabel() {
-		level.assign(max_level, max_level);
+		level.assign(max_level, max_level);		// optional? level can only become smaller?
 
 		next_active.clear();
 		next_active.push_back_atomic(target);	// parallel special case for target/high degree nodes?
@@ -314,7 +306,7 @@ public:
 			tbb::parallel_for(first, last, [&](size_t i) {
 				auto next_layer = next_active.local_buffer();
 				auto push = [&](const Node v) {
-					if (level[v] != max_level && __atomic_exchange_n(&level[v], dist, __ATOMIC_ACQ_REL) != max_level) {
+					if (level[v] == max_level && __atomic_exchange_n(&level[v], dist, __ATOMIC_ACQ_REL) == max_level) {
 						next_layer.push_back(v);
 					}
 				};
@@ -355,6 +347,7 @@ public:
 			last = next_active.size();
 			dist++;
 		}
+		checkLevelConstraints();
 	}
 
 	void checkPreflowConstraints() {
@@ -395,6 +388,35 @@ public:
 				in = flow[bridgeEdgeIndex(e)];
 				assert(in >= out);
 				assert(in - out == excess[edgeToOutNode(e)]);
+			}
+		}
+	}
+
+	void checkLevelConstraints() {
+		// level[u] <= level[v] + 1 for residual edges (u,v)
+		for (Node u : hg.nodeIDs()) {
+			for (InHeIndex in_he : hg.incidentHyperedgeIndices(u)) {
+				const Hyperedge e = hg.getInHe(in_he).e;
+				if (flow[inNodeIncidenceIndex(in_he)] < hg.capacity(e)) {
+					assert(level[u] <= level[edgeToInNode(e)] + 1);
+				}
+				if (flow[outNodeIncidenceIndex(in_he)] > 0) {
+					assert(level[u] <= level[edgeToOutNode(e)] + 1);
+				}
+			}
+		}
+		for (Hyperedge e : hg.hyperedgeIDs()) {
+			for (const auto& p : hg.pinsOf(e)) {
+				if (flow[inNodeIncidenceIndex(p.he_inc_iter)] > 0) {
+					assert(level[edgeToInNode(e)] <= level[p.pin] + 1);
+				}
+				assert(level[edgeToOutNode(e)] <= level[p.pin] + 1);
+			}
+			if (flow[bridgeEdgeIndex(e)] > 0) {
+				assert(level[edgeToOutNode(e)] <= level[edgeToInNode(e)] + 1);
+			}
+			if (flow[bridgeEdgeIndex(e)] < hg.capacity(e)) {
+				assert(level[edgeToInNode(e)] <= level[edgeToOutNode(e)] + 1);
 			}
 		}
 	}
