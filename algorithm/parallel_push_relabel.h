@@ -73,6 +73,7 @@ public:
 	void applyUpdates(size_t num_active) {
 		tbb::parallel_for(0UL, num_active, [&](size_t i) {
 			const Node u = active[i];
+			if (level[u] >= max_level) { assert(excess_diff[u] == 0); return; }
 			level[u] = next_level[u];
 			excess[u] += excess_diff[u];
 			excess_diff[u] = 0;
