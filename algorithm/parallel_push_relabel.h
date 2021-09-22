@@ -296,7 +296,7 @@ public:
 	}
 
 	void globalRelabel() {
-		level.assign(max_level, max_level);		// optional? level can only become smaller?
+		tbb::parallel_for(0, max_level, [&](size_t i) { level[i] = max_level; }, tbb::static_partitioner());
 
 		next_active.clear();
 		next_active.push_back_atomic(target);	// parallel special case for target/high degree nodes?
