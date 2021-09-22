@@ -33,10 +33,10 @@ namespace whfc {
 		LOGGER << "Push-Relabel f =" << f;
 
 		int seed = 42;
-		tr.start("dinitz");
 		HyperFlowCutter<Dinic> hfc(hg, seed);
 		for (int i = 0; i < 2; ++i) hfc.cs.setMaxBlockWeight(i, info.maxBlockWeight[i]);
 		hfc.cs.initialize(s, t);
+		tr.start("dinitz");
 		hfc.flow_algo.exhaustFlow(hfc.cs);
 		tr.stop("dinitz");
 		hfc.cs.flipViewDirection();
