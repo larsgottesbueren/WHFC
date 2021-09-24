@@ -16,6 +16,7 @@ set(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -lm")
 add_executable(WHFC main.cpp)
 
 add_executable(TESTS run_tests.cpp)
+target_link_libraries(TESTS ${TBB_LIBRARIES})
 
 add_executable(SnapshotTester snapshot_tester.cpp)
 
