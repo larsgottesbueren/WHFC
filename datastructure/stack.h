@@ -8,6 +8,7 @@ private:
 	std::vector<T> stack;
 public:
 	explicit FixedCapacityStack(const size_t num_elements = 0) { stack.reserve(num_elements); }
+	void reserve(size_t sz) { stack.reserve(sz); }
 	void clear() { stack.clear(); }
 	bool empty() const { return stack.empty(); }
 	void popDownTo(const size_t x) {
