@@ -434,10 +434,21 @@ public:
 							if (flow[inNodeIncidenceIndex(p.he_inc_iter)] > 0 && !visited[p.pin] && !output[p.pin]) {
 								output[p.pin] = true;
 								Node v = p.pin;
-								LOGGER << V(v) << V(excess[v]) << V(hg.degree(v));
+								LOGGER << V(v) << V(excess[v]) << V(hg.degree(v)) << V(e) << V(u);
+								for (auto j : hg.incidentHyperedgeIndices(v)) {
+									Hyperedge e2 = hg.getInHe(j).e;
+									LOGGER << V(e2) << V(flow[bridgeEdgeIndex(e2)]) << V(flow[inNodeIncidenceIndex(j)]) << V(flow[outNodeIncidenceIndex(j)])
+											<< V(visited[edgeToInNode(e2)]) << V(visited[edgeToOutNode(e2)]);
+								}
+
+								LOGGER << V(hg.pinCount(e)) << V(excess[edgeToInNode(e)]) << V(excess[edgeToOutNode(e)]) ;
+								for (auto& j : hg.pinsOf(e)) {
+									if (flow[inNodeIncidenceIndex(j.he_inc_iter)] > 0) { LOGGER << "e takes flow from" << j.pin; }
+									if (flow[outNodeIncidenceIndex(j.he_inc_iter)] > 0) { LOGGER << "e sends flow to" << j.pin; }
+								}
 							}
 						}
-						// continue;
+						continue;
 					}
 					visited[edgeToInNode(e)] = true;
 					for (const auto& p : hg.pinsOf(e)) {

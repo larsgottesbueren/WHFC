@@ -9,6 +9,7 @@
 
 #include "algorithm/hyperflowcutter.h"
 #include "algorithm/dinic.h"
+#include "algorithm/graph_push_relabel.h"
 
 namespace whfc {
 	void runSnapshotTester(const std::string& filename) {
@@ -28,7 +29,7 @@ namespace whfc {
 
 		int seed = 42;
 		HyperFlowCutter<Dinic> hfc(hg, seed);
-		for (int i = 0; i < 2; ++i) hfc.cs.setMaxBlockWeight(i, info.maxBlockWeight[i]);
+		for (int i = 0; i < 2; ++i) hfc.cs.setMaxBlockWeight(i, std::numeric_limits<NodeWeight>::max());
 		hfc.cs.initialize(s, t);
 		tr.start("dinitz");
 		hfc.flow_algo.exhaustFlow(hfc.cs);
@@ -38,14 +39,22 @@ namespace whfc {
 		hfc.cs.flipViewDirection();
 		LOGGER <<"Dinic. f =" <<  hfc.cs.flowValue;
 
-
 		HMetisIO::readFlowHypergraphWithBuilder(hg, filename);
+
+		/*
 		tr.start("push relabel");
 		ParallelPushRelabel pr(hg);
 		pr.dinitz_flow_value = hfc.cs.flowValue;
 		Flow f = pr.computeFlow(s, t);
 		tr.stop("push relabel");
 		LOGGER << "Push-Relabel f =" << f;
+		*/
+
+		tr.start("graph push relabel");
+		GraphPushRelabel gpr(hg, true);
+		Flow f_gpr = gpr.computeFlow(s, t);
+		tr.stop("graph push relabel");
+		LOGGER << "Graph Push-Relabel f =" << f_gpr;
 
 		tr.report(std::cout);
 	}
