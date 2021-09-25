@@ -58,6 +58,7 @@ public:
 	void dischargeActiveNodes(size_t num_active) {
 		if (++round == 0) {
 			last_activated.assign(max_level, 0);
+			++round;
 		}
 		next_active.clear();
 		tbb::enumerable_thread_specific<size_t> work;
