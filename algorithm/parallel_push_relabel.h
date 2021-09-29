@@ -18,8 +18,8 @@ using vec = std::vector<T, tbb::scalable_allocator<T> >;
 class ParallelPushRelabel {
 public:
 	using Type = ParallelPushRelabel;
-	static constexpr bool log = true;
-	static constexpr bool capacitate_incoming_edges_of_in_nodes = true;
+	static constexpr bool log = false;
+	static constexpr bool capacitate_incoming_edges_of_in_nodes = false;
 
 	explicit ParallelPushRelabel(FlowHypergraph& hg) : hg(hg), next_active(0) { }
 
@@ -30,23 +30,21 @@ public:
 		clearDatastructures();
 		saturateSourceEdges();
 		size_t num_discharges = 0;
-		size_t num_discharge_rounds_since_global_relabel = 0;
 		while (!next_active.empty()) {
 			size_t num_active = next_active.size();
 			next_active.swap_container(active);
-			if (work_since_last_global_relabel > global_relabel_work_threshold) {
+			if (work_since_last_global_relabel > 2 * global_relabel_work_threshold) {
 				globalRelabel();
 				work_since_last_global_relabel = 0;
-				num_discharge_rounds_since_global_relabel = 0;
 			}
 			++num_discharges;
-			++num_discharge_rounds_since_global_relabel;
+			LOGGER << V(num_discharges) << V(excess_diff[target]) << V(num_active);
 			dischargeActiveNodes(num_active);
 			applyUpdates(num_active);
 			checkPreflowConstraints();
 			checkLevelConstraints();
 		}
-		LOGGER << V(num_discharges) << V(excess_diff[target]) << V(num_discharge_rounds_since_global_relabel);
+		LOGGER << V(num_discharges) << V(excess_diff[target]);
 		flowDecomposition();
 		// target node is never pushed to active set --> apply update separately.
 		// TODO once we get multiple target nodes, this may require changes.
@@ -73,8 +71,7 @@ public:
 			else { work.local() += dischargeInNode(u); }
 		};
 		// tbb::parallel_for(0UL, num_active, task);
-		for (size_t i = 0; i < num_active; ++i) task(i);
-
+		for (size_t i = 0; i < num_active; ++i) { task(i); }
 		next_active.finalize();
 		work_since_last_global_relabel += work.combine(std::plus<>());
 	}
@@ -105,35 +102,27 @@ public:
 			int new_level = max_level;
 			bool skipped = false;
 
-			auto i = hg.beginIndexHyperedges(u);
 			// push to in-nodes of incident nets
+			auto i = hg.beginIndexHyperedges(u);
 			for ( ; my_excess > 0 && i < hg.endIndexHyperedges(u); ++i) {
 				Hyperedge e = hg.getInHe(i).e; Node e_in = edgeToInNode(e);
-				Flow d = my_excess;
-				if constexpr (capacitate_incoming_edges_of_in_nodes) {
-					// (u, e_in) has infinite capacity but it never makes sense to push more flow into e_in than can be sent on (e_in, e_out)
-					d = std::min(d, hg.capacity(e) - flow[inNodeIncidenceIndex(i)]);
-				}
 				if (my_level == level[e_in] + 1) {
 					if (excess[e_in] > 0 && !winEdge(u, e_in)) {
 						skipped = true;
 						continue;
 					}
-					if (d > 0) {
-						flow[inNodeIncidenceIndex(i)] += d;
-						my_excess -= d;
-						__atomic_fetch_add(&excess_diff[e_in], d, __ATOMIC_RELAXED);
-						push(e_in);
-					}
-				} else if (my_level <= level[e_in] && d > 0) {
+					Flow d = my_excess;
+					flow[inNodeIncidenceIndex(i)] += d;
+					my_excess -= d;
+					__atomic_fetch_add(&excess_diff[e_in], d, __ATOMIC_RELAXED);
+					push(e_in);
+				} else if (my_level <= level[e_in]) {
 					new_level = std::min(new_level, level[e_in]);
 				}
 			}
 			work += i - hg.beginIndexHyperedges(u);
-
-			if (my_excess == 0) {
+			if (my_excess == 0)
 				break;
-			}
 
 			// push back to out-nodes of incident nets
 			for (i = hg.beginIndexHyperedges(u); my_excess > 0 && i < hg.endIndexHyperedges(u); ++i) {
@@ -143,9 +132,9 @@ public:
 						skipped = true;
 						continue;
 					}
-					assert(flow[outNodeIncidenceIndex(i)] <= hg.capacity(e));
 					const Flow d = std::min(my_excess, flow[outNodeIncidenceIndex(i)]);
 					if (d > 0) {
+						assert(flow[outNodeIncidenceIndex(i)] <= hg.capacity(e));
 						flow[outNodeIncidenceIndex(i)] -= d;
 						my_excess -= d;
 						__atomic_fetch_add(&excess_diff[e_out], d, __ATOMIC_RELAXED);
@@ -189,15 +178,16 @@ public:
 			if (my_level == level[e_out] + 1) {
 				if (excess[e_out] > 0 && !winEdge(e_in, e_out)) {
 					skipped = true;
-				} else {
-					Flow d = std::min(hg.capacity(e) - flow[bridgeEdgeIndex(e)], my_excess);
-					if (d > 0) {
-						flow[bridgeEdgeIndex(e)] += d;
-						my_excess -= d;
-						__atomic_fetch_add(&excess_diff[e_out], d, __ATOMIC_RELAXED);
-						push(e_out);
-					}
+					continue;
 				}
+				const Flow d = std::min(hg.capacity(e) - flow[bridgeEdgeIndex(e)], my_excess);
+				if (d > 0) {
+					flow[bridgeEdgeIndex(e)] += d;
+					my_excess -= d;
+					__atomic_fetch_add(&excess_diff[e_out], d, __ATOMIC_RELAXED);
+					push(e_out);
+				}
+				work++;
 			} else if (my_level <= level[e_out] && flow[bridgeEdgeIndex(e)] < hg.capacity(e)) {
 				new_level = std::min(new_level, level[e_out]);
 			}
@@ -210,26 +200,21 @@ public:
 				Node v = p.pin;
 				size_t j = inNodeIncidenceIndex(p.he_inc_iter);
 				Flow d = flow[j];
-				if constexpr (capacitate_incoming_edges_of_in_nodes) {
-					assert(d <= hg.capacity(e));
-				}
 				if (my_level == level[v] + 1) {
 					if (excess[v] > 0 && !winEdge(e_in, v)) {
 						skipped = true;
-					} else {
-						if (d > 0) {
-							d = std::min(d, my_excess);
-							flow[j] -= d;
-							my_excess -= d;
-							__atomic_fetch_add(&excess_diff[v], d, __ATOMIC_RELAXED);
-							push(v);
-						}
+					} else if (d > 0) {
+						d = std::min(d, my_excess);
+						flow[j] -= d;
+						my_excess -= d;
+						__atomic_fetch_add(&excess_diff[v], d, __ATOMIC_RELAXED);
+						push(v);
 					}
-				} else if (my_level <= level[v] && d > 0) {
+				} else if (d > 0 && my_level <= level[v]) {
 					new_level = std::min(new_level, level[v]);
 				}
+				work++;
 			}
-			work += hg.pinCount(e) + 6;
 
 			if (my_excess == 0 || skipped) {
 				break;
@@ -270,17 +255,17 @@ public:
 					if (excess[v] > 0 && !winEdge(e_out, v)) {
 						skipped = true;
 					} else {
-						assert(d <= hg.capacity(e) - flow[outNodeIncidenceIndex(p.he_inc_iter)]);
+						assert(d > 0 && d <= hg.capacity(e) - flow[outNodeIncidenceIndex(p.he_inc_iter)]);
 						flow[outNodeIncidenceIndex(p.he_inc_iter)] += d;
 						my_excess -= d;
 						__atomic_fetch_add(&excess_diff[v], d, __ATOMIC_RELAXED);
 						push(v);
 					}
-				} else if (my_level <= level[v] && d > 0) {
+				} else if (my_level <= level[v]) {
 					new_level = std::min(new_level, level[v]);
 				}
+				work++;
 			}
-			work += hg.pinCount(e) + 6;
 
 			if (my_excess == 0) {
 				break;
@@ -298,6 +283,7 @@ public:
 						__atomic_fetch_add(&excess_diff[e_in], d, __ATOMIC_RELAXED);
 						push(e_in);
 					}
+					work++;
 				}
 			} else if (my_level <= level[e_in] && flow[bridgeEdgeIndex(e)] > 0) {
 				new_level = std::min(new_level, level[e_in]);
@@ -393,7 +379,7 @@ public:
 			}
 		};
 
-		for (Node u(0); u < max_level; ++u) {
+		for (Node u(0); u < Node(max_level); ++u) {
 			if (u != target && (u == source || excess[u] > 0)) {
 				push(u);
 			}
@@ -422,6 +408,8 @@ public:
 			}
 		}
 		LOGGER << V(visited[target]);
+
+		/*
 
 		std::vector<bool> backup = visited;
 		std::vector<bool> output(max_level, false);
@@ -482,6 +470,7 @@ public:
 		} else {
 			LOGGER << "visited arrays not equal";
 		}
+		 */
 
 		#endif
 	}

@@ -14,7 +14,7 @@
 
 namespace whfc {
 	void runSnapshotTester(const std::string& filename) {
-		static constexpr bool log = false;
+		static constexpr bool log = true;
 		TimeReporter tr;
 		WHFC_IO::WHFCInformation info = WHFC_IO::readAdditionalInformation(filename);
 		Node s = info.s; Node t = info.t;
@@ -41,21 +41,21 @@ namespace whfc {
 		LOGGER <<"Dinic. f =" <<  hfc.cs.flowValue;
 		HMetisIO::readFlowHypergraphWithBuilder(hg, filename);
 
-
+/*
 		tr.start("seq push relabel");
 		SequentialPushRelabel spr(hg);
 		Flow f_spr = spr.computeFlow(s, t);
 		tr.stop("seq push relabel");
 		LOGGER << "Seq Push-Relabel f =" << f_spr;
+*/
 
-/*
 		tr.start("push relabel");
 		ParallelPushRelabel pr(hg);
-		// pr.dinitz_flow_value = hfc.cs.flowValue;
+		pr.dinitz_flow_value = hfc.cs.flowValue;
 		Flow f = pr.computeFlow(s, t);
 		tr.stop("push relabel");
 		LOGGER << "Push-Relabel f =" << f;
-*/
+
 /*
 		tr.start("graph push relabel");
 		GraphPushRelabel gpr(hg, false);
@@ -63,9 +63,9 @@ namespace whfc {
 		tr.stop("graph push relabel");
 		LOGGER << "Graph Push-Relabel f =" << f_gpr;
 */
-		if (hfc.cs.flowValue != f_spr) {
-			std::cout << filename << " flow sequential push relabel = " << f_spr << " flow dinitz = " << hfc.cs.flowValue << std::endl;
-		}
+		if (f != hfc.cs.flowValue)
+			std::cout << filename << " flow push relabel = " << f << " flow dinitz = " << hfc.cs.flowValue << std::endl;
+		// std::cout << "time dinitz " << tr.get("dinitz").count() << " s" << std::endl;
 		// tr.report(std::cout);
 	}
 
@@ -73,13 +73,16 @@ namespace whfc {
 }
 
 int main(int argc, const char* argv[]) {
-	if (argc != 3)
+	if (argc > 3 || argc < 2)
 	 	throw std::runtime_error("Usage: ./FlowTester hypergraphfile #threads");
 	std::string hgfile = argv[1];
-	int threads = std::stoi(argv[2]);
+	int threads = 1;
+	if (argc == 3) 
+		threads = std::stoi(argv[2]);
 	tbb::task_scheduler_init tsi(threads);
 	whfc::pinning_observer thread_pinner;
-	thread_pinner.observe(true);
+	if (argc == 3)
+		thread_pinner.observe(true);
 
 	whfc::runSnapshotTester(hgfile);
 	return 0;

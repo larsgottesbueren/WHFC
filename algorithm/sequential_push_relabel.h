@@ -348,7 +348,7 @@ public:
 			}
 		};
 
-		for (Node u(0); u < max_level; ++u) {
+		for (Node u(0); u < Node(max_level); ++u) {
 			if (u != target && (u == source || excess[u] > 0)) {
 				push(u);
 			}
