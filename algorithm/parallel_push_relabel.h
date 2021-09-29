@@ -106,17 +106,20 @@ public:
 			auto i = hg.beginIndexHyperedges(u);
 			for ( ; my_excess > 0 && i < hg.endIndexHyperedges(u); ++i) {
 				Hyperedge e = hg.getInHe(i).e; Node e_in = edgeToInNode(e);
+				Flow d = my_excess;
+				if constexpr (capacitate_incoming_edges_of_in_nodes) {
+					d = std::min(d, hg.capacity(e) - flow[inNodeIncidenceIndex(i)]);
+				}
 				if (my_level == level[e_in] + 1) {
 					if (excess[e_in] > 0 && !winEdge(u, e_in)) {
 						skipped = true;
-						continue;
+					} else if (d > 0) {
+						flow[inNodeIncidenceIndex(i)] += d;
+						my_excess -= d;
+						__atomic_fetch_add(&excess_diff[e_in], d, __ATOMIC_RELAXED);
+						push(e_in);
 					}
-					Flow d = my_excess;
-					flow[inNodeIncidenceIndex(i)] += d;
-					my_excess -= d;
-					__atomic_fetch_add(&excess_diff[e_in], d, __ATOMIC_RELAXED);
-					push(e_in);
-				} else if (my_level <= level[e_in]) {
+				} else if (my_level <= level[e_in] && d > 0) {
 					new_level = std::min(new_level, level[e_in]);
 				}
 			}
