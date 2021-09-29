@@ -19,7 +19,7 @@ template<typename T> using vec = std::vector<T, tbb::scalable_allocator<T> >;
 class GraphPushRelabel {
 public:
 
-	static constexpr bool log = true;
+	static constexpr bool log = false;
 	GraphPushRelabel(FlowHypergraph& hg, bool restrict_capacity_to_in_nodes = false) {
 		first_out.assign(hg.numNodes() + 2 * hg.numHyperedges() + 1, 0);
 		arcs.assign(4 * hg.numPins() + 2 * hg.numHyperedges(), Arc());
@@ -133,7 +133,7 @@ public:
 
 		auto bfs = [&] {
 			queue.clear();
-			int inf = numNodes();
+			int inf = numNodes() + 1;
 			level.assign(numNodes(), inf);
 			level[source] = 0;
 			current_arc[source] = first_out[source];
