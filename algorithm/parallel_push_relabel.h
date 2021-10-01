@@ -133,15 +133,15 @@ public:
 				if (my_level == level[e_out] + 1) {
 					if (excess[e_out] > 0 && !winEdge(u, e_out)) {
 						skipped = true;
-						continue;
-					}
-					const Flow d = std::min(my_excess, flow[outNodeIncidenceIndex(i)]);
-					if (d > 0) {
-						assert(flow[outNodeIncidenceIndex(i)] <= hg.capacity(e));
-						flow[outNodeIncidenceIndex(i)] -= d;
-						my_excess -= d;
-						__atomic_fetch_add(&excess_diff[e_out], d, __ATOMIC_RELAXED);
-						push(e_out);
+					} else {
+						const Flow d = std::min(my_excess, flow[outNodeIncidenceIndex(i)]);
+						if (d > 0) {
+							assert(flow[outNodeIncidenceIndex(i)] <= hg.capacity(e));
+							flow[outNodeIncidenceIndex(i)] -= d;
+							my_excess -= d;
+							__atomic_fetch_add(&excess_diff[e_out], d, __ATOMIC_RELAXED);
+							push(e_out);
+						}
 					}
 				} else if (my_level <= level[e_out] && flow[outNodeIncidenceIndex(i)] > 0) {
 					new_level = std::min(new_level, level[e_out]);
@@ -172,7 +172,6 @@ public:
 		next_level[e_in] = my_level;
 		Hyperedge e = inNodeToEdge(e_in); assert(e < hg.numHyperedges());
 		Node e_out = edgeToOutNode(e);
-
 		while (my_excess > 0 && my_level < max_level) {
 			int new_level = max_level;
 			bool skipped = false;
@@ -181,14 +180,14 @@ public:
 			if (my_level == level[e_out] + 1) {
 				if (excess[e_out] > 0 && !winEdge(e_in, e_out)) {
 					skipped = true;
-					continue;
-				}
-				const Flow d = std::min(hg.capacity(e) - flow[bridgeEdgeIndex(e)], my_excess);
-				if (d > 0) {
-					flow[bridgeEdgeIndex(e)] += d;
-					my_excess -= d;
-					__atomic_fetch_add(&excess_diff[e_out], d, __ATOMIC_RELAXED);
-					push(e_out);
+				} else {
+					const Flow d = std::min(hg.capacity(e) - flow[bridgeEdgeIndex(e)], my_excess);
+					if (d > 0) {
+						flow[bridgeEdgeIndex(e)] += d;
+						my_excess -= d;
+						__atomic_fetch_add(&excess_diff[e_out], d, __ATOMIC_RELAXED);
+						push(e_out);
+					}
 				}
 				work++;
 			} else if (my_level <= level[e_out] && flow[bridgeEdgeIndex(e)] < hg.capacity(e)) {
