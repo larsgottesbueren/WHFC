@@ -19,7 +19,7 @@ class ParallelPushRelabel {
 public:
 	using Type = ParallelPushRelabel;
 	static constexpr bool log = false;
-	static constexpr bool capacitate_incoming_edges_of_in_nodes = false;
+	static constexpr bool capacitate_incoming_edges_of_in_nodes = true;
 
 	explicit ParallelPushRelabel(FlowHypergraph& hg) : hg(hg), next_active(0) { }
 
@@ -639,7 +639,7 @@ private:
 	Node edgeToInNode(Hyperedge e) const { assert(e < hg.numHyperedges()); return Node(e + hg.numNodes()); }
 	Node edgeToOutNode(Hyperedge e) const { assert(e < hg.numHyperedges()); return Node(e + hg.numNodes() + hg.numHyperedges()); }
 
-	bool winEdge(Node u, Node v) {
+	bool winEdge(Node v, Node u) {
 		return level[u] == level[v] + 1 || level[u] < level[v] - 1 || (level[u] == level[v] && u < v);
 	}
 
