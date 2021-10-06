@@ -66,7 +66,7 @@ namespace whfc {
 		if (f != hfc.cs.flowValue)
 			std::cout << filename << " flow push relabel = " << f << " flow dinitz = " << hfc.cs.flowValue << std::endl;
 		// std::cout << "time dinitz " << tr.get("dinitz").count() << " s" << std::endl;
-		// tr.report(std::cout);
+		tr.report(std::cout);
 	}
 
 
@@ -77,7 +77,7 @@ int main(int argc, const char* argv[]) {
 	 	throw std::runtime_error("Usage: ./FlowTester hypergraphfile #threads");
 	std::string hgfile = argv[1];
 	int threads = 1;
-	if (argc == 3) 
+	if (argc == 3)
 		threads = std::stoi(argv[2]);
 	tbb::task_scheduler_init tsi(threads);
 	whfc::pinning_observer thread_pinner;

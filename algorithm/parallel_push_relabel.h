@@ -18,7 +18,7 @@ using vec = std::vector<T, tbb::scalable_allocator<T> >;
 class ParallelPushRelabel {
 public:
 	using Type = ParallelPushRelabel;
-	static constexpr bool log = false;
+	static constexpr bool log = true;
 	static constexpr bool capacitate_incoming_edges_of_in_nodes = true;
 
 	explicit ParallelPushRelabel(FlowHypergraph& hg) : hg(hg), next_active(0) { }
