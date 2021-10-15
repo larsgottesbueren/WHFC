@@ -60,6 +60,10 @@ public:
 		std::swap(o, data);
 	}
 
+	void set_size(size_t s) {
+		back.store(s, std::memory_order_relaxed);
+	}
+
 	auto begin() { return data.begin(); }
 	auto end() { return data.begin() + size(); }
 	T& operator[](size_t pos) { return data[pos]; }

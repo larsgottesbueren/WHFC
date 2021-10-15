@@ -30,20 +30,32 @@ public:
 		clearDatastructures();
 		saturateSourceEdges();
 		size_t num_discharges = 0;
-		while (!next_active.empty()) {
-			size_t num_active = next_active.size();
-			next_active.swap_container(active);
-			if (work_since_last_global_relabel > 2 * global_relabel_work_threshold) {
-				globalRelabel();
-				work_since_last_global_relabel = 0;
+		size_t num_tries = 0;
+		do {
+			while (!next_active.empty()) {
+				num_active = next_active.size();
+				next_active.swap_container(active);
+				if (work_since_last_global_relabel > 2 * global_relabel_work_threshold) {
+					globalRelabel();
+				}
+				++num_discharges;
+				LOGGER << V(num_discharges) << V(excess_diff[target]) << V(num_active);
+				dischargeActiveNodes();
+				applyUpdates();
+				checkPreflowConstraints();
 			}
-			++num_discharges;
-			LOGGER << V(num_discharges) << V(excess_diff[target]) << V(num_active);
-			dischargeActiveNodes(num_active);
-			applyUpdates(num_active);
-			checkPreflowConstraints();
-			checkLevelConstraints();
-		}
+
+			// no more nodes with level < n and excess > 0 left.
+			// however labels might be broken from parallelism
+			// --> run global relabeling to check if done.
+			num_active = 0;
+			globalRelabel();
+			// plug queue back in (regular loop picks it out again)
+			next_active.swap_container(active);
+			next_active.set_size(num_active);
+			num_tries++;
+		} while (!next_active.empty());
+
 		LOGGER << V(num_discharges) << V(excess_diff[target]);
 		flowDecomposition();
 		// target node is never pushed to active set --> apply update separately.
@@ -55,13 +67,13 @@ public:
 		return excess[target];
 	}
 
-	void dischargeActiveNodes(size_t num_active) {
+	void dischargeActiveNodes() {
 		if (++round == 0) {
 			last_activated.assign(max_level, 0);
 			++round;
 		}
 		next_active.clear();
-		tbb::enumerable_thread_specific<size_t> work;
+		tbb::enumerable_thread_specific<size_t> work(0);
 		auto task = [&](size_t i) {
 			const Node u = active[i];
 			assert(excess[u] > 0);
@@ -70,13 +82,12 @@ public:
 			else if (isOutNode(u)) { work.local() += dischargeOutNode(u); }
 			else { work.local() += dischargeInNode(u); }
 		};
-		// tbb::parallel_for(0UL, num_active, task);
-		for (size_t i = 0; i < num_active; ++i) { task(i); }
+		tbb::parallel_for(0UL, num_active, task);
 		next_active.finalize();
 		work_since_last_global_relabel += work.combine(std::plus<>());
 	}
 
-	void applyUpdates(size_t num_active) {
+	void applyUpdates() {
 		tbb::parallel_for(0UL, num_active, [&](size_t i) {
 			const Node u = active[i];
 			if (level[u] >= max_level) { assert(excess_diff[u] == 0); return; }
@@ -156,7 +167,7 @@ public:
 		}
 
 		next_level[u] = my_level;	// make relabel visible
-		if (my_level < max_level && my_excess > 0) {	// go again in the next round if excess left
+		if (my_excess > 0 && my_level < max_level) {	// go again in the next round if excess left
 			push(u);
 		}
 		__atomic_fetch_sub(&excess_diff[u], (excess[u] - my_excess), __ATOMIC_RELAXED); // excess[u] serves as indicator for other nodes that u is active --> update later
@@ -225,7 +236,7 @@ public:
 		}
 
 		next_level[e_in] = my_level; 	// make relabel visible
-		if (my_level < max_level && my_excess > 0) {	// go again in the next round if excess left
+		if (my_excess > 0 && my_level < max_level) {	// go again in the next round if excess left
 			push(e_in);
 		}
 		__atomic_fetch_sub(&excess_diff[e_in], (excess[e_in] - my_excess), __ATOMIC_RELAXED); // excess[u] serves as indicator for other nodes that u is active --> update later
@@ -298,7 +309,7 @@ public:
 		}
 
 		next_level[e_out] = my_level; 	// make relabel visible
-		if (my_level < max_level && my_excess > 0) {	// go again in the next round if excess left
+		if (my_excess > 0 && my_level < max_level) {	// go again in the next round if excess left
 			push(e_out);
 		}
 		__atomic_fetch_sub(&excess_diff[e_out], (excess[e_out] - my_excess), __ATOMIC_RELAXED); // excess[u] serves as indicator for other nodes that u is active --> update later
@@ -306,6 +317,7 @@ public:
 	}
 
 	void globalRelabel() {
+		work_since_last_global_relabel = 0;
 		tbb::parallel_for(0, max_level, [&](size_t i) { level[i] = max_level; }, tbb::static_partitioner());
 
 		next_active.clear();
@@ -322,6 +334,8 @@ public:
 					}
 				};
 				const Node u = next_active[i];
+
+				// bfs iteration
 				if (isHypernode(u)) {
 					for (InHeIndex incnet_ind : hg.incidentHyperedgeIndices(u)) {
 						const Hyperedge e = hg.getInHe(incnet_ind).e;
@@ -358,6 +372,15 @@ public:
 						}
 					}
 				}
+
+				// add previously mis-labeled nodes to active queue, if not already contained
+				// expected to happen rarely for regular global relabeling
+				// bit more frequently for termination checks
+				// however even there only few nodes were affected (very little flow missing)
+				if (excess[u] > 0 && last_activated[u] != round) {
+					size_t pos = __atomic_fetch_add(&num_active, 1, __ATOMIC_RELAXED);
+					active[pos] = u;
+				}
 			});
 			next_active.finalize();
 			first = last;
@@ -365,7 +388,6 @@ public:
 			dist++;
 		}
 		LOGGER << "global relabel";
-		checkLevelConstraints();
 	}
 
 	void checkMaximality() {
@@ -529,46 +551,6 @@ public:
 		#endif
 	}
 
-	void checkLevelConstraints() {
-		// #if false
-		#ifndef NDEBUG
-		// level[u] <= level[v] + 1 for residual edges (u,v)
-		tbb::parallel_for(0UL, hg.numNodes(), [&](size_t us) {
-			Node u(us);
-			for (InHeIndex in_he : hg.incidentHyperedgeIndices(u)) {
-				const Hyperedge e = hg.getInHe(in_he).e;
-				if (flow[inNodeIncidenceIndex(in_he)] < hg.capacity(e)) {
-					assert(level[u] <= level[edgeToInNode(e)] + 1);
-				}
-
-				if (flow[inNodeIncidenceIndex(in_he)] > 0) {
-					assert(level[edgeToInNode(e)] <= level[u] + 1);
-				}
-
-				if (flow[outNodeIncidenceIndex(in_he)] > 0) {
-					assert(level[u] <= level[edgeToOutNode(e)] + 1);
-				}
-			}
-		});
-
-		tbb::parallel_for(0UL, hg.numHyperedges(), [&](size_t es) {
-			Hyperedge e(es);
-			for (const auto& p : hg.pinsOf(e)) {
-				if (flow[inNodeIncidenceIndex(p.he_inc_iter)] > 0) {
-					assert(level[edgeToInNode(e)] <= level[p.pin] + 1);
-				}
-				assert(level[edgeToOutNode(e)] <= level[p.pin] + 1);
-			}
-			if (flow[bridgeEdgeIndex(e)] > 0) {
-				assert(level[edgeToOutNode(e)] <= level[edgeToInNode(e)] + 1);
-			}
-			if (flow[bridgeEdgeIndex(e)] < hg.capacity(e)) {
-				assert(level[edgeToInNode(e)] <= level[edgeToOutNode(e)] + 1);
-			}
-		});
-		#endif
-	}
-
 	void saturateSourceEdges() {
 		level[source] = max_level;
 		for (InHeIndex inc_iter : hg.incidentHyperedgeIndices(source)) {
@@ -611,6 +593,8 @@ private:
 	FlowHypergraph& hg;
 	vec<Flow> flow, excess, excess_diff;
 	vec<int> level, next_level;
+
+	size_t num_active = 0;
 	BufferedVector<Node> next_active;
 	vec<Node> active;
 
