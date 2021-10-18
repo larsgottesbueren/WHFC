@@ -9,6 +9,8 @@
 
 #include "../datastructure/flow_hypergraph.h"
 #include "../datastructure/buffered_vector.h"
+#include "../datastructure/queue.h"
+#include "../datastructure/stack.h"
 
 #include <boost/circular_buffer.hpp>
 

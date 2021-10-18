@@ -7,7 +7,7 @@
 
 #include "algorithm/parallel_push_relabel.h"
 #include "algorithm/sequential_push_relabel.h"
-
+#include "algorithm/graph_push_relabel.h"
 #include "algorithm/hyperflowcutter.h"
 #include "algorithm/dinic.h"
 
@@ -24,7 +24,7 @@ namespace whfc {
 		if (s >= hg.numNodes() || t >= hg.numNodes())
 			throw std::runtime_error("s or t not within node id range");
 
-		/*
+
 		int seed = 42;
 	 	TimeReporter tr;
 		HyperFlowCutter<Dinic> hfc(hg, seed);
@@ -38,7 +38,7 @@ namespace whfc {
 		hfc.cs.flipViewDirection();
 		LOGGER <<"Dinic. f =" <<  hfc.cs.flowValue;
 		HMetisIO::readFlowHypergraphWithBuilder(hg, filename);
-		*/
+
 
 		/*
 				tr.start("seq push relabel");
@@ -47,6 +47,7 @@ namespace whfc {
 				tr.stop("seq push relabel");
 				LOGGER << "Seq Push-Relabel f =" << f_spr;
 		*/
+/*
 		std::string base_filename = filename.substr(filename.find_last_of("/\\") + 1);
 
 		int max_num_threads = 128;
@@ -60,15 +61,15 @@ namespace whfc {
 				std::cout << base_filename << "," << "ParPR-RL" << "," << threads << "," << pr.timer.get("push relabel").count() << std::endl;
 			}
 		}
-/*
+*/
 		tr.start("graph push relabel");
-		GraphPushRelabel gpr(hg, false);
+		GraphPushRelabel gpr(hg, true);
 		Flow f_gpr = gpr.computeFlow(s, t);
 		tr.stop("graph push relabel");
 		LOGGER << "Graph Push-Relabel f =" << f_gpr;
-*/
-//		if (f != hfc.cs.flowValue)
-//			std::cout << filename << " flow push relabel = " << f << " flow dinitz = " << hfc.cs.flowValue << std::endl;
+
+		if (f_gpr != hfc.cs.flowValue)
+			std::cout <<  "\033[1;31mflow value mismatch\033[0m\n" << filename << " flow push relabel = " << f_gpr << " flow dinitz = " << hfc.cs.flowValue << std::endl;
 		// std::cout << "time dinitz " << tr.get("dinitz").count() << " s" << std::endl;
 // 		tr.report(std::cout);
 	}
