@@ -24,22 +24,6 @@ namespace whfc {
 		if (s >= hg.numNodes() || t >= hg.numNodes())
 			throw std::runtime_error("s or t not within node id range");
 
-
-		int seed = 42;
-	 	TimeReporter tr;
-		HyperFlowCutter<Dinic> hfc(hg, seed);
-		for (int i = 0; i < 2; ++i) hfc.cs.setMaxBlockWeight(i, std::numeric_limits<NodeWeight>::max());
-		hfc.cs.initialize(s, t);
-		tr.start("dinitz");
-		hfc.flow_algo.exhaustFlow(hfc.cs);
-		tr.stop("dinitz");
-		hfc.cs.flipViewDirection();
-		hfc.flow_algo.growReachable(hfc.cs);
-		hfc.cs.flipViewDirection();
-		LOGGER <<"Dinic. f =" <<  hfc.cs.flowValue;
-		HMetisIO::readFlowHypergraphWithBuilder(hg, filename);
-
-
 		std::string base_filename = filename.substr(filename.find_last_of("/\\") + 1);
 
 		int max_num_threads = 128;
@@ -61,11 +45,26 @@ namespace whfc {
 		}
 
 		for (int i = 0; i < 5; ++i) {
+			TimeReporter tr;
+			tr.start("Lawler PR");
 			GraphPushRelabel gpr(hg, true);
 			gpr.computeFlow(s, t);
-			std::cout << base_filename << "," << "Lawler-PR" << "," << 1 << "," << gpr.timer.get("push relabel").count() << std::endl;
+			tr.stop("Lawler PR");
+			std::cout << base_filename << "," << "Lawler-PR" << "," << 1 << "," << tr.get("Lawler PR").count() << std::endl;
 		}
 
+		for (int i = 0; i < 5; ++i) {
+			HMetisIO::readFlowHypergraphWithBuilder(hg, filename);
+			int seed = 42;
+			TimeReporter tr;
+			HyperFlowCutter<Dinic> hfc(hg, seed);
+			for (int i = 0; i < 2; ++i) hfc.cs.setMaxBlockWeight(i, std::numeric_limits<NodeWeight>::max());
+			hfc.cs.initialize(s, t);
+			tr.start("dinitz");
+			hfc.flow_algo.exhaustFlow(hfc.cs);
+			tr.stop("dinitz");
+			std::cout << base_filename << "," << "Dinitz" << "," << 1 << "," << tr.get("dinitz").count() << std::endl;
+		}
 
 // 		tr.report(std::cout);
 	}
