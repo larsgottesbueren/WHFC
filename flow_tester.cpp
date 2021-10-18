@@ -40,13 +40,7 @@ namespace whfc {
 		HMetisIO::readFlowHypergraphWithBuilder(hg, filename);
 		*/
 
-		/*
-				tr.start("seq push relabel");
-				SequentialPushRelabel spr(hg);
-				Flow f_spr = spr.computeFlow(s, t);
-				tr.stop("seq push relabel");
-				LOGGER << "Seq Push-Relabel f =" << f_spr;
-		*/
+
 		std::string base_filename = filename.substr(filename.find_last_of("/\\") + 1);
 
 		int max_num_threads = 128;
@@ -60,13 +54,20 @@ namespace whfc {
 				std::cout << base_filename << "," << "ParPR-RL" << "," << threads << "," << pr.timer.get("push relabel").count() << std::endl;
 			}
 		}
-/*
-		tr.start("graph push relabel");
-		GraphPushRelabel gpr(hg, false);
-		Flow f_gpr = gpr.computeFlow(s, t);
-		tr.stop("graph push relabel");
-		LOGGER << "Graph Push-Relabel f =" << f_gpr;
-*/
+
+		for (int i = 0; i < 5; ++i) {
+			SequentialPushRelabel spr(hg);
+			spr.computeFlow(s, t);
+			std::cout << base_filename << "," << "SeqPR" << "," << 1 << "," << spr.timer.get("push relabel").count() << std::endl;
+		}
+
+		/*
+		for (int i = 0; i < 5; ++i) {
+			GraphPushRelabel gpr(hg, false);
+			gpr.computeFlow(s, t);
+			std::cout << base_filename << "," << "Lawler-PR" << "," << 1 << "," << gpr.timer.get("push relabel").count() << std::endl;
+		}
+		 */
 //		if (f != hfc.cs.flowValue)
 //			std::cout << filename << " flow push relabel = " << f << " flow dinitz = " << hfc.cs.flowValue << std::endl;
 		// std::cout << "time dinitz " << tr.get("dinitz").count() << " s" << std::endl;
