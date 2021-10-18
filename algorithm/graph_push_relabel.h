@@ -98,15 +98,18 @@ public:
 
 	Flow computeFlow(Node s, Node t) {
 		source = s; target = t;
+
 		level[source] = numNodes();
 		queue.reserve(numNodes());
-		active_nodes.clear();
-		active_nodes.set_capacity(numNodes());
+		while (!active_nodes.empty()) active_nodes.pop();
+		// active_nodes.clear();
+		// active_nodes.set_capacity(numNodes());
 		for (Arc& a : arcsOf(source)) {
 			Flow d = a.rcap();
 			if (d > 0) {
 				if (excess[a.head] == 0 && a.head != target) {
-					active_nodes.push_back(a.head);
+					// active_nodes.push_back(a.head);
+					active_nodes.push(a.head);
 				}
 				push(source, a, d);
 			}
@@ -119,7 +122,8 @@ public:
 				globalRelabel();
 			}
 			const Node x = active_nodes.front();
-			active_nodes.pop_front();
+			// active_nodes.pop_front();
+			active_nodes.pop();
 			if (num_discharges % 100000 == 0)
 				LOGGER << V(num_discharges) << V(x) << V(excess[target]);
 			num_discharges++;
@@ -218,7 +222,8 @@ public:
 					assert(level[u] <= level[v] + 1);
 					if (level[u] == level[v] + 1) {
 						if (excess[v] == 0 && v != target) {
-							active_nodes.push_back(v);
+							// active_nodes.push_back(v);
+							active_nodes.push(v);
 						}
 						push(u, a, std::min(excess[u], a.rcap()));
 					} else {
@@ -257,7 +262,8 @@ public:
 	vec<int> level;
 	vec<Flow> excess;
 	Node source, target;
-	boost::circular_buffer<Node> active_nodes;
+	// boost::circular_buffer<Node> active_nodes;
+	std::queue<Node> active_nodes;
 	LayeredQueue<Node> queue;
 
 	struct Arc {
