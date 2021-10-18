@@ -23,32 +23,25 @@ public:
 
 	explicit SequentialPushRelabel(FlowHypergraph& hg) : hg(hg), next_active(0) { }
 
-	Flow dinitz_flow_value = std::numeric_limits<Flow>::max();
+	TimeReporter timer;
 
 	Flow computeFlow(Node s, Node t) {
 		source = s; target = t;
 		clearDatastructures();
+		timer.start("push relabel");
 		saturateSourceEdges();
 		size_t num_discharges = 0;
-		size_t num_discharge_rounds_since_global_relabel = 0;
 		while (!next_active.empty()) {
 			size_t num_active = next_active.size();
 			next_active.swap_container(active);
 			if (work_since_last_global_relabel > global_relabel_work_threshold) {
 				globalRelabel();
 				work_since_last_global_relabel = 0;
-				num_discharge_rounds_since_global_relabel = 0;
 			}
-			++num_discharges;
-			LOGGER << V(num_discharges) << V(excess[target]);
-			++num_discharge_rounds_since_global_relabel;
 			dischargeActiveNodes(num_active);
-			checkPreflowConstraints();
-			checkLevelConstraints();
 		}
-		LOGGER << V(num_discharges) << V(excess[target]);
-		LOGGER << V(num_discharge_rounds_since_global_relabel);
 		flowDecomposition();
+		timer.stop("push relabel");
 		// checkMaximality();
 		return excess[target];
 	}
@@ -331,144 +324,6 @@ public:
 			last = next_active.size();
 			dist++;
 		}
-		LOGGER << "global relabel";
-		checkLevelConstraints();
-	}
-
-	void checkMaximality() {
-		// #ifndef NDEBUG
-		#if true
-		std::vector<Node> stack;
-		std::vector<bool> visited(max_level, false);
-
-		auto push = [&](Node v) {
-			if (!visited[v]) {
-				visited[v] = true;
-				stack.push_back(v);
-			}
-		};
-
-		for (Node u(0); u < Node(max_level); ++u) {
-			if (u != target && (u == source || excess[u] > 0)) {
-				push(u);
-			}
-		}
-		while (!stack.empty()) {
-			Node u = stack.back(); stack.pop_back();
-			if (isHypernode(u)) {
-				for (InHeIndex i : hg.incidentHyperedgeIndices(u)) {
-					Hyperedge e = hg.getInHe(i).e;
-					if (flow[outNodeIncidenceIndex(i)] > 0) push(edgeToOutNode(e));
-					if (flow[inNodeIncidenceIndex(i)] < hg.capacity(e))
-						push(edgeToInNode(e));
-				}
-			} else if (isInNode(u)) {
-				Hyperedge e = inNodeToEdge(u);
-				for (const auto& p : hg.pinsOf(e)) {
-					if (flow[inNodeIncidenceIndex(p.he_inc_iter)] > 0) push(p.pin);
-				}
-				if (flow[bridgeEdgeIndex(e)] < hg.capacity(e)) push(edgeToOutNode(e));
-			} else {
-				Hyperedge e = outNodeToEdge(u);
-				for (const auto& p : hg.pinsOf(e)) {
-					push(p.pin);
-				}
-				if (flow[bridgeEdgeIndex(e)] > 0) push(edgeToInNode(e));
-			}
-		}
-		#endif
-	}
-
-	void checkPreflowConstraints() {
-		#ifndef NDEBUG
-
-		for (size_t i = 0; i < flow.size(); ++i) {
-			assert(flow[i] >= 0);
-		}
-
-		for (Hyperedge e : hg.hyperedgeIDs()) {
-			assert(flow[bridgeEdgeIndex(e)] <= hg.capacity(e));
-		}
-
-		tbb::parallel_for(0UL, hg.numNodes(), [&](size_t us) {
-			Node u(us);
-			Flow out = 0, in = 0;
-			for (InHeIndex in_he : hg.incidentHyperedgeIndices(u)) {
-				if constexpr (capacitate_incoming_edges_of_in_nodes) {
-					assert(flow[inNodeIncidenceIndex(in_he)] <= hg.capacity(hg.getInHe(in_he).e));
-				}
-				out += flow[inNodeIncidenceIndex(in_he)];
-				in += flow[outNodeIncidenceIndex(in_he)];
-			}
-			assert(in >= out || u == source);
-			assert(in - out == excess[u]);
-		}
-		);
-
-		tbb::parallel_for(0UL, hg.numHyperedges(), [&](size_t es) {
-			Hyperedge e(es);
-			{	// in-node
-				Flow out = 0, in = 0;
-				for (auto& pin : hg.pinsOf(e)) {
-					in += flow[inNodeIncidenceIndex(pin.he_inc_iter)];
-				}
-				out = flow[bridgeEdgeIndex(e)];
-				assert(in >= out);
-				assert(in - out == excess[edgeToInNode(e)]);
-			}
-
-			{	// out-node
-				Flow out = 0, in = 0;
-				for (auto& pin : hg.pinsOf(e)) {
-					out += flow[outNodeIncidenceIndex(pin.he_inc_iter)];
-				}
-				in = flow[bridgeEdgeIndex(e)];
-				assert(in >= out);
-				assert(in - out == excess[edgeToOutNode(e)]);
-			}
-		}
-		);
-		#endif
-	}
-
-	void checkLevelConstraints() {
-		// #if false
-		#ifndef NDEBUG
-		// level[u] <= level[v] + 1 for residual edges (u,v)
-		tbb::parallel_for(0UL, hg.numNodes(), [&](size_t us) {
-			Node u(us);
-			for (InHeIndex in_he : hg.incidentHyperedgeIndices(u)) {
-				const Hyperedge e = hg.getInHe(in_he).e;
-				if (flow[inNodeIncidenceIndex(in_he)] < hg.capacity(e)) {
-					assert(level[u] <= level[edgeToInNode(e)] + 1);
-				}
-
-				if (flow[inNodeIncidenceIndex(in_he)] > 0) {
-					assert(level[edgeToInNode(e)] <= level[u] + 1);
-				}
-
-				if (flow[outNodeIncidenceIndex(in_he)] > 0) {
-					assert(level[u] <= level[edgeToOutNode(e)] + 1);
-				}
-			}
-		});
-
-		tbb::parallel_for(0UL, hg.numHyperedges(), [&](size_t es) {
-			Hyperedge e(es);
-			for (const auto& p : hg.pinsOf(e)) {
-				if (flow[inNodeIncidenceIndex(p.he_inc_iter)] > 0) {
-					assert(level[edgeToInNode(e)] <= level[p.pin] + 1);
-				}
-				assert(level[edgeToOutNode(e)] <= level[p.pin] + 1);
-			}
-			if (flow[bridgeEdgeIndex(e)] > 0) {
-				assert(level[edgeToOutNode(e)] <= level[edgeToInNode(e)] + 1);
-			}
-			if (flow[bridgeEdgeIndex(e)] < hg.capacity(e)) {
-				assert(level[edgeToInNode(e)] <= level[edgeToOutNode(e)] + 1);
-			}
-		});
-		#endif
 	}
 
 	void saturateSourceEdges() {
@@ -538,10 +393,6 @@ private:
 	Hyperedge outNodeToEdge(Node u) const { assert(isOutNode(u)); return Hyperedge(u - hg.numNodes() - hg.numHyperedges()); }
 	Node edgeToInNode(Hyperedge e) const { assert(e < hg.numHyperedges()); return Node(e + hg.numNodes()); }
 	Node edgeToOutNode(Hyperedge e) const { assert(e < hg.numHyperedges()); return Node(e + hg.numNodes() + hg.numHyperedges()); }
-
-	bool winEdge(Node u, Node v) {
-		return level[u] == level[v] + 1 || level[u] < level[v] - 1 || (level[u] == level[v] && u < v);
-	}
 
 	vec<uint32_t> last_activated;
 	uint32_t round = 0;
