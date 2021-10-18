@@ -10,12 +10,10 @@
 
 #include "algorithm/hyperflowcutter.h"
 #include "algorithm/dinic.h"
-// #include "algorithm/graph_push_relabel.h"
 
 namespace whfc {
 	void runSnapshotTester(const std::string& filename) {
-		static constexpr bool log = true;
-		TimeReporter tr;
+		static constexpr bool log = false;
 		WHFC_IO::WHFCInformation info = WHFC_IO::readAdditionalInformation(filename);
 		Node s = info.s; Node t = info.t;
 		LOGGER << "(s,t,max f) =" << s << t << info.upperFlowBound;
@@ -26,9 +24,9 @@ namespace whfc {
 		if (s >= hg.numNodes() || t >= hg.numNodes())
 			throw std::runtime_error("s or t not within node id range");
 
-
-
+		/*
 		int seed = 42;
+	 	TimeReporter tr;
 		HyperFlowCutter<Dinic> hfc(hg, seed);
 		for (int i = 0; i < 2; ++i) hfc.cs.setMaxBlockWeight(i, std::numeric_limits<NodeWeight>::max());
 		hfc.cs.initialize(s, t);
@@ -40,21 +38,26 @@ namespace whfc {
 		hfc.cs.flipViewDirection();
 		LOGGER <<"Dinic. f =" <<  hfc.cs.flowValue;
 		HMetisIO::readFlowHypergraphWithBuilder(hg, filename);
+		*/
 
-/*
-		tr.start("seq push relabel");
-		SequentialPushRelabel spr(hg);
-		Flow f_spr = spr.computeFlow(s, t);
-		tr.stop("seq push relabel");
-		LOGGER << "Seq Push-Relabel f =" << f_spr;
-*/
+		/*
+				tr.start("seq push relabel");
+				SequentialPushRelabel spr(hg);
+				Flow f_spr = spr.computeFlow(s, t);
+				tr.stop("seq push relabel");
+				LOGGER << "Seq Push-Relabel f =" << f_spr;
+		*/
+		std::string base_filename = filename.substr(filename.find_last_of("/\\") + 1);
 
-		tr.start("push relabel");
-		ParallelPushRelabel pr(hg);
-		pr.dinitz_flow_value = hfc.cs.flowValue;
-		Flow f = pr.computeFlow(s, t);
-		tr.stop("push relabel");
-		LOGGER << "Push-Relabel f =" << f;
+		int max_num_threads = 4;
+		for (int threads = 1; threads <= max_num_threads; threads *= 2) {
+			tbb::task_scheduler_init tsi(threads);
+			whfc::pinning_observer thread_pinner;
+			thread_pinner.observe(true);
+			ParallelPushRelabel pr(hg);
+			pr.computeFlow(s, t);
+			std::cout << base_filename << "," << "ParPR-RL" << "," << threads << "," << pr.timer.get("push relabel").count() << std::endl;
+		}
 
 /*
 		tr.start("graph push relabel");
@@ -63,10 +66,10 @@ namespace whfc {
 		tr.stop("graph push relabel");
 		LOGGER << "Graph Push-Relabel f =" << f_gpr;
 */
-		if (f != hfc.cs.flowValue)
-			std::cout << filename << " flow push relabel = " << f << " flow dinitz = " << hfc.cs.flowValue << std::endl;
+//		if (f != hfc.cs.flowValue)
+//			std::cout << filename << " flow push relabel = " << f << " flow dinitz = " << hfc.cs.flowValue << std::endl;
 		// std::cout << "time dinitz " << tr.get("dinitz").count() << " s" << std::endl;
-		tr.report(std::cout);
+// 		tr.report(std::cout);
 	}
 
 
@@ -79,11 +82,12 @@ int main(int argc, const char* argv[]) {
 	int threads = 1;
 	if (argc == 3)
 		threads = std::stoi(argv[2]);
+	/*
 	tbb::task_scheduler_init tsi(threads);
 	whfc::pinning_observer thread_pinner;
 	if (argc == 3)
 		thread_pinner.observe(true);
-
+	*/
 	whfc::runSnapshotTester(hgfile);
 	return 0;
 }
