@@ -49,7 +49,7 @@ namespace whfc {
 		*/
 		std::string base_filename = filename.substr(filename.find_last_of("/\\") + 1);
 
-		int max_num_threads = 4;
+		int max_num_threads = 128;
 		for (int threads = 1; threads <= max_num_threads; threads *= 2) {
 			tbb::task_scheduler_init tsi(threads);
 			whfc::pinning_observer thread_pinner;
