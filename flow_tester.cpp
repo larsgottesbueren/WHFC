@@ -43,7 +43,7 @@ namespace whfc {
 		for (int i = 0; i < 5; ++i) {
 			SequentialPushRelabel spr(hg);
 			spr.computeFlow(s, t);
-			std::cout << base_filename << "," << i << "," << "SeqPR" << "," << 1 << "," << spr.timer.get("push relabel").count() << std::endl;
+			std::cout << base_filename << "," << i << "," << "SeqPR-ParQueue" << "," << 1 << "," << spr.timer.get("push relabel").count() << std::endl;
 		}
 
 		/*
