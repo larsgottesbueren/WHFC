@@ -35,7 +35,7 @@ namespace whfc {
 				thread_pinner.observe(true);
 				ParallelPushRelabel pr(hg);
 				pr.computeFlow(s, t);
-				std::cout << base_filename << "," << "ParPR-RL" << "," << threads << "," << pr.timer.get("push relabel").count() << std::endl;
+				std::cout << base_filename << "," << i << "," << "ParPR-RL" << "," << threads << "," << pr.timer.get("push relabel").count() << std::endl;
 			}
 		}
 		*/
@@ -43,7 +43,7 @@ namespace whfc {
 		for (int i = 0; i < 5; ++i) {
 			SequentialPushRelabel spr(hg);
 			spr.computeFlow(s, t);
-			std::cout << base_filename << "," << "SeqPR" << "," << 1 << "," << spr.timer.get("push relabel").count() << std::endl;
+			std::cout << base_filename << "," << i << "," << "SeqPR" << "," << 1 << "," << spr.timer.get("push relabel").count() << std::endl;
 		}
 
 		/*
@@ -53,7 +53,7 @@ namespace whfc {
 			GraphPushRelabel gpr(hg, true);
 			gpr.computeFlow(s, t);
 			tr.stop("Lawler PR");
-			std::cout << base_filename << "," << "Lawler-PR" << "," << 1 << "," << tr.get("Lawler PR").count() << std::endl;
+			std::cout << base_filename << "," << i << "," << "Lawler-PR" << "," << 1 << "," << tr.get("Lawler PR").count() << std::endl;
 		}
 
 		for (int i = 0; i < 5; ++i) {
@@ -66,7 +66,7 @@ namespace whfc {
 			tr.start("dinitz");
 			hfc.flow_algo.exhaustFlow(hfc.cs);
 			tr.stop("dinitz");
-			std::cout << base_filename << "," << "Dinitz" << "," << 1 << "," << tr.get("dinitz").count() << std::endl;
+			std::cout << base_filename << "," << i << "," << "Dinitz" << "," << 1 << "," << tr.get("dinitz").count() << std::endl;
 		}
 		*/
 // 		tr.report(std::cout);
