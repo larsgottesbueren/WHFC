@@ -30,7 +30,6 @@ public:
 		clearDatastructures();
 		timer.start("push relabel");
 		saturateSourceEdges();
-		size_t num_discharges = 0;
 		while (!next_active.empty()) {
 			size_t num_active = next_active.size();
 			next_active.swap_container(active);
@@ -40,9 +39,7 @@ public:
 			}
 			dischargeActiveNodes(num_active);
 		}
-		flowDecomposition();
 		timer.stop("push relabel");
-		// checkMaximality();
 		return excess[target];
 	}
 
@@ -52,10 +49,6 @@ public:
 			++round;
 		}
 		next_active.clear();
-
-		vec<Node> copy(active.begin(), active.begin() + num_active);
-		std::sort(copy.begin(), copy.end());
-		assert(std::unique(copy.begin(), copy.end()) == copy.end());
 
 		tbb::enumerable_thread_specific<size_t> work;
 		for (size_t i = 0; i < num_active; ++i) {
