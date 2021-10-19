@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vector>
+#include <queue>
 
 #include <tbb/scalable_allocator.h>
 #include <tbb/enumerable_thread_specific.h>
@@ -21,7 +22,7 @@ public:
 	static constexpr bool log = false;
 	static constexpr bool capacitate_incoming_edges_of_in_nodes = true;
 
-	explicit SequentialPushRelabel(FlowHypergraph& hg) : hg(hg), next_active(0) { }
+	explicit SequentialPushRelabel(FlowHypergraph& hg) : hg(hg) { }
 
 	TimeReporter timer;
 
@@ -30,49 +31,24 @@ public:
 		clearDatastructures();
 		timer.start("push relabel");
 		saturateSourceEdges();
-		size_t num_discharges = 0;
-		while (!next_active.empty()) {
-			size_t num_active = next_active.size();
-			next_active.swap_container(active);
-			if (work_since_last_global_relabel > global_relabel_work_threshold) {
+		size_t work = 0;
+		while (!active.empty()) {
+			if (work > global_relabel_work_threshold) {
+				work = 0;
 				globalRelabel();
-				work_since_last_global_relabel = 0;
 			}
-			dischargeActiveNodes(num_active);
+			const Node u = active.front();
+			active.pop();
+			if (excess[u] == 0 || level[u] >= max_level) { continue; }
+			if (isHypernode(u)) { work += dischargeHypernode(u); }
+			else if (isOutNode(u)) { work += dischargeOutNode(u); }
+			else { work += dischargeInNode(u); }
 		}
-		flowDecomposition();
 		timer.stop("push relabel");
-		// checkMaximality();
 		return excess[target];
 	}
 
-	void dischargeActiveNodes(size_t num_active) {
-		if (++round == 0) {
-			last_activated.assign(max_level, 0);
-			++round;
-		}
-		next_active.clear();
-
-		vec<Node> copy(active.begin(), active.begin() + num_active);
-		std::sort(copy.begin(), copy.end());
-		assert(std::unique(copy.begin(), copy.end()) == copy.end());
-
-		tbb::enumerable_thread_specific<size_t> work;
-		for (size_t i = 0; i < num_active; ++i) {
-			const Node u = active[i];
-			if (excess[u] == 0) continue;
-			if (level[u] >= max_level) { continue; }
-			if (isHypernode(u)) { work.local() += dischargeHypernode(u); }
-			else if (isOutNode(u)) { work.local() += dischargeOutNode(u); }
-			else { work.local() += dischargeInNode(u); }
-		}
-		next_active.finalize();
-		work_since_last_global_relabel += work.combine(std::plus<>());
-	}
-
 	size_t dischargeHypernode(Node u) {
-		auto next_active_handle = next_active.local_buffer();
-		auto push = [&](Node v) { if (v != target && activate(v)) next_active_handle.push_back(v); };
 		size_t work = 0;
 		Flow my_excess = excess[u];
 		int my_level = level[u];
@@ -91,10 +67,10 @@ public:
 				}
 				if (my_level == level[e_in] + 1) {
 					if (d > 0) {
+						if (excess[e_in] == 0) { active.push(e_in); }
 						flow[inNodeIncidenceIndex(i)] += d;
 						my_excess -= d;
 						excess[e_in] += d;
-						push(e_in);
 					}
 				} else if (my_level <= level[e_in] && d > 0) {
 					new_level = std::min(new_level, level[e_in]);
@@ -113,10 +89,10 @@ public:
 					assert(flow[outNodeIncidenceIndex(i)] <= hg.capacity(e));
 					const Flow d = std::min(my_excess, flow[outNodeIncidenceIndex(i)]);
 					if (d > 0) {
+						if (excess[e_out] == 0) { active.push(e_out); }
 						flow[outNodeIncidenceIndex(i)] -= d;
 						my_excess -= d;
 						excess[e_out] += d;
-						push(e_out);
 					}
 				} else if (my_level <= level[e_out] && flow[outNodeIncidenceIndex(i)] > 0) {
 					new_level = std::min(new_level, level[e_out]);
@@ -132,7 +108,7 @@ public:
 
 		level[u] = my_level;	// make relabel visible
 		if (my_level < max_level && my_excess > 0) {	// go again in the next round if excess left
-			push(u);
+			active.push(u);
 		}
 		excess[u] = my_excess;
 
@@ -140,8 +116,6 @@ public:
 	}
 
 	size_t dischargeInNode(Node e_in) {
-		auto next_active_handle = next_active.local_buffer();
-		auto push = [&](Node v) { if (v != target && activate(v)) next_active_handle.push_back(v); };
 		size_t work = 0;
 		Flow my_excess = excess[e_in];
 		int my_level = level[e_in];
@@ -155,10 +129,10 @@ public:
 			if (my_level == level[e_out] + 1) {
 				Flow d = std::min(hg.capacity(e) - flow[bridgeEdgeIndex(e)], my_excess);
 				if (d > 0) {
+					if (excess[e_out] == 0) { active.push(e_out); }
 					flow[bridgeEdgeIndex(e)] += d;
 					my_excess -= d;
 					excess[e_out] += d;
-					push(e_out);
 				}
 			} else if (my_level <= level[e_out] && flow[bridgeEdgeIndex(e)] < hg.capacity(e)) {
 				new_level = std::min(new_level, level[e_out]);
@@ -180,8 +154,8 @@ public:
 						d = std::min(d, my_excess);
 						flow[j] -= d;
 						my_excess -= d;
+						if (v != target && excess[v] == 0) { active.push(v); }
 						excess[v] += d;
-						push(v);
 					}
 				} else if (my_level <= level[v] && d > 0) {
 					new_level = std::min(new_level, level[v]);
@@ -197,15 +171,13 @@ public:
 
 		level[e_in] = my_level; 	// make relabel visible
 		if (my_level < max_level && my_excess > 0) {	// go again in the next round if excess left
-			push(e_in);
+			active.push(e_in);
 		}
 		excess[e_in] = my_excess;
 		return work;
 	}
 
 	size_t dischargeOutNode(Node e_out) {
-		auto next_active_handle = next_active.local_buffer();
-		auto push = [&](Node v) { if (v != target && activate(v)) next_active_handle.push_back(v); };
 		size_t work = 0;
 		Flow my_excess = excess[e_out];
 		int my_level = level[e_out];
@@ -227,8 +199,8 @@ public:
 					assert(d <= hg.capacity(e) - flow[outNodeIncidenceIndex(p.he_inc_iter)]);
 					flow[outNodeIncidenceIndex(p.he_inc_iter)] += d;
 					my_excess -= d;
+					if (v != target && excess[v] == 0) { active.push(v); }
 					excess[v] += d;
-					push(v);
 				} else if (my_level <= level[v] && d > 0) {
 					new_level = std::min(new_level, level[v]);
 				}
@@ -245,8 +217,8 @@ public:
 				if (d > 0) {
 					flow[bridgeEdgeIndex(e)] -= d;
 					my_excess -= d;
+					if (excess[e_in] == 0) { active.push(e_in); }
 					excess[e_in] += d;
-					push(e_in);
 				}
 			} else if (my_level <= level[e_in] && flow[bridgeEdgeIndex(e)] > 0) {
 				new_level = std::min(new_level, level[e_in]);
@@ -260,7 +232,7 @@ public:
 
 		level[e_out] = my_level; 	// make relabel visible
 		if (my_level < max_level && my_excess > 0) {	// go again in the next round if excess left
-			push(e_out);
+			active.push(e_out);
 		}
 		excess[e_out] = my_excess;
 		return work;
@@ -268,20 +240,20 @@ public:
 
 	void globalRelabel() {
 		level.assign(max_level, max_level);
-		next_active.clear();
-		next_active.push_back_atomic(target);	// parallel special case for target/high degree nodes?
+		relabel_queue.clear();
+		relabel_queue.push_back(target);
 		level[target] = 0;
 		int dist = 1;
 		size_t first = 0, last = 1;
 		while (first != last) {
 			for (size_t i = first; i < last; ++i) {
-				auto next_layer = next_active.local_buffer();
 				auto push = [&](const Node v) {
-					if (level[v] == max_level && __atomic_exchange_n(&level[v], dist, __ATOMIC_ACQ_REL) == max_level) {
-						next_layer.push_back(v);
+					if (level[v] == max_level) {
+						level[v] = dist;
+						relabel_queue.push_back(v);
 					}
 				};
-				const Node u = next_active[i];
+				const Node u = relabel_queue[i];
 				if (isHypernode(u)) {
 					for (InHeIndex incnet_ind : hg.incidentHyperedgeIndices(u)) {
 						const Hyperedge e = hg.getInHe(incnet_ind).e;
@@ -319,9 +291,8 @@ public:
 					}
 				}
 			}
-			next_active.finalize();
 			first = last;
-			last = next_active.size();
+			last = relabel_queue.size();
 			dist++;
 		}
 	}
@@ -334,12 +305,8 @@ public:
 			excess[source] -= d;
 			excess[edgeToInNode(e)] += d;
 			flow[inNodeIncidenceIndex(inc_iter)] += d;
-			next_active.push_back_atomic(edgeToInNode(e));
+			active.push(edgeToInNode(e));
 		}
-	}
-
-	void flowDecomposition() {
-
 	}
 
 	void clearDatastructures() {
@@ -348,14 +315,11 @@ public:
 
 		max_level = hg.numNodes() + 2 * hg.numHyperedges();
 
+		relabel_queue.reserve(max_level);
+
 		flow.assign(2 * hg.numPins() + hg.numHyperedges(), 0);
 		excess.assign(max_level, 0);
 		level.assign(max_level, 0);
-
-		next_active.adapt_capacity(max_level);
-		active.resize(max_level);
-		last_activated.assign(max_level, 0);
-		round = 0;
 
 		work_since_last_global_relabel = std::numeric_limits<size_t>::max();
 		global_relabel_work_threshold = (global_relabel_alpha * max_level + 2 * hg.numPins() + hg.numHyperedges()) / global_relabel_frequency;
@@ -366,8 +330,8 @@ private:
 	FlowHypergraph& hg;
 	vec<Flow> flow, excess;
 	vec<int> level;
-	BufferedVector<Node> next_active;
-	vec<Node> active;
+	std::queue<Node> active;
+	vec<Node> relabel_queue;
 
 	Node source, target;
 
@@ -393,13 +357,6 @@ private:
 	Hyperedge outNodeToEdge(Node u) const { assert(isOutNode(u)); return Hyperedge(u - hg.numNodes() - hg.numHyperedges()); }
 	Node edgeToInNode(Hyperedge e) const { assert(e < hg.numHyperedges()); return Node(e + hg.numNodes()); }
 	Node edgeToOutNode(Hyperedge e) const { assert(e < hg.numHyperedges()); return Node(e + hg.numNodes() + hg.numHyperedges()); }
-
-	vec<uint32_t> last_activated;
-	uint32_t round = 0;
-	bool activate(Node u) {
-		return last_activated[u] != round && __atomic_exchange_n(&last_activated[u], round, __ATOMIC_ACQ_REL) != round;
-	}
-
 };
 
 }

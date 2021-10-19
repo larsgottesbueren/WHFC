@@ -94,39 +94,32 @@ public:
 		for (size_t i = 0; i < arcs.size(); ++i) {
 			assert(i == arcs[arcs[i].back_arc].back_arc);
 		}
+
+		work_since_last_global_relabel = std::numeric_limits<size_t>::max();
+		global_relabel_work_threshold = (global_relabel_alpha * numNodes() + 2 * hg.numPins() + hg.numHyperedges()) / global_relabel_frequency;
 	}
 
 	Flow computeFlow(Node s, Node t) {
 		source = s; target = t;
-
 		level[source] = numNodes();
 		queue.reserve(numNodes());
 		while (!active_nodes.empty()) active_nodes.pop();
-		// active_nodes.clear();
-		// active_nodes.set_capacity(numNodes());
 		for (Arc& a : arcsOf(source)) {
 			Flow d = a.rcap();
 			if (d > 0) {
 				if (excess[a.head] == 0 && a.head != target) {
-					// active_nodes.push_back(a.head);
 					active_nodes.push(a.head);
 				}
 				push(source, a, d);
 			}
 		}
-		LOGGER << V(active_nodes.size());
-		size_t num_discharges = 0;
 		while (!active_nodes.empty()) {
-			if (work > 1.2 * double(numNodes() + numArcs())) {
+			if (work > global_relabel_work_threshold) {
 				work = 0;
 				globalRelabel();
 			}
 			const Node x = active_nodes.front();
-			// active_nodes.pop_front();
 			active_nodes.pop();
-			if (num_discharges % 100000 == 0)
-				LOGGER << V(num_discharges) << V(x) << V(excess[target]);
-			num_discharges++;
 			discharge(x);
 		}
 		return excess[target];
@@ -222,7 +215,6 @@ public:
 					assert(level[u] <= level[v] + 1);
 					if (level[u] == level[v] + 1) {
 						if (excess[v] == 0 && v != target) {
-							// active_nodes.push_back(v);
 							active_nodes.push(v);
 						}
 						push(u, a, std::min(excess[u], a.rcap()));
@@ -239,7 +231,6 @@ public:
 	}
 
 	void globalRelabel() {
-		LOGGER << "global relabel";
 		queue.clear();
 		int inf = numNodes();
 		level.assign(numNodes(), inf);
@@ -262,9 +253,12 @@ public:
 	vec<int> level;
 	vec<Flow> excess;
 	Node source, target;
-	// boost::circular_buffer<Node> active_nodes;
 	std::queue<Node> active_nodes;
 	LayeredQueue<Node> queue;
+
+	static constexpr size_t global_relabel_alpha = 6;
+	static constexpr size_t global_relabel_frequency = 5;
+	size_t global_relabel_work_threshold = 0;
 
 	struct Arc {
 		Node head;

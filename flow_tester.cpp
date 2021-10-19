@@ -26,6 +26,7 @@ namespace whfc {
 
 		std::string base_filename = filename.substr(filename.find_last_of("/\\") + 1);
 
+		/*
 		int max_num_threads = 128;
 		for (int i = 0; i < 5; ++i) {
 			for (int threads = 1; threads <= max_num_threads; threads *= 2) {
@@ -37,12 +38,14 @@ namespace whfc {
 				std::cout << base_filename << "," << "ParPR-RL" << "," << threads << "," << pr.timer.get("push relabel").count() << std::endl;
 			}
 		}
+		 */
 
 		for (int i = 0; i < 5; ++i) {
 			SequentialPushRelabel spr(hg);
 			spr.computeFlow(s, t);
-			std::cout << base_filename << "," << "SeqPR" << "," << 1 << "," << spr.timer.get("push relabel").count() << std::endl;
+			std::cout << base_filename << "," << "SeqPR-NoOverhead" << "," << 1 << "," << spr.timer.get("push relabel").count() << std::endl;
 		}
+
 
 		for (int i = 0; i < 5; ++i) {
 			TimeReporter tr;
@@ -52,7 +55,7 @@ namespace whfc {
 			tr.stop("Lawler PR");
 			std::cout << base_filename << "," << "Lawler-PR" << "," << 1 << "," << tr.get("Lawler PR").count() << std::endl;
 		}
-
+		/*
 		for (int i = 0; i < 5; ++i) {
 			HMetisIO::readFlowHypergraphWithBuilder(hg, filename);
 			int seed = 42;
@@ -65,7 +68,7 @@ namespace whfc {
 			tr.stop("dinitz");
 			std::cout << base_filename << "," << "Dinitz" << "," << 1 << "," << tr.get("dinitz").count() << std::endl;
 		}
-
+		*/
 // 		tr.report(std::cout);
 	}
 
