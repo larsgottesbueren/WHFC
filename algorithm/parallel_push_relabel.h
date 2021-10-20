@@ -42,19 +42,30 @@ public:
 				applyUpdates();
 			}
 
+			bool high_label_excess_left = false;
+			tbb::parallel_for(0, max_level, [&](int i) {
+				Node u(i);
+				if (u != source && u != target && excess[u] > 0 && level[u] >= max_level) {
+					high_label_excess_left = true;
+					// can cancel, but we expect that this branch is never hit
+				}
+			});
+
 			// no more nodes with level < n and excess > 0 left.
 			// however labels might be broken from parallelism
 			// --> run global relabeling to check if done.
-			num_active = 0;
-			globalRelabel();
-			// plug queue back in (regular loop picks it out again)
-			next_active.swap_container(active);
-			next_active.set_size(num_active);
+
+			if (high_label_excess_left) {
+				num_active = 0;
+				globalRelabel();
+				// plug queue back in (regular loop picks it out again)
+				next_active.swap_container(active);
+				next_active.set_size(num_active);
+			}
 			num_tries++;
 		} while (!next_active.empty());
 
 		LOGGER << V(num_discharges) << V(excess_diff[target]);
-		flowDecomposition();
 		// target node is never pushed to active set --> apply update separately.
 		// TODO once we get multiple target nodes, this may require changes.
 		//  the values are only needed to determine the flow diff

@@ -6,10 +6,10 @@
 #include <tbb/task_scheduler_init.h>
 
 #include "algorithm/parallel_push_relabel.h"
-#include "algorithm/sequential_push_relabel.h"
-#include "algorithm/graph_push_relabel.h"
-#include "algorithm/hyperflowcutter.h"
-#include "algorithm/dinic.h"
+// #include "algorithm/sequential_push_relabel.h"
+// #include "algorithm/graph_push_relabel.h"
+// #include "algorithm/hyperflowcutter.h"
+// #include "algorithm/dinic.h"
 
 namespace whfc {
 	void runSnapshotTester(const std::string& filename) {
@@ -26,26 +26,26 @@ namespace whfc {
 
 		std::string base_filename = filename.substr(filename.find_last_of("/\\") + 1);
 
-		/*
+
 		int max_num_threads = 128;
-		for (int i = 0; i < 5; ++i) {
-			for (int threads = 1; threads <= max_num_threads; threads *= 2) {
-				tbb::task_scheduler_init tsi(threads);
-				whfc::pinning_observer thread_pinner;
-				thread_pinner.observe(true);
+		for (int threads = 1; threads <= max_num_threads; threads *= 2) {
+			tbb::task_scheduler_init tsi(threads);
+			whfc::pinning_observer thread_pinner;
+			thread_pinner.observe(true);
+			for (int i = 0; i < 5; ++i) {
 				ParallelPushRelabel pr(hg);
 				pr.computeFlow(s, t);
 				std::cout << base_filename << "," << i << "," << "ParPR-RL" << "," << threads << "," << pr.timer.get("push relabel").count() << std::endl;
 			}
 		}
-		*/
 
+/*
 		for (int i = 0; i < 5; ++i) {
 			SequentialPushRelabel spr(hg);
 			spr.computeFlow(s, t);
 			std::cout << base_filename << "," << i << "," << "SeqPR-ParQueue" << "," << 1 << "," << spr.timer.get("push relabel").count() << std::endl;
 		}
-
+*/
 		/*
 		for (int i = 0; i < 5; ++i) {
 			TimeReporter tr;
