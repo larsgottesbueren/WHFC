@@ -95,7 +95,6 @@ public:
 			assert(i == arcs[arcs[i].back_arc].back_arc);
 		}
 
-		work_since_last_global_relabel = std::numeric_limits<size_t>::max();
 		global_relabel_work_threshold = (global_relabel_alpha * numNodes() + 2 * hg.numPins() + hg.numHyperedges()) / global_relabel_frequency;
 	}
 

@@ -6,10 +6,10 @@
 #include <tbb/task_scheduler_init.h>
 
 #include "algorithm/parallel_push_relabel.h"
-// #include "algorithm/sequential_push_relabel.h"
-// #include "algorithm/graph_push_relabel.h"
-// #include "algorithm/hyperflowcutter.h"
-// #include "algorithm/dinic.h"
+#include "algorithm/sequential_push_relabel.h"
+#include "algorithm/graph_push_relabel.h"
+#include "algorithm/hyperflowcutter.h"
+#include "algorithm/dinic.h"
 
 namespace whfc {
 	void runSnapshotTester(const std::string& filename) {
