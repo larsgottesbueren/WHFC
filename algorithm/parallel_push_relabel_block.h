@@ -15,7 +15,7 @@ namespace whfc {
 template<typename T>
 using vec = std::vector<T, tbb::scalable_allocator<T> >;
 
-class ParallelPushRelabel {
+class ParallelPushRelabelBlock {
 
   enum class LevelState : uint8_t {
 		NOT_MODIFIED,
@@ -24,11 +24,11 @@ class ParallelPushRelabel {
 	};
 
 public:
-	using Type = ParallelPushRelabel;
+	using Type = ParallelPushRelabelBlock;
 	static constexpr bool log = false;
 	static constexpr bool capacitate_incoming_edges_of_in_nodes = true;
 
-	explicit ParallelPushRelabel(FlowHypergraph& hg) : hg(hg), next_active(0) { }
+	explicit ParallelPushRelabelBlock(FlowHypergraph& hg) : hg(hg), next_active(0) { }
 
 	TimeReporter timer;
 
