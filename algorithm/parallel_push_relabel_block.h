@@ -17,7 +17,7 @@ using vec = std::vector<T, tbb::scalable_allocator<T> >;
 
 class ParallelPushRelabelBlock {
 
-  enum class LevelState : uint8_t {
+	enum class LevelState : uint8_t {
 		NOT_MODIFIED,
 		EXPECT_STABLE,
 		IS_RELABELED
