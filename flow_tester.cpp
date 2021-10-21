@@ -26,7 +26,6 @@ namespace whfc {
 
 		std::string base_filename = filename.substr(filename.find_last_of("/\\") + 1);
 
-
 		int max_num_threads = 128;
 		for (int threads = 1; threads <= max_num_threads; threads *= 2) {
 			tbb::task_scheduler_init tsi(threads);
@@ -39,14 +38,12 @@ namespace whfc {
 			}
 		}
 
-/*
 		for (int i = 0; i < 5; ++i) {
 			SequentialPushRelabel spr(hg);
 			spr.computeFlow(s, t);
-			std::cout << base_filename << "," << i << "," << "SeqPR-ParQueue" << "," << 1 << "," << spr.timer.get("push relabel").count() << std::endl;
+			std::cout << base_filename << "," << "SeqPR" << "," << 1 << "," << spr.timer.get("push relabel").count() << std::endl;
 		}
-*/
-		/*
+
 		for (int i = 0; i < 5; ++i) {
 			TimeReporter tr;
 			tr.start("Lawler PR");
@@ -68,10 +65,7 @@ namespace whfc {
 			tr.stop("dinitz");
 			std::cout << base_filename << "," << i << "," << "Dinitz" << "," << 1 << "," << tr.get("dinitz").count() << std::endl;
 		}
-		*/
-// 		tr.report(std::cout);
 	}
-
 
 }
 
