@@ -1,34 +1,26 @@
 #pragma once
 
-#include <vector>
+#include "push_relabel_commons.h"
 
-#include <tbb/scalable_allocator.h>
-#include <tbb/enumerable_thread_specific.h>
 #include <tbb/parallel_for.h>
-
-#include "../datastructure/flow_hypergraph.h"
 #include "../datastructure/buffered_vector.h"
 
 
 namespace whfc {
 
-template<typename T>
-using vec = std::vector<T, tbb::scalable_allocator<T> >;
-
-class ParallelPushRelabel {
+class ParallelPushRelabel : public PushRelabelCommons {
 public:
 	using Type = ParallelPushRelabel;
 	static constexpr bool log = false;
 	static constexpr bool capacitate_incoming_edges_of_in_nodes = true;
 
-	explicit ParallelPushRelabel(FlowHypergraph& hg) : hg(hg), next_active(0) { }
+	ParallelPushRelabel(FlowHypergraph& hg) : PushRelabelCommons(hg), next_active(0) { }
 
 	Flow computeFlow(Node s, Node t) {
 		source = s; target = t;
 		clearDatastructures();
 		timer.start("push relabel");
 		saturateSourceEdges();
-		size_t num_discharges = 0;
 		size_t num_tries = 0;
 		do {
 			while (!next_active.empty()) {
@@ -37,7 +29,6 @@ public:
 				if (work_since_last_global_relabel > 2 * global_relabel_work_threshold) {
 					globalRelabel();
 				}
-				++num_discharges;
 				dischargeActiveNodes();
 				applyUpdates();
 			}
@@ -47,7 +38,7 @@ public:
 				Node u(i);
 				if (u != source && u != target && excess[u] > 0 && level[u] >= max_level) {
 					high_label_excess_left = true;
-					// can cancel, but we expect that this branch is never hit
+					// can cancel, but we expect that this branch is rarely hit
 				}
 			});
 
@@ -65,7 +56,6 @@ public:
 			num_tries++;
 		} while (!next_active.empty());
 
-		LOGGER << V(num_discharges) << V(excess_diff[target]);
 		// target node is never pushed to active set --> apply update separately.
 		// TODO once we get multiple target nodes, this may require changes.
 		//  the values are only needed to determine the flow diff
@@ -409,78 +399,33 @@ public:
 		}
 	}
 
-	void flowDecomposition() {
-
-	}
-
 	void clearDatastructures() {
-		out_node_offset = hg.numPins();
-		bridge_node_offset = 2 * hg.numPins();
+		PushRelabelCommons::clearDatastructures();
 
-		max_level = hg.numNodes() + 2 * hg.numHyperedges();
-
-		flow.assign(2 * hg.numPins() + hg.numHyperedges(), 0);
-		excess.assign(max_level, 0);
 		excess_diff.assign(max_level, 0);
-		level.assign(max_level, 0);
 		next_level.assign(max_level, 0);
 
 		next_active.adapt_capacity(max_level);
 		active.resize(max_level);
 		last_activated.assign(max_level, 0);
 		round = 0;
-
-		work_since_last_global_relabel = std::numeric_limits<size_t>::max();
-		global_relabel_work_threshold = (global_relabel_alpha * max_level + 2 * hg.numPins() + hg.numHyperedges()) / global_relabel_frequency;
 	}
 
-	TimeReporter timer;
 
 private:
-	int max_level = 0;
-	FlowHypergraph& hg;
-	vec<Flow> flow, excess, excess_diff;
-	vec<int> level, next_level;
-
+	vec<Flow> excess_diff;
+	vec<int> next_level;
 	size_t num_active = 0;
 	BufferedVector<Node> next_active;
 	vec<Node> active;
 
 	Node source, target;
 
-	static constexpr size_t global_relabel_alpha = 6;
-	static constexpr size_t global_relabel_frequency = 5;
-	size_t work_since_last_global_relabel = 0, global_relabel_work_threshold = 0;
-
-	size_t out_node_offset = 0, bridge_node_offset = 0;
-
-	// position where flow going from vertex into hyperedge is stored
-	size_t inNodeIncidenceIndex(InHeIndex inc_he_ind) const { return inc_he_ind; }
-	// position where flow going from hyperedge into vertex is stored
-	size_t outNodeIncidenceIndex(InHeIndex inc_he_ind) const { return inc_he_ind + out_node_offset; }
-	// position where flow on hyperedge is stored
-	size_t bridgeEdgeIndex(Hyperedge he) const { return he + bridge_node_offset; }
-
-	// hypernodes | in-nodes | out-nodes
-	// [0..n - 1][n..n+m-1][n+m..n+2m]
-	bool isHypernode(Node u) const { return u < hg.numNodes(); }
-	bool isInNode(Node u) const { return u >= hg.numNodes() && u < hg.numNodes() + hg.numHyperedges(); }
-	bool isOutNode(Node u) const { assert(u < hg.numNodes() + 2 * hg.numHyperedges()); return u >= hg.numNodes() + hg.numHyperedges(); }
-	Hyperedge inNodeToEdge(Node u) const { assert(isInNode(u)); return Hyperedge(u - hg.numNodes()); }
-	Hyperedge outNodeToEdge(Node u) const { assert(isOutNode(u)); return Hyperedge(u - hg.numNodes() - hg.numHyperedges()); }
-	Node edgeToInNode(Hyperedge e) const { assert(e < hg.numHyperedges()); return Node(e + hg.numNodes()); }
-	Node edgeToOutNode(Hyperedge e) const { assert(e < hg.numHyperedges()); return Node(e + hg.numNodes() + hg.numHyperedges()); }
-
-	bool winEdge(Node v, Node u) {
-		return level[u] == level[v] + 1 || level[u] < level[v] - 1 || (level[u] == level[v] && u < v);
-	}
-
 	vec<uint32_t> last_activated;
 	uint32_t round = 0;
 	bool activate(Node u) {
 		return last_activated[u] != round && __atomic_exchange_n(&last_activated[u], round, __ATOMIC_ACQ_REL) != round;
 	}
-
 };
 
 }
