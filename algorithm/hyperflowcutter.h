@@ -234,7 +234,7 @@ namespace whfc {
 			assert(cs.n.targetReachableWeight == cs.n.targetWeight);
 
 			NonDynamicCutterState first_balanced_state = cs.enterMostBalancedCutMode();
-			SimulatedNodeAssignment initial_sol = cs.mostBalancedIsolatedNodesAssignment();
+			SimulatedNodeAssignment initial_sol = cs.mostBalancedAssignment();
 			std::vector<Move> best_moves;
 			SimulatedNodeAssignment best_sol = initial_sol;
 
@@ -253,7 +253,7 @@ namespace whfc {
 						cs.flipViewDirection();
 					}
 
-					SimulatedNodeAssignment sim = cs.mostBalancedIsolatedNodesAssignment();
+					SimulatedNodeAssignment sim = cs.mostBalancedAssignment();
 					if (sim.imbalance() < sol.imbalance()) {
 						sol = sim;
 					}
