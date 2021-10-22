@@ -4,7 +4,6 @@
 #include "../logger.h"
 #include "../algorithm/dinic.h"
 #include "../algorithm/parallel_push_relabel.h"
-#include "../algorithm/graph_push_relabel.h"
 
 namespace whfc {
 namespace Test {
@@ -89,10 +88,6 @@ namespace Test {
 			Flow f = pr.computeFlow(s, t);
 			std::cout << V(file) << " " << V(f) << std::endl;
 
-			GraphPushRelabel gpr(hg);
-			Flow f_gpr = pr.computeFlow(s, t);
-			std::cout << V(f_gpr) << std::endl;
-			assert(f_gpr == expected_flow);
 			assert(f == expected_flow);
 			return f == expected_flow;
 		}

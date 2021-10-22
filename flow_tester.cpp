@@ -7,7 +7,6 @@
 
 #include "algorithm/parallel_push_relabel.h"
 #include "algorithm/sequential_push_relabel.h"
-#include "algorithm/graph_push_relabel.h"
 #include "algorithm/hyperflowcutter.h"
 #include "algorithm/dinic.h"
 
@@ -42,15 +41,6 @@ namespace whfc {
 			SequentialPushRelabel spr(hg);
 			spr.computeFlow(s, t);
 			std::cout << base_filename << "," << "SeqPR" << "," << 1 << "," << spr.timer.get("push relabel").count() << std::endl;
-		}
-
-		for (int i = 0; i < 5; ++i) {
-			TimeReporter tr;
-			tr.start("Lawler PR");
-			GraphPushRelabel gpr(hg, true);
-			gpr.computeFlow(s, t);
-			tr.stop("Lawler PR");
-			std::cout << base_filename << "," << i << "," << "Lawler-PR" << "," << 1 << "," << tr.get("Lawler PR").count() << std::endl;
 		}
 
 		for (int i = 0; i < 5; ++i) {
