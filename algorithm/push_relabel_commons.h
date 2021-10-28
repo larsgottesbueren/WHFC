@@ -64,7 +64,7 @@ namespace whfc {
 		void resetReachability(bool forward) {
 			if (++running_timestamp == 0) {
 				reach.assign(max_level, 0);
-				running_timestamp = 3;
+				running_timestamp = 3;	// initial value is 2, but the increment is already executed
 			}
 			if (forward) {
 				source_reachable_stamp = running_timestamp;
@@ -130,22 +130,21 @@ namespace whfc {
 			}
 		}
 
-		// TODO add pushing excess nodes
 		template<typename PushFunc>
 		void scanForward(Node u, PushFunc&& push) {
 			if (isHypernode(u)) {
 				for (InHeIndex incnet_ind : hg.incidentHyperedgeIndices(u)) {
 					const Hyperedge e = hg.getInHe(incnet_ind).e;
-					if (flow[inNodeIncidenceIndex(incnet_ind)] < hg.capacity(e)) {
+					if (flow[inNodeIncidenceIndex(incnet_ind)] < hg.capacity(e) || excess[edgeToInNode(e)] > 0) {
 						push(edgeToInNode(e));
 					}
-					if (flow[outNodeIncidenceIndex(incnet_ind)] > 0) {
+					if (flow[outNodeIncidenceIndex(incnet_ind)] > 0 || excess[edgeToOutNode(e)] > 0) {
 						push(edgeToOutNode(e));
 					}
 				}
 			} else if (isOutNode(u)) {
 				const Hyperedge e = outNodeToEdge(u);
-				if (flow[bridgeEdgeIndex(e)] > 0) {
+				if (flow[bridgeEdgeIndex(e)] > 0 || excess[edgeToInNode(e)] > 0) {
 					push(edgeToInNode(e));
 				}
 				for (const auto& pin : hg.pinsOf(e)) {
@@ -154,11 +153,11 @@ namespace whfc {
 			} else {
 				assert(isInNode(u));
 				const Hyperedge e = inNodeToEdge(u);
-				if (flow[bridgeEdgeIndex(e)] < hg.capacity(e)) {
+				if (flow[bridgeEdgeIndex(e)] < hg.capacity(e) || excess[edgeToOutNode(e)] > 0) {
 					push(edgeToOutNode(e));
 				}
 				for (const auto& pin : hg.pinsOf(e)) {
-					if (flow[inNodeIncidenceIndex(pin.he_inc_iter)] > 0) {
+					if (flow[inNodeIncidenceIndex(pin.he_inc_iter)] > 0 || excess[pin.pin] > 0) {
 						push(pin.pin);
 					}
 				}
