@@ -42,19 +42,6 @@ namespace whfc {
 			spr.computeFlow(s, t);
 			std::cout << base_filename << "," << "SeqPR" << "," << 1 << "," << spr.timer.get("push relabel").count() << std::endl;
 		}
-
-		for (int i = 0; i < 5; ++i) {
-			HMetisIO::readFlowHypergraphWithBuilder(hg, filename);
-			int seed = 42;
-			TimeReporter tr;
-			HyperFlowCutter<Dinic> hfc(hg, seed);
-			for (int i = 0; i < 2; ++i) hfc.cs.setMaxBlockWeight(i, std::numeric_limits<NodeWeight>::max());
-			hfc.cs.initialize(s, t);
-			tr.start("dinitz");
-			hfc.flow_algo.exhaustFlow(hfc.cs);
-			tr.stop("dinitz");
-			std::cout << base_filename << "," << i << "," << "Dinitz" << "," << 1 << "," << tr.get("dinitz").count() << std::endl;
-		}
 	}
 
 }

@@ -60,6 +60,7 @@ namespace whfc {
 
 		using Pin = FlowHypergraph::Pin;
 
+		FlowAlgorithm flow_algo;
 		int viewDirection = 0;
 		FlowHypergraph& hg;
 		Flow flowValue = 0;
@@ -82,6 +83,7 @@ namespace whfc {
 		Randomizer rng;
 
 		CutterState(FlowHypergraph& _hg, TimeReporter& timer) :
+				flow_algo(_hg),
 				hg(_hg),
 				n(_hg),
 				h(_hg),
@@ -189,6 +191,7 @@ namespace whfc {
 		void reset() {		// TODO could consolidate with initialize
 			viewDirection = 0;
 			flowValue = 0;
+			flow_algo.reset();
 			n.fullReset();
 			h.fullReset();
 			sourcePiercingNodes.clear(); targetPiercingNodes.clear();

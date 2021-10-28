@@ -13,7 +13,6 @@ namespace whfc {
 		TimeReporter timer;
 		FlowHypergraph& hg;
 		CutterState<FlowAlgorithm> cs;
-		FlowAlgorithm flow_algo;
 		Flow upperFlowBound;
 		Piercer<FlowAlgorithm> piercer;
 		bool find_most_balanced = true;
@@ -24,7 +23,6 @@ namespace whfc {
 				timer("HyperFlowCutter"),
 				hg(hg),
 				cs(hg, timer),
-				flow_algo(hg),
 				upperFlowBound(maxFlow),
 				piercer(hg, cs, timer)
 		{
@@ -35,7 +33,6 @@ namespace whfc {
 		void reset() {
 			cs.reset();
 			piercer.reset();
-			flow_algo.reset();
 			upperFlowBound = maxFlow;
 			//timer.clear();
 		}
@@ -58,97 +55,6 @@ namespace whfc {
 			return true;
 		}
 
-		//for flow-based interleaving
-		bool advanceOneFlowIteration(bool reject_piercing_if_it_creates_an_augmenting_path = false) {
-			const bool pierceInThisIteration = cs.hasCut;
-			if (pierceInThisIteration) {
-				const bool early_reject = !pierce(reject_piercing_if_it_creates_an_augmenting_path);
-				if (early_reject) {
-					return false;
-				}
-			}
-
-			timer.start("Flow");
-			if (cs.augmentingPathAvailableFromPiercing) {
-				timer.start("Augment", "Flow");
-				if (pierceInThisIteration) {
-					cs.flowValue += flow_algo.recycleDatastructuresFromGrowReachablePhase(cs);	//the flow due to recycled datastructures does not matter when deciding whether we have a cut available
-				}
-				Flow flow_diff = flow_algo.growFlowOrSourceReachable(cs);
-				cs.flowValue += flow_diff;
-				cs.hasCut = flow_diff == 0;
-				timer.stop("Augment");
-
-				if (cs.hasCut) {
-					cs.flipViewDirection();
-					timer.start("Grow Backward Reachable", "Flow");
-					flow_algo.growReachable(cs);
-					timer.stop("Grow Backward Reachable");
-				}
-			}
-			else {
-				timer.start("Grow Reachable due to AAP", "Flow");
-				flow_algo.growReachable(cs);		//don't grow target reachable
-				timer.stop("Grow Reachable due to AAP");
-				cs.hasCut = true;
-			}
-			timer.stop("Flow");
-
-			cs.verifyFlowConstraints();
-
-			if (cs.hasCut) {
-				cs.verifySetInvariants();
-				if (cs.sideToGrow() != cs.currentViewDirection()) {
-					cs.flipViewDirection();
-				}
-				timer.start("Grow Assimilated");
-				GrowAssimilated<FlowAlgorithm>::grow(cs, flow_algo.getScanList());
-				timer.stop("Grow Assimilated");
-				cs.verifyCutPostConditions();
-				LOGGER << cs.toString();
-			}
-
-			return true;
-		}
-
-		bool runUntilBalancedOrFlowBoundExceeded(const Node s, const Node t) {
-			cs.initialize(s,t);
-			bool piercingFailedOrFlowBoundReachedWithNonAAPPiercingNode = false;
-			bool has_balanced_cut = false;
-
-			while (cs.flowValue <= upperFlowBound && !has_balanced_cut) {
-				piercingFailedOrFlowBoundReachedWithNonAAPPiercingNode = !advanceOneFlowIteration(cs.flowValue == upperFlowBound);
-				if (piercingFailedOrFlowBoundReachedWithNonAAPPiercingNode)
-					break;
-				has_balanced_cut = cs.hasCut && cs.isBalanced(); //no cut ==> run and don't check for balance.
-			}
-
-			LOGGER << V(has_balanced_cut) << V(cs.flowValue) << V(upperFlowBound);
-
-			if (has_balanced_cut && cs.flowValue <= upperFlowBound) {
-				assert(cs.sideToGrow() == cs.currentViewDirection());
-				const double imb_S_U_ISO = static_cast<double>(hg.totalNodeWeight() - cs.n.targetReachableWeight) / static_cast<double>(cs.maxBlockWeight(cs.currentViewDirection()));
-				const double imb_T = static_cast<double>(cs.n.targetReachableWeight) / static_cast<double>(cs.maxBlockWeight(cs.oppositeViewDirection()));
-				const bool better_balance_impossible = cs.unclaimedNodeWeight() == 0 || imb_S_U_ISO <= imb_T;
-				LOGGER << V(better_balance_impossible);
-				if (find_most_balanced && !better_balance_impossible) {
-					mostBalancedCut();
-				}
-				else {
-					cs.writePartition();
-				}
-
-				LOGGER << cs.toString(true);
-				cs.verifyCutInducedByPartitionMatchesFlowValue();
-			}
-
-			// Turn back to initial view direction
-			if (cs.currentViewDirection() != 0) {
-				cs.flipViewDirection();
-			}
-
-			return !piercingFailedOrFlowBoundReachedWithNonAAPPiercingNode && cs.flowValue <= upperFlowBound && has_balanced_cut;
-		}
 
 		bool findNextCut(bool reject_piercing_if_it_creates_an_augmenting_path = false) {
 			if (cs.hasCut) {	// false on the first call, true on subsequent calls.
@@ -159,25 +65,15 @@ namespace whfc {
 			}
 
 			if (cs.augmentingPathAvailableFromPiercing) {
-				cs.hasCut = flow_algo.exhaustFlow(cs);
-				if (cs.hasCut) {
-					cs.flipViewDirection();
-					flow_algo.growReachable(cs);
-				}
+				cs.flow_algo.findMinCuts(cs);
 			}
 			else {
-				flow_algo.growReachable(cs);	// don't grow target reachable
+				cs.flow_algo.growReachable(cs);
 				cs.hasCut = true;
 			}
-			cs.verifyFlowConstraints();
 
 			if (cs.hasCut) {
-				cs.verifySetInvariants();
-				if (cs.sideToGrow() != cs.currentViewDirection()) {
-					cs.flipViewDirection();
-				}
-				GrowAssimilated<FlowAlgorithm>::grow(cs, flow_algo.getScanList());
-				cs.verifyCutPostConditions();
+				GrowAssimilated<FlowAlgorithm>::grow(cs, cs.flow_algo.getScanList());
 			}
 
 			return cs.hasCut && cs.flowValue <= upperFlowBound;
@@ -188,7 +84,7 @@ namespace whfc {
 		 * Equivalent to runUntilBalancedOrFlowBoundExceeded(s,t) except that it does not use the flow-based interleaving that is necessary when running multiple HFC instances
 		 */
 		bool enumerateCutsUntilBalancedOrFlowBoundExceeded(const Node s, const Node t) {
-			flow_algo.upperFlowBound = upperFlowBound;
+			cs.flow_algo.upperFlowBound = upperFlowBound;
 			cs.initialize(s,t);
 			bool has_balanced_cut_below_flow_bound = false;
 			while (!has_balanced_cut_below_flow_bound && findNextCut(cs.flowValue == upperFlowBound)) {
@@ -226,7 +122,7 @@ namespace whfc {
 
 			//settle target reachable nodes, so we don't have to track them in the moves
 			cs.flipViewDirection();
-			GrowAssimilated<FlowAlgorithm>::grow(cs, flow_algo.getScanList());
+			GrowAssimilated<FlowAlgorithm>::grow(cs, cs.flow_algo.getScanList());
 			cs.verifyCutPostConditions();
 			cs.flipViewDirection();
 
@@ -244,7 +140,7 @@ namespace whfc {
 				assert(cs.sideToGrow() == cs.currentViewDirection());
 				SimulatedNodeAssignment sol = best_sol;
 				while (!sol.isPerfectlyBalanced() && pierce(true)) {
-					GrowAssimilated<FlowAlgorithm>::grow(cs, flow_algo.getScanList(), true);
+					GrowAssimilated<FlowAlgorithm>::grow(cs, cs.flow_algo.getScanList(), true);
 					cs.hasCut = true;
 					cs.verifyCutPostConditions();
 					LOGGER << cs.toString();

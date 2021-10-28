@@ -18,7 +18,7 @@ public:
 
 	Flow computeFlow(Node s, Node t) {
 		source = s; target = t;
-		clearDatastructures();
+		reset();
 		timer.start("push relabel");
 		saturateSourceEdges();
 		size_t num_tries = 0;
@@ -34,7 +34,7 @@ public:
 			}
 
 			bool high_label_excess_left = false;
-			tbb::parallel_for(0, max_level, [&](int i) {
+			tbb::parallel_for(0U, max_level, [&](int i) {
 				Node u(i);
 				if (u != source && u != target && excess[u] > 0 && level[u] >= max_level) {
 					high_label_excess_left = true;
