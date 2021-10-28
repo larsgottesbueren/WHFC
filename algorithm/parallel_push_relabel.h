@@ -34,7 +34,7 @@ public:
 			}
 
 			bool high_label_excess_left = false;
-			tbb::parallel_for(0U, max_level, [&](int i) {
+			tbb::parallel_for(0, max_level, [&](int i) {
 				Node u(i);
 				if (u != source && u != target && excess[u] > 0 && level[u] >= max_level) {
 					high_label_excess_left = true;
@@ -333,43 +333,7 @@ public:
 				};
 				const Node u = next_active[i];
 
-				// bfs iteration
-				if (isHypernode(u)) {
-					for (InHeIndex incnet_ind : hg.incidentHyperedgeIndices(u)) {
-						const Hyperedge e = hg.getInHe(incnet_ind).e;
-						if (flow[inNodeIncidenceIndex(incnet_ind)] > 0) {								/* scan */
-							push(edgeToInNode(e));
-						}
-						push(edgeToOutNode(e));
-					}
-				} else if (isOutNode(u)) {
-					const Hyperedge e = outNodeToEdge(u);
-					if (flow[bridgeEdgeIndex(e)] < hg.capacity(e)) { // to e_in if flow(e_in, e_out) < capacity(e)
-						push(edgeToInNode(e));
-					}
-					for (const auto& pin : hg.pinsOf(e)) { // to v if flow(e_out, v) > 0
-						if (pin.pin != source && flow[outNodeIncidenceIndex(pin.he_inc_iter)] > 0) {	/* random access */
-							push(pin.pin);
-						}
-					}
-				} else {
-					assert(isInNode(u));
-					const Hyperedge e = inNodeToEdge(u);
-					if (flow[bridgeEdgeIndex(e)] > 0) { // to e_out if flow(e_in, e_out) > 0
-						push(edgeToOutNode(e));
-					}
-					for (const auto& pin : hg.pinsOf(e)) { // to v always
-						if constexpr (capacitate_incoming_edges_of_in_nodes) {
-							if (pin.pin != source && flow[inNodeIncidenceIndex(pin.he_inc_iter)] < hg.capacity(e)) {
-								push(pin.pin);
-							}
-						} else {
-							if (pin.pin != source) {
-								push(pin.pin);
-							}
-						}
-					}
-				}
+				scanBackward(u, push);
 
 				// add previously mis-labeled nodes to active queue, if not already contained
 				// expected to happen rarely for regular global relabeling
@@ -399,8 +363,8 @@ public:
 		}
 	}
 
-	void clearDatastructures() {
-		PushRelabelCommons::clearDatastructures();
+	void reset() {
+		PushRelabelCommons::reset();
 
 		excess_diff.assign(max_level, 0);
 		next_level.assign(max_level, 0);

@@ -44,12 +44,34 @@ namespace whfc {
 		size_t bridgeEdgeIndex(Hyperedge he) const { return he + bridge_node_offset; }
 
 
-		/** levels and reachability */
+		/** levels */
 		int  max_level = 0;
 		vec<int> level;
-
 		// to avoid concurrently pushing the same edge in different directions
 		bool winEdge(Node v, Node u) { return level[u] == level[v] + 1 || level[u] < level[v] - 1 || (level[u] == level[v] && u < v); }
+
+		/** reachability */
+		vec<uint32_t> reach;
+		uint32_t source_reachable_stamp = 0, target_reachable_stamp = 0, running_timestamp = 0;
+		bool isSource(Node u) const { return reach[u] == 1; }
+		void makeSource(Node u) { reach[u] = 1; }
+		bool isSourceReachable(Node u) const { return isSource(u) || reach[u] == source_reachable_stamp; }
+		void reachFromSource(Node u) { reach[u] = source_reachable_stamp; }
+		bool isTarget(Node u) const { return reach[u] == 2; }
+		void makeTarget(Node u) { reach[u] = 2; }
+		bool isTargetReachable(Node u) const { return isTarget(u) || reach[u] == target_reachable_stamp; }
+		void reachFromTarget(Node u) { reach[u] = target_reachable_stamp; }
+		void resetReachability(bool forward) {
+			if (++running_timestamp == 0) {
+				reach.assign(max_level, 0);
+				running_timestamp = 3;
+			}
+			if (forward) {
+				source_reachable_stamp = running_timestamp;
+			} else {
+				target_reachable_stamp = running_timestamp;
+			}
+		}
 
 		/** global relabeling */
 		static constexpr size_t global_relabel_alpha = 6;
@@ -66,8 +88,82 @@ namespace whfc {
 			excess.assign(max_level, 0);
 			level.assign(max_level, 0);
 
+			reach.assign(max_level, 0);
+			running_timestamp = 2;
+
 			work_since_last_global_relabel = std::numeric_limits<size_t>::max();
 			global_relabel_work_threshold = (global_relabel_alpha * max_level + 2 * hg.numPins() + hg.numHyperedges()) / global_relabel_frequency;
 		}
+
+		/** BFS stuff */
+		template<typename PushFunc>
+		void scanBackward(Node u, PushFunc&& push) {
+			if (isHypernode(u)) {
+				for (InHeIndex incnet_ind : hg.incidentHyperedgeIndices(u)) {
+					const Hyperedge e = hg.getInHe(incnet_ind).e;
+					if (flow[inNodeIncidenceIndex(incnet_ind)] > 0) {
+						push(edgeToInNode(e));
+					}
+					push(edgeToOutNode(e));
+				}
+			} else if (isOutNode(u)) {
+				const Hyperedge e = outNodeToEdge(u);
+				if (flow[bridgeEdgeIndex(e)] < hg.capacity(e)) {
+					push(edgeToInNode(e));
+				}
+				for (const auto& pin : hg.pinsOf(e)) {
+					if (flow[outNodeIncidenceIndex(pin.he_inc_iter)] > 0 && !isSource(pin.pin)) {
+						push(pin.pin);
+					}
+				}
+			} else {
+				assert(isInNode(u));
+				const Hyperedge e = inNodeToEdge(u);
+				if (flow[bridgeEdgeIndex(e)] > 0) {
+					push(edgeToOutNode(e));
+				}
+				for (const auto& pin : hg.pinsOf(e)) {
+					if (flow[inNodeIncidenceIndex(pin.he_inc_iter)] < hg.capacity(e) && !isSource(pin.pin)) {
+						push(pin.pin);
+					}
+				}
+			}
+		}
+
+		// TODO add pushing excess nodes
+		template<typename PushFunc>
+		void scanForward(Node u, PushFunc&& push) {
+			if (isHypernode(u)) {
+				for (InHeIndex incnet_ind : hg.incidentHyperedgeIndices(u)) {
+					const Hyperedge e = hg.getInHe(incnet_ind).e;
+					if (flow[inNodeIncidenceIndex(incnet_ind)] < hg.capacity(e)) {
+						push(edgeToInNode(e));
+					}
+					if (flow[outNodeIncidenceIndex(incnet_ind)] > 0) {
+						push(edgeToOutNode(e));
+					}
+				}
+			} else if (isOutNode(u)) {
+				const Hyperedge e = outNodeToEdge(u);
+				if (flow[bridgeEdgeIndex(e)] > 0) {
+					push(edgeToInNode(e));
+				}
+				for (const auto& pin : hg.pinsOf(e)) {
+					push(pin.pin);
+				}
+			} else {
+				assert(isInNode(u));
+				const Hyperedge e = inNodeToEdge(u);
+				if (flow[bridgeEdgeIndex(e)] < hg.capacity(e)) {
+					push(edgeToOutNode(e));
+				}
+				for (const auto& pin : hg.pinsOf(e)) {
+					if (flow[inNodeIncidenceIndex(pin.he_inc_iter)] > 0) {
+						push(pin.pin);
+					}
+				}
+			}
+		}
+
 	};
 }
