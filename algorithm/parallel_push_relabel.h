@@ -37,9 +37,8 @@ public:
 			// no more nodes with level < n and excess > 0 left.
 			// however labels might be broken from parallelism
 			// --> run global relabeling to check if done.
-
 			num_active = 0;
-			globalRelabel<true>();	// true for template parameter sets reachability info, since we expect it to finish
+			globalRelabel<true>();	// setting the template parameter to true means the function sets reachability info, since we expect to be finished
 			last_target_side_queue_entry = next_active.size();
 			// plug queue back in (regular loop picks it out again)
 			next_active.swap_container(active);
