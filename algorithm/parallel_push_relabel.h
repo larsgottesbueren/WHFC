@@ -39,7 +39,6 @@ public:
 			// --> run global relabeling to check if done.
 			num_active = 0;
 			globalRelabel<true>();	// setting the template parameter to true means the function sets reachability info, since we expect to be finished
-			last_target_side_queue_entry = next_active.size();
 			// plug queue back in (regular loop picks it out again)
 			next_active.swap_container(active);
 			next_active.set_size(num_active);
@@ -338,12 +337,14 @@ public:
 		};
 
 		parallelBFS(0, scan);
+
+		if (set_reachability) {
+			last_target_side_queue_entry = next_active.size();
+		}
 	}
 
 	void deriveSourceSideCut() {
 		resetReachability(true);
-		// do not reset next_active! we're leaving the rest in the queue for assimilation
-		size_t first = next_active.size();
 		for (const Node& s : source_piercing_nodes) {
 			next_active.push_back_atomic(s);
 		}
@@ -357,11 +358,25 @@ public:
 			});
 		};
 
-		parallelBFS(first, scan);
+		parallelBFS(0, scan);
 	}
 
 	void deriveTargetSideCut() {
 		resetReachability(false);
+		for (const Node& t : target_piercing_nodes) {
+			next_active.push_back_atomic(t);
+		}
+
+		auto scan = [&](Node u, int ) {
+			scanForward(u, [&](const Node v) {
+				auto next_layer = next_active.local_buffer();
+				if (!isSourceReachable(v) && __atomic_exchange_n(&reach[v], source_reachable_stamp, __ATOMIC_ACQ_REL)) {	/* TODO get the right function! */
+					next_layer.push_back(v);
+				}
+			});
+		};
+
+		parallelBFS(0, scan);
 	}
 
 	template<typename ScanFunc>
@@ -378,8 +393,10 @@ public:
 	}
 
 	void assimilate(bool source_side) {
+		// TODO figure out which container (next_active or active) is assigned to which side
+		// TODO have to go back to sequential? because adding cut hyperedges is still restricted. probably little point in parallelizing that
 		if (source_side) {
-			auto range = tbb::blocked_range<size_t>(last_target_side_queue_entry, next_active.size());
+			auto range = tbb::blocked_range<size_t>(0, last_source_side_queue_entry);
 			NodeWeight source_weight = tbb::parallel_reduce(range, 0, [&](const auto& r, NodeWeight sum) -> NodeWeight {
 				for (size_t i = r.begin(); i < r.end(); ++i) {
 					Node u = next_active[i];
@@ -407,6 +424,7 @@ public:
 
 	void saturateSourceEdges() {
 		// TODO parallelize?
+		next_active.clear();
 		for (const Node& source : source_piercing_nodes) {
 			level[source] = max_level;
 			for (InHeIndex inc_iter : hg.incidentHyperedgeIndices(source)) {
