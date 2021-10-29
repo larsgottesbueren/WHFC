@@ -58,10 +58,13 @@ public:
 		// target node is never pushed to active set --> apply update separately.
 		// TODO once we get multiple target nodes, this may require changes.
 		//  the values are only needed to determine the flow diff
-		excess[target] += excess_diff[target];
-		excess_diff[target] = 0;
+		Flow delta = 0;
+		for (const Node& t : target_piercing_nodes) {
+			delta += excess_diff[t];
+			excess_diff[t] = 0;
+		}
 		timer.stop("push relabel");
-		return excess[target];
+		return delta;
 	}
 
 	void dischargeActiveNodes() {
@@ -101,7 +104,7 @@ public:
 
 	size_t dischargeHypernode(Node u) {
 		auto next_active_handle = next_active.local_buffer();
-		auto push = [&](Node v) { if (v != target && activate(v)) next_active_handle.push_back(v); };
+		auto push = [&](Node v) { if (!isTarget(v) && activate(v)) next_active_handle.push_back(v); };
 		size_t work = 0;
 		Flow my_excess = excess[u];
 		int my_level = level[u];
@@ -173,7 +176,7 @@ public:
 
 	size_t dischargeInNode(Node e_in) {
 		auto next_active_handle = next_active.local_buffer();
-		auto push = [&](Node v) { if (v != target && activate(v)) next_active_handle.push_back(v); };
+		auto push = [&](Node v) { if (!isTarget(v) && activate(v)) next_active_handle.push_back(v); };
 		size_t work = 0;
 		Flow my_excess = excess[e_in];
 		int my_level = level[e_in];
@@ -242,7 +245,7 @@ public:
 
 	size_t dischargeOutNode(Node e_out) {
 		auto next_active_handle = next_active.local_buffer();
-		auto push = [&](Node v) { if (v != target && activate(v)) next_active_handle.push_back(v); };
+		auto push = [&](Node v) { if (!isTarget(v) && activate(v)) next_active_handle.push_back(v); };
 		size_t work = 0;
 		Flow my_excess = excess[e_out];
 		int my_level = level[e_out];
@@ -358,14 +361,17 @@ public:
 	}
 
 	void saturateSourceEdges() {
-		level[source] = max_level;
-		for (InHeIndex inc_iter : hg.incidentHyperedgeIndices(source)) {
-			const Hyperedge e = hg.getInHe(inc_iter).e;
-			const Flow d = hg.capacity(e);
-			excess[source] -= d;
-			excess[edgeToInNode(e)] += d;
-			flow[inNodeIncidenceIndex(inc_iter)] += d;
-			next_active.push_back_atomic(edgeToInNode(e));
+		// TODO parallelize?
+		for (const Node& source : source_piercing_nodes) {
+			level[source] = max_level;
+			for (InHeIndex inc_iter : hg.incidentHyperedgeIndices(source)) {
+				const Hyperedge e = hg.getInHe(inc_iter).e;
+				const Flow d = hg.capacity(e);		// TODO adapt for residual capacity
+				excess[source] -= d;
+				excess[edgeToInNode(e)] += d;
+				flow[inNodeIncidenceIndex(inc_iter)] += d;
+				next_active.push_back_atomic(edgeToInNode(e));
+			}
 		}
 	}
 
