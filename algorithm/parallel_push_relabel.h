@@ -16,9 +16,7 @@ public:
 
 	ParallelPushRelabel(FlowHypergraph& hg) : PushRelabelCommons(hg), next_active(0) { }
 
-	Flow computeFlow() {
-		reset();
-		timer.start("push relabel");
+	Flow findMinCuts() {
 		saturateSourceEdges();
 		size_t num_tries = 0;
 		do {
@@ -32,28 +30,19 @@ public:
 				applyUpdates();
 			}
 
-			bool high_label_excess_left = false;
-			tbb::parallel_for(0, max_level, [&](int i) {
-				Node u(i);
-				if (!isSource(u) && !isTarget(u) && excess[u] > 0 && level[u] >= max_level) {
-					high_label_excess_left = true;
-					// can cancel, but we expect that this branch is rarely hit
-				}
-			});
-
 			// no more nodes with level < n and excess > 0 left.
 			// however labels might be broken from parallelism
 			// --> run global relabeling to check if done.
 
-			if (high_label_excess_left) {
-				num_active = 0;
-				globalRelabel();
-				// plug queue back in (regular loop picks it out again)
-				next_active.swap_container(active);
-				next_active.set_size(num_active);
-			}
+			num_active = 0;
+			globalRelabel<true>();	// true for template parameter sets reachability info, since we expect it to finish
+			// plug queue back in (regular loop picks it out again)
+			next_active.swap_container(active);
+			next_active.set_size(num_active);
 			num_tries++;
 		} while (!next_active.empty());
+
+
 
 		// target node is never pushed to active set --> apply update separately.
 		// TODO once we get multiple target nodes, this may require changes.
