@@ -30,7 +30,6 @@ namespace whfc {
 		Node edgeToInNode(Hyperedge e) const { assert(e < hg.numHyperedges()); return Node(e + hg.numNodes()); }
 		Node edgeToOutNode(Hyperedge e) const { assert(e < hg.numHyperedges()); return Node(e + hg.numNodes() + hg.numHyperedges()); }
 
-
 		/** flow assignment */
 		vec<Flow> flow;
 		vec<Flow> excess;
@@ -45,7 +44,7 @@ namespace whfc {
 
 
 		/** levels */
-		int  max_level = 0;
+		int max_level = 0;
 		vec<int> level;
 		// to avoid concurrently pushing the same edge in different directions
 		bool winEdge(Node v, Node u) { return level[u] == level[v] + 1 || level[u] < level[v] - 1 || (level[u] == level[v] && u < v); }
@@ -77,6 +76,9 @@ namespace whfc {
 		static constexpr size_t global_relabel_alpha = 6;
 		static constexpr size_t global_relabel_frequency = 5;
 		size_t work_since_last_global_relabel = 0, global_relabel_work_threshold = 0;
+
+		/** source / sink */
+		vec<Node> source_piercing_nodes, target_piercing_nodes;
 
 		void reset() {
 			out_node_offset = hg.numPins();
@@ -112,7 +114,7 @@ namespace whfc {
 					push(edgeToInNode(e));
 				}
 				for (const auto& pin : hg.pinsOf(e)) {
-					if (flow[outNodeIncidenceIndex(pin.he_inc_iter)] > 0 && !isSource(pin.pin)) {
+					if (flow[outNodeIncidenceIndex(pin.he_inc_iter)] > 0) {
 						push(pin.pin);
 					}
 				}
@@ -123,7 +125,7 @@ namespace whfc {
 					push(edgeToOutNode(e));
 				}
 				for (const auto& pin : hg.pinsOf(e)) {
-					if (flow[inNodeIncidenceIndex(pin.he_inc_iter)] < hg.capacity(e) && !isSource(pin.pin)) {
+					if (flow[inNodeIncidenceIndex(pin.he_inc_iter)] < hg.capacity(e)) {
 						push(pin.pin);
 					}
 				}

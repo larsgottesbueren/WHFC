@@ -16,8 +16,7 @@ public:
 
 	ParallelPushRelabel(FlowHypergraph& hg) : PushRelabelCommons(hg), next_active(0) { }
 
-	Flow computeFlow(Node s, Node t) {
-		source = s; target = t;
+	Flow computeFlow() {
 		reset();
 		timer.start("push relabel");
 		saturateSourceEdges();
@@ -36,7 +35,7 @@ public:
 			bool high_label_excess_left = false;
 			tbb::parallel_for(0, max_level, [&](int i) {
 				Node u(i);
-				if (u != source && u != target && excess[u] > 0 && level[u] >= max_level) {
+				if (!isSource(u) && !isTarget(u) && excess[u] > 0 && level[u] >= max_level) {
 					high_label_excess_left = true;
 					// can cancel, but we expect that this branch is rarely hit
 				}
@@ -314,36 +313,43 @@ public:
 		return work;
 	}
 
+	template<bool set_reachability = false>
 	void globalRelabel() {
 		work_since_last_global_relabel = 0;
 		tbb::parallel_for(0, max_level, [&](size_t i) { level[i] = max_level; }, tbb::static_partitioner());
-
 		next_active.clear();
-		next_active.push_back_atomic(target);	// parallel special case for target/high degree nodes?
-		level[target] = 0;
-		int dist = 1;
-		size_t first = 0, last = 1;
-		while (first != last) {
-			tbb::parallel_for(first, last, [&](size_t i) {
-				auto next_layer = next_active.local_buffer();
-				auto push = [&](const Node v) {
-					if (level[v] == max_level && __atomic_exchange_n(&level[v], dist, __ATOMIC_ACQ_REL) == max_level) {
-						next_layer.push_back(v);
+		for (const Node& s : target_piercing_nodes) {
+			level[s] = 0;
+			next_active.push_back_atomic(s);
+		}
+
+		auto scan = [&](Node u, int dist) {
+			auto next_layer = next_active.local_buffer();
+			scanBackward(u, [&](const Node v) {
+				if (!isSource(v) && !isTarget(v) && level[v] == max_level
+						&& __atomic_exchange_n(&level[v], dist, __ATOMIC_ACQ_REL) == max_level) {
+					next_layer.push_back(v);
+					if constexpr (set_reachability) {
+						reach[v] = target_reachable_stamp;
 					}
-				};
-				const Node u = next_active[i];
-
-				scanBackward(u, push);
-
-				// add previously mis-labeled nodes to active queue, if not already contained
-				// expected to happen rarely for regular global relabeling
-				// bit more frequently for termination checks
-				// however even there only few nodes were affected (very little flow missing)
-				if (excess[u] > 0 && last_activated[u] != round) {
-					size_t pos = __atomic_fetch_add(&num_active, 1, __ATOMIC_RELAXED);
-					active[pos] = u;
 				}
 			});
+
+			if (excess[u] > 0 && last_activated[u] != round) { // add previously mis-labeled nodes to active queue, if not already contained
+				size_t pos = __atomic_fetch_add(&num_active, 1, __ATOMIC_RELAXED);
+				active[pos] = u;
+			}
+		};
+
+		parallelBFS(0, scan);
+	}
+
+	template<typename ScanFunc>
+	void parallelBFS(size_t first, ScanFunc&& scan) {
+		size_t last = next_active.size();
+		int dist = 1;
+		while (first != last) {
+			tbb::parallel_for(first, last, [&](size_t i) { scan(next_active[i], dist); });
 			next_active.finalize();
 			first = last;
 			last = next_active.size();
@@ -382,8 +388,6 @@ private:
 	size_t num_active = 0;
 	BufferedVector<Node> next_active;
 	vec<Node> active;
-
-	Node source, target;
 
 	vec<uint32_t> last_activated;
 	uint32_t round = 0;
