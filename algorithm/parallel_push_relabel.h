@@ -36,13 +36,14 @@ public:
 
 			num_active = 0;
 			globalRelabel<true>();	// true for template parameter sets reachability info, since we expect it to finish
+			last_target_side_queue_entry = next_active.size();
 			// plug queue back in (regular loop picks it out again)
 			next_active.swap_container(active);
 			next_active.set_size(num_active);
 			num_tries++;
 		} while (!next_active.empty());
 
-
+		deriveSourceSideCut();
 
 		// target node is never pushed to active set --> apply update separately.
 		Flow delta = 0;
@@ -313,6 +314,10 @@ public:
 			next_active.push_back_atomic(s);
 		}
 
+		if (set_reachability) {
+			resetReachability(false);
+		}
+
 		auto scan = [&](Node u, int dist) {
 			auto next_layer = next_active.local_buffer();
 			scanBackward(u, [&](const Node v) {
@@ -332,6 +337,26 @@ public:
 		};
 
 		parallelBFS(0, scan);
+	}
+
+	void deriveSourceSideCut() {
+		resetReachability(true);
+		// do not reset next_active! we're leaving the rest in the queue for assimilation
+		size_t first = next_active.size();
+		for (const Node& s : source_piercing_nodes) {
+			next_active.push_back_atomic(s);
+		}
+
+		auto scan = [&](Node u, int ) {
+			scanForward(u, [&](const Node v) {
+				auto next_layer = next_active.local_buffer();
+				if (!isSourceReachable(v) && __atomic_exchange_n(&reach[v], source_reachable_stamp, __ATOMIC_ACQ_REL)) {	/* TODO get the right function! */
+					next_layer.push_back(v);
+				}
+			});
+		};
+
+		parallelBFS(first, scan);
 	}
 
 	template<typename ScanFunc>
