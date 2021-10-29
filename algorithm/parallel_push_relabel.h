@@ -3,6 +3,7 @@
 #include "push_relabel_commons.h"
 
 #include <tbb/parallel_for.h>
+#include <tbb/parallel_reduce.h>
 #include "../datastructure/buffered_vector.h"
 
 
@@ -372,6 +373,34 @@ public:
 		}
 	}
 
+	void assimilate(bool source_side) {
+		if (source_side) {
+			auto range = tbb::blocked_range<size_t>(last_target_side_queue_entry, next_active.size());
+			NodeWeight source_weight = tbb::parallel_reduce(range, 0, [&](const auto& r, NodeWeight sum) -> NodeWeight {
+				for (size_t i = r.begin(); i < r.end(); ++i) {
+					Node u = next_active[i];
+					if (isHypernode(u) && !isSource(u)) {
+						sum += hg.nodeWeight(u);
+					}
+					makeSource(u);
+				}
+				return sum;
+			}, std::plus<>());
+		} else {
+			auto range = tbb::blocked_range<size_t>(0, last_target_side_queue_entry);
+			NodeWeight target_weight = tbb::parallel_reduce(range, 0, [&](const auto& r, NodeWeight sum) -> NodeWeight {
+				for (size_t i = r.begin(); i < r.end(); ++i) {
+					Node u = next_active[i];
+					if (isHypernode(u) && !isTarget(u)) {
+						sum += hg.nodeWeight(u);
+					}
+					makeTarget(u);
+				}
+				return sum;
+			}, std::plus<>());
+		}
+	}
+
 	void saturateSourceEdges() {
 		// TODO parallelize?
 		for (const Node& source : source_piercing_nodes) {
@@ -412,6 +441,8 @@ private:
 	bool activate(Node u) {
 		return last_activated[u] != round && __atomic_exchange_n(&last_activated[u], round, __ATOMIC_ACQ_REL) != round;
 	}
+
+	size_t last_target_side_queue_entry = 0;
 };
 
 }
