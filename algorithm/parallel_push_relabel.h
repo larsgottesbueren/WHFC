@@ -17,11 +17,14 @@ public:
 
 	ParallelPushRelabel(FlowHypergraph& hg) : PushRelabelCommons(hg), next_active(0) { }
 
-	Flow findMinCuts() {
+	bool findMinCuts() {
 		saturateSourceEdges();
 		size_t num_tries = 0;
 		do {
 			while (!next_active.empty()) {
+				if (flow_value > upper_flow_bound || shall_terminate) {
+					return false;
+				}
 				num_active = next_active.size();
 				next_active.swap_container(active);
 				if (work_since_last_global_relabel > 2 * global_relabel_work_threshold) {
@@ -45,15 +48,7 @@ public:
 		} while (!next_active.empty());
 
 		deriveSourceSideCut();
-
-		// target node is never pushed to active set --> apply update separately.
-		Flow delta = 0;
-		for (const Node& t : target_piercing_nodes) {
-			delta += excess_diff[t];
-			excess_diff[t] = 0;
-		}
-		timer.stop("push relabel");
-		return delta;
+		return true;
 	}
 
 	void dischargeActiveNodes() {
@@ -66,7 +61,7 @@ public:
 		auto task = [&](size_t i) {
 			const Node u = active[i];
 			assert(excess[u] > 0);
-			if (level[u] >= max_level) { return; }
+			if (level[u] >= max_level || isTarget(u)) { return; }		// target nodes can now be pushed to consume the updates
 			if (isHypernode(u)) { work.local() += dischargeHypernode(u); }
 			else if (isOutNode(u)) { work.local() += dischargeOutNode(u); }
 			else { work.local() += dischargeInNode(u); }
@@ -82,18 +77,24 @@ public:
 			if (level[u] >= max_level) { assert(excess_diff[u] == 0); return; }
 			level[u] = next_level[u];
 			excess[u] += excess_diff[u];
+			if (isTarget(u) && isHypernode(u)) {
+				__atomic_fetch_add(&flow_value, excess_diff[u], __ATOMIC_RELAXED);
+			}
 			excess_diff[u] = 0;
 		});
 		tbb::parallel_for(0UL, next_active.size(), [&](size_t i) {
 			const Node u = next_active[i];
 			excess[u] += excess_diff[u];
+			if (isTarget(u) && isHypernode(u)) {
+				__atomic_fetch_add(&flow_value, excess_diff[u], __ATOMIC_RELAXED);
+			}
 			excess_diff[u] = 0;
 		});
 	}
 
 	size_t dischargeHypernode(Node u) {
 		auto next_active_handle = next_active.local_buffer();
-		auto push = [&](Node v) { if (!isTarget(v) && activate(v)) next_active_handle.push_back(v); };
+		auto push = [&](Node v) { if (activate(v)) next_active_handle.push_back(v); };
 		size_t work = 0;
 		Flow my_excess = excess[u];
 		int my_level = level[u];
@@ -165,7 +166,7 @@ public:
 
 	size_t dischargeInNode(Node e_in) {
 		auto next_active_handle = next_active.local_buffer();
-		auto push = [&](Node v) { if (!isTarget(v) && activate(v)) next_active_handle.push_back(v); };
+		auto push = [&](Node v) { if (activate(v)) next_active_handle.push_back(v); };
 		size_t work = 0;
 		Flow my_excess = excess[e_in];
 		int my_level = level[e_in];
@@ -234,7 +235,7 @@ public:
 
 	size_t dischargeOutNode(Node e_out) {
 		auto next_active_handle = next_active.local_buffer();
-		auto push = [&](Node v) { if (!isTarget(v) && activate(v)) next_active_handle.push_back(v); };
+		auto push = [&](Node v) { if (activate(v)) next_active_handle.push_back(v); };
 		size_t work = 0;
 		Flow my_excess = excess[e_out];
 		int my_level = level[e_out];
@@ -358,6 +359,10 @@ public:
 		};
 
 		parallelBFS(first, scan);
+	}
+
+	void deriveTargetSideCut() {
+		resetReachability(false);
 	}
 
 	template<typename ScanFunc>

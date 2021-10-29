@@ -17,6 +17,7 @@ namespace whfc {
 		FlowHypergraph& hg;
 		TimeReporter timer;
 		Flow upper_flow_bound = std::numeric_limits<Flow>::max();
+		bool shall_terminate = false;
 		bool has_cut = false;
 
 		/** mapping between ID types */
@@ -31,6 +32,7 @@ namespace whfc {
 		Node edgeToOutNode(Hyperedge e) const { assert(e < hg.numHyperedges()); return Node(e + hg.numNodes() + hg.numHyperedges()); }
 
 		/** flow assignment */
+		Flow flow_value = 0;
 		vec<Flow> flow;
 		vec<Flow> excess;
 		size_t out_node_offset = 0, bridge_node_offset = 0;
@@ -86,6 +88,7 @@ namespace whfc {
 
 			max_level = hg.numNodes() + 2 * hg.numHyperedges();
 
+			flow_value = 0;
 			flow.assign(2 * hg.numPins() + hg.numHyperedges(), 0);
 			excess.assign(max_level, 0);
 			level.assign(max_level, 0);
@@ -95,6 +98,8 @@ namespace whfc {
 
 			work_since_last_global_relabel = std::numeric_limits<size_t>::max();
 			global_relabel_work_threshold = (global_relabel_alpha * max_level + 2 * hg.numPins() + hg.numHyperedges()) / global_relabel_frequency;
+
+			shall_terminate = false;
 		}
 
 		/** BFS stuff */
