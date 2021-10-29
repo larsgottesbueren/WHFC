@@ -45,8 +45,6 @@ public:
 
 
 		// target node is never pushed to active set --> apply update separately.
-		// TODO once we get multiple target nodes, this may require changes.
-		//  the values are only needed to determine the flow diff
 		Flow delta = 0;
 		for (const Node& t : target_piercing_nodes) {
 			delta += excess_diff[t];
