@@ -426,10 +426,14 @@ public:
 		excess_diff.assign(max_level, 0);
 		next_level.assign(max_level, 0);
 
+		next_active.clear();
 		next_active.adapt_capacity(max_level);
 		active.resize(max_level);
 		last_activated.assign(max_level, 0);
 		round = 0;
+
+		last_source_side_queue_entry = 0;
+		last_target_side_queue_entry = 0;
 	}
 
 
@@ -446,7 +450,7 @@ private:
 		return last_activated[u] != round && __atomic_exchange_n(&last_activated[u], round, __ATOMIC_ACQ_REL) != round;
 	}
 
-	size_t last_target_side_queue_entry = 0;
+	size_t last_source_side_queue_entry = 0, last_target_side_queue_entry = 0;
 };
 
 }
