@@ -6,6 +6,7 @@
 #include <tbb/parallel_reduce.h>
 #include "../datastructure/buffered_vector.h"
 
+#include "cutter_state.h"
 
 namespace whfc {
 
@@ -344,6 +345,7 @@ public:
 	}
 
 	void deriveSourceSideCut() {
+		// after global relabel with termination check its container is swapped out --> this function doesn't swap
 		resetReachability(true);
 		for (const Node& s : source_piercing_nodes) {
 			next_active.push_back_atomic(s);
@@ -359,9 +361,13 @@ public:
 		};
 
 		parallelBFS(0, scan);
+		last_source_side_queue_entry = next_active.size();
 	}
 
 	void deriveTargetSideCut() {
+		next_active.swap_container(active);		// don't overwrite contents of source side
+		next_active.clear();
+
 		resetReachability(false);
 		for (const Node& t : target_piercing_nodes) {
 			next_active.push_back_atomic(t);
@@ -377,6 +383,9 @@ public:
 		};
 
 		parallelBFS(0, scan);
+
+		last_target_side_queue_entry = next_active.size();
+		next_active.swap_container(active); 	// go back
 	}
 
 	template<typename ScanFunc>
@@ -392,33 +401,59 @@ public:
 		}
 	}
 
-	void assimilate(bool source_side) {
-		// TODO figure out which container (next_active or active) is assigned to which side
-		// TODO have to go back to sequential? because adding cut hyperedges is still restricted. probably little point in parallelizing that
+	std::pair<NodeWeight, NodeWeight> computeReachableWeights() {
+		// next_active container is for source side. active for target side
+		NodeWeight extra_source_weight = tbb::parallel_reduce(
+				tbb::blocked_range<size_t>(0, last_source_side_queue_entry), 0, [&](const auto& r, NodeWeight sum) -> NodeWeight {
+			for (size_t i = r.begin(); i < r.end(); ++i) {
+				Node u = next_active[i];
+				if (isHypernode(u) && !isSource(u)) {
+					sum += hg.nodeWeight(u);
+				}
+			}
+			return sum;
+		}, std::plus<>());
+
+		NodeWeight extra_target_weight = tbb::parallel_reduce(
+				tbb::blocked_range<size_t>(0, last_target_side_queue_entry), 0, [&](const auto& r, NodeWeight sum) -> NodeWeight {
+			for (size_t i = r.begin(); i < r.end(); ++i) {
+				Node u = active[i];
+				if (isHypernode(u) && !isTarget(u)) {
+					sum += hg.nodeWeight(u);
+				}
+			}
+			return sum;
+		}, std::plus<>());
+
+		return std::make_pair(extra_source_weight, extra_target_weight);
+	}
+
+	void assimilate(CutterState<Type>& cs, bool source_side) {
+		// TODO if target side is assimilated, the distance labels break. we can just keep running and in case it breaks the termination check global relabel strikes
 		if (source_side) {
-			auto range = tbb::blocked_range<size_t>(0, last_source_side_queue_entry);
-			NodeWeight source_weight = tbb::parallel_reduce(range, 0, [&](const auto& r, NodeWeight sum) -> NodeWeight {
-				for (size_t i = r.begin(); i < r.end(); ++i) {
-					Node u = next_active[i];
-					if (isHypernode(u) && !isSource(u)) {
-						sum += hg.nodeWeight(u);
+			for (size_t i = 0; i < last_source_side_queue_entry; ++i) {
+				Node u = next_active[i];
+				if (!isSource(u) && isInNode(u)) {
+					Hyperedge e = inNodeToEdge(u);
+					Node out_node = edgeToOutNode(e);
+					if (!isSourceReachable(out_node)) {		// in node visited but not out node --> cut hyperedge
+						cs.addToSourceSideCut(e);
 					}
-					makeSource(u);
 				}
-				return sum;
-			}, std::plus<>());
+				makeSource(u);
+			}
 		} else {
-			auto range = tbb::blocked_range<size_t>(0, last_target_side_queue_entry);
-			NodeWeight target_weight = tbb::parallel_reduce(range, 0, [&](const auto& r, NodeWeight sum) -> NodeWeight {
-				for (size_t i = r.begin(); i < r.end(); ++i) {
-					Node u = next_active[i];
-					if (isHypernode(u) && !isTarget(u)) {
-						sum += hg.nodeWeight(u);
+			for (size_t i = 0; i < last_target_side_queue_entry; ++i) {
+				Node u = active[i];
+				if (!isTarget(u) && isOutNode(u)) {
+					Hyperedge e = outNodeToEdge(u);
+					Node in_node = edgeToInNode(e);
+					if (!isTargetReachable(in_node)) {		// out node visited but not in node --> cut hyperedge
+						cs.addToTargetSideCut(e);
 					}
-					makeTarget(u);
 				}
-				return sum;
-			}, std::plus<>());
+				makeTarget(u);
+			}
 		}
 	}
 

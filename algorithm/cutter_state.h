@@ -69,6 +69,7 @@ namespace whfc {
 		using ReachableHyperedges = typename FlowAlgorithm::ReachableHyperedges;
 		ReachableNodes n;
 		ReachableHyperedges h;
+		NodeWeight source_weight, target_weight, source_reachable_weight, target_reachable_weight;
 		std::vector<PiercingNode> sourcePiercingNodes, targetPiercingNodes;
 		std::vector<Move> trackedMoves;
 
@@ -111,15 +112,27 @@ namespace whfc {
 			return !h.areAllPinsSourceReachable(e) && !cuts.sourceSide.wasAdded(e) && hg.isSaturated(e); // the first condition is just an optimization, not really necessary
 		}
 
-		inline void addToCut(const Hyperedge e) {
+		void addToSourceSideCut(const Hyperedge e) {
 			//Note: the current implementation of selecting piercing nodes relies on not inserting target-reachable nodes during most balanced cut mode
-			assert(shouldBeAddedToCut(e));
-			for (const Pin& px : hg.pinsOf(e)) {
-				if (canBeSettled(px.pin) && !borderNodes.sourceSide->wasAdded(px.pin) && (!mostBalancedCutMode || !n.isTargetReachable(px.pin))) {
-					borderNodes.sourceSide->add(px.pin, n.isTargetReachable(px.pin));
+			if (!cuts.sourceSide.wasAdded(e)) {
+				cuts.sourceSide.add(e);
+				for (const Pin& px : hg.pinsOf(e)) {
+					if (canBeSettled(px.pin) && !borderNodes.sourceSide->wasAdded(px.pin) && (!mostBalancedCutMode || !n.isTargetReachable(px.pin))) {
+						borderNodes.sourceSide->add(px.pin, n.isTargetReachable(px.pin));
+					}
 				}
 			}
-			cuts.sourceSide.add(e);
+		}
+
+		void addToTargetSideCut(const Hyperedge e) {
+			if (!cuts.targetSide.wasAdded(e)) {
+				cuts.targetSide.add(e);
+				for (const Pin& px : hg.pinsOf(e)) {
+					if (canBeSettled(px.pin) && !borderNodes.targetSide->wasAdded(px.pin) && (!mostBalancedCutMode || !n.isSourceReachable(px.pin))) {
+						borderNodes.targetSide->add(px.pin, n.isSourceReachable(px.pin));
+					}
+				}
+			}
 		}
 
 		void setMaxBlockWeight(int side, NodeWeight mw) {

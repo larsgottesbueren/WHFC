@@ -62,6 +62,7 @@ namespace whfc {
 		void makeTarget(Node u) { reach[u] = 2; }
 		bool isTargetReachable(Node u) const { return isTarget(u) || reach[u] == target_reachable_stamp; }
 		void reachFromTarget(Node u) { reach[u] = target_reachable_stamp; }
+		void unreach(Node u) { reach[u] = 0; }
 		void resetReachability(bool forward) {
 			if (++running_timestamp == 0) {
 				reach.assign(max_level, 0);
