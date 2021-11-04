@@ -432,33 +432,12 @@ public:
 		return std::make_pair(extra_source_weight, extra_target_weight);
 	}
 
-	void assimilate(CutterState<Type>& cs, bool source_side) {
-		// TODO if target side is assimilated, the distance labels break. we can just keep running and in case it breaks the termination check global relabel strikes
-		if (source_side) {
-			for (size_t i = 0; i < last_source_side_queue_entry; ++i) {
-				Node u = next_active[i];
-				if (!isSource(u) && isInNode(u)) {
-					Hyperedge e = inNodeToEdge(u);
-					Node out_node = edgeToOutNode(e);
-					if (!isSourceReachable(out_node)) {		// in node visited but not out node --> cut hyperedge
-						cs.addToSourceSideCut(e);
-					}
-				}
-				makeSource(u);
-			}
-		} else {
-			for (size_t i = 0; i < last_target_side_queue_entry; ++i) {
-				Node u = active[i];
-				if (!isTarget(u) && isOutNode(u)) {
-					Hyperedge e = outNodeToEdge(u);
-					Node in_node = edgeToInNode(e);
-					if (!isTargetReachable(in_node)) {		// out node visited but not in node --> cut hyperedge
-						cs.addToTargetSideCut(e);
-					}
-				}
-				makeTarget(u);
-			}
-		}
+	sub_range<vec<Node>> sourceReachableNodes() const {
+		return sub_range<vec<Node>>(next_active.getData(), 0, last_source_side_queue_entry);
+	}
+
+	sub_range<vec<Node>> targetReachableNodes() const {
+		return sub_range<vec<Node>>(active, 0, last_target_side_queue_entry);
 	}
 
 	void saturateSourceEdges() {
@@ -492,7 +471,6 @@ public:
 		last_source_side_queue_entry = 0;
 		last_target_side_queue_entry = 0;
 	}
-
 
 private:
 	vec<Flow> excess_diff;

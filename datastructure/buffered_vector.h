@@ -101,7 +101,7 @@ public:
 	};
 	RandomAccessRange range() const { return { size(), data }; }
 
-	const vec_t& getData() { return data; }
+	const vec_t& getData() const { return data; }
 
 private:
 

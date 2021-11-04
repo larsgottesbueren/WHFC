@@ -97,15 +97,15 @@ namespace whfc {
 		}
 
 		inline bool canBeSettled(const Node u) const {
-			return !n.isSource(u) && !n.isTarget(u);
+			return !flow_algo.isSource(u) && !flow_algo.isTarget(u);
 		}
 
 		inline NodeWeight unclaimedNodeWeight() const {
-			return hg.totalNodeWeight() - n.sourceReachableWeight - n.targetReachableWeight;
+			return hg.totalNodeWeight() - source_reachable_weight - target_reachable_weight;
 		}
 
 		inline NodeWeight notSettledNodeWeight() const {
-			return hg.totalNodeWeight() - n.sourceWeight - n.targetWeight;
+			return hg.totalNodeWeight() - source_weight - target_weight;
 		}
 
 		inline bool shouldBeAddedToCut(const Hyperedge e) const {
@@ -117,8 +117,8 @@ namespace whfc {
 			if (!cuts.sourceSide.wasAdded(e)) {
 				cuts.sourceSide.add(e);
 				for (const Pin& px : hg.pinsOf(e)) {
-					if (canBeSettled(px.pin) && !borderNodes.sourceSide->wasAdded(px.pin) && (!mostBalancedCutMode || !n.isTargetReachable(px.pin))) {
-						borderNodes.sourceSide->add(px.pin, n.isTargetReachable(px.pin));
+					if (canBeSettled(px.pin) && !borderNodes.sourceSide->wasAdded(px.pin) && (!mostBalancedCutMode || !flow_algo.isTargetReachable(px.pin))) {
+						borderNodes.sourceSide->add(px.pin, flow_algo.isTargetReachable(px.pin));
 					}
 				}
 			}
@@ -128,8 +128,8 @@ namespace whfc {
 			if (!cuts.targetSide.wasAdded(e)) {
 				cuts.targetSide.add(e);
 				for (const Pin& px : hg.pinsOf(e)) {
-					if (canBeSettled(px.pin) && !borderNodes.targetSide->wasAdded(px.pin) && (!mostBalancedCutMode || !n.isSourceReachable(px.pin))) {
-						borderNodes.targetSide->add(px.pin, n.isSourceReachable(px.pin));
+					if (canBeSettled(px.pin) && !borderNodes.targetSide->wasAdded(px.pin) && (!mostBalancedCutMode || !flow_algo.isSourceReachable(px.pin))) {
+						borderNodes.targetSide->add(px.pin, flow_algo.isSourceReachable(px.pin));
 					}
 				}
 			}
@@ -147,12 +147,48 @@ namespace whfc {
 			return maxBlockWeight(currentViewDirection());
 		}
 
+		void assimilate() {
+			bool source_side = sideToGrow() == 0;
+			if (source_side) {
+				source_weight = source_reachable_weight;
+				for (Node u : flow_algo.sourceReachableNodes()) {
+					if (!flow_algo.isSource(u)) {
+						if (mostBalancedCutMode && flow_algo.isHypernode(u)) {
+							trackedMoves.emplace_back(u, 0, Move::Type::SettleNode);
+						} else if (flow_algo.isInNode(u)) {
+							Hyperedge e = flow_algo.inNodeToEdge(u);
+							Node out_node = flow_algo.edgeToOutNode(e);
+							if (!flow_algo.isSourceReachable(out_node)) {		// in node visited but not out node --> cut hyperedge
+								addToSourceSideCut(e);
+							}
+						}
+					}
+					flow_algo.makeSource(u);
+				}
+			} else {
+				target_weight = target_reachable_weight;
+				for (Node u : flow_algo.sourceReachableNodes()) {
+					if (!flow_algo.isTarget(u)) {
+						if (mostBalancedCutMode && flow_algo.isHypernode(u)) {
+							trackedMoves.emplace_back(u, 1, Move::Type::SettleNode);
+						} else if (flow_algo.isOutNode(u)) {
+							Hyperedge e = flow_algo.outNodeToEdge(u);
+							Node in_node = flow_algo.edgeToInNode(e);
+							if (!flow_algo.isTargetReachable(in_node)) {		// out node visited but not in node --> cut hyperedge
+								addToTargetSideCut(e);
+							}
+						}
+					}
+					flow_algo.makeTarget(u);
+				}
+			}
+		}
 
 		void settleNode(const Node u, bool check = true) {
-			assert(!n.isSource(u) && !n.isTarget(u));
+			assert(!flow_algo.isSource(u) && !flow_algo.isTarget(u));
 			unused(check);
 
-			if (!n.isSourceReachable(u))
+			if (!flow_algo.isSourceReachable(u))
 				n.reach(u);
 			n.settle(u);
 
@@ -196,11 +232,6 @@ namespace whfc {
 			return 1 - viewDirection;
 		}
 
-		void clearForSearch() {
-			n.resetSourceReachableToSource(augmentingPathAvailableFromPiercing);
-			h.resetSourceReachableToSource(augmentingPathAvailableFromPiercing);
-		}
-
 		void reset() {		// TODO could consolidate with initialize
 			viewDirection = 0;
 			flowValue = 0;
@@ -231,8 +262,8 @@ namespace whfc {
 		}
 
 		int sideToGrow() const {
-			const double imb_s = static_cast<double>(n.sourceReachableWeight) / static_cast<double>(maxBlockWeight(currentViewDirection()));
-			const double imb_t = static_cast<double>(n.targetReachableWeight) / static_cast<double>(maxBlockWeight(oppositeViewDirection()));
+			const double imb_s = static_cast<double>(source_reachable_weight) / static_cast<double>(maxBlockWeight(currentViewDirection()));
+			const double imb_t = static_cast<double>(target_reachable_weight) / static_cast<double>(maxBlockWeight(oppositeViewDirection()));
 			return imb_s <= imb_t ? currentViewDirection() : oppositeViewDirection();
 		}
 
@@ -241,8 +272,8 @@ namespace whfc {
 			assert(!partitionWrittenToNodeSet && "Cannot call isBalanced() once the partition has been written");
 
 			const NodeWeight
-					sw = n.sourceReachableWeight,		//cannot be split
-					tw = n.targetReachableWeight,		//cannot be split
+					sw = source_reachable_weight,		//cannot be split
+					tw = target_reachable_weight,		//cannot be split
 					uw = unclaimedNodeWeight();			//cannot be split (in current stages. if we integrate proper PCKP heuristics for MBMC this would change)
 
 			const NodeWeight
@@ -287,12 +318,12 @@ namespace whfc {
 				return (static_cast<double>(a) / static_cast<double>(max_a)) - 1.0;
 			};
 			SimulatedNodeAssignment suw;
-			suw.imbalanceSourceBlock = block_imb(hg.totalNodeWeight() - n.targetReachableWeight, maxBlockWeight(currentViewDirection()));
-			suw.imbalanceTargetBlock = block_imb(n.targetReachableWeight, maxBlockWeight(oppositeViewDirection()));
+			suw.imbalanceSourceBlock = block_imb(hg.totalNodeWeight() - target_reachable_weight, maxBlockWeight(currentViewDirection()));
+			suw.imbalanceTargetBlock = block_imb(target_reachable_weight, maxBlockWeight(oppositeViewDirection()));
 
 			SimulatedNodeAssignment tuw;
-			tuw.imbalanceSourceBlock = block_imb(n.sourceReachableWeight, maxBlockWeight(currentViewDirection()));
-			tuw.imbalanceTargetBlock = block_imb(hg.totalNodeWeight() - n.sourceReachableWeight(), maxBlockWeight(oppositeViewDirection()));
+			tuw.imbalanceSourceBlock = block_imb(source_reachable_weight, maxBlockWeight(currentViewDirection()));
+			tuw.imbalanceTargetBlock = block_imb(hg.totalNodeWeight() - source_reachable_weight(), maxBlockWeight(oppositeViewDirection()));
 
 			SimulatedNodeAssignment sol = suw.imbalance() < tuw.imbalance() ? suw : tuw;
 
@@ -310,13 +341,13 @@ namespace whfc {
 				flipViewDirection();
 
 			for (const Node u : hg.nodeIDs()) {
-				if (n.isSourceReachable(u) && !n.isSource(u))
+				if (flow_algo.isSourceReachable(u) && !flow_algo.isSource(u))
 					n.settle(u);
 
-				if (n.isTargetReachable(u) && !n.isTarget(u))
+				if (flow_algo.isTargetReachable(u) && !flow_algo.isTarget(u))
 					n.settleTarget(u);
 
-				if (!n.isSourceReachable(u) && !n.isTargetReachable(u)) {
+				if (!flow_algo.isSourceReachable(u) && !flow_algo.isTargetReachable(u)) {
 					if (r.assignUnclaimedToSource) {
 						n.reach(u); n.settle(u);
 					}
@@ -329,7 +360,7 @@ namespace whfc {
 			if (currentViewDirection() != 0)
 				flipViewDirection();
 
-			assert(n.sourceWeight + n.targetWeight == hg.totalNodeWeight());
+			assert(source_weight + target_weight == hg.totalNodeWeight());
 			partitionWrittenToNodeSet = true;
 		}
 
@@ -370,7 +401,7 @@ namespace whfc {
 		void applyMoves(const std::vector<Move>& moves) {
 			for (const Move& m : moves) {
 				if (m.node != invalidNode) {
-					assert(!n.isSourceReachable(m.node) && !n.isTargetReachable(m.node));
+					assert(!flow_algo.isSourceReachable(m.node) && !flow_algo.isTargetReachable(m.node));
 					if (m.direction == currentViewDirection()) {
 						n.reach(m.node); n.settle(m.node);
 					}
@@ -399,8 +430,8 @@ namespace whfc {
 		std::string toString(bool skip_iso_and_unclaimed = false) {
 			std::stringstream os;
 			os << " cut= " << flowValue
-			   << " s=" << n.sourceWeight << "|" << n.sourceReachableWeight
-			   << " t=" << n.targetWeight << "|" << n.targetReachableWeight;
+			   << " s=" << source_weight << "|" << source_reachable_weight
+			   << " t=" << target_weight << "|" << target_reachable_weight;
 			if (!skip_iso_and_unclaimed)
 			   os << " u=" << unclaimedNodeWeight();
 			os << " mbw=[" << maxBlockWeight(currentViewDirection()) << " " << maxBlockWeight(oppositeViewDirection()) << "]"
@@ -437,8 +468,8 @@ namespace whfc {
 				bool hasOther = false;
 				for (Pin& p : hg.pinsOf(e)) {
 					Node v = p.pin;
-					hasSource |= n.isSource(v);
-					hasOther |= !n.isSource(v);
+					hasSource |= flow_algo.isSource(v);
+					hasOther |= !flow_algo.isSource(v);
 				}
 				if (hasSource && hasOther) {
 					cut_from_partition.push_back(e);
@@ -461,8 +492,8 @@ namespace whfc {
 				bool hasSource = false;
 				bool hasOther = false;
 				for (Pin& p : hg.pinsOf(e)) {
-					hasSource |= n.isSource(p.pin);
-					hasOther |= !n.isSource(p.pin);
+					hasSource |= flow_algo.isSource(p.pin);
+					hasOther |= !flow_algo.isSource(p.pin);
 				}
 				if (hasSource && hasOther) {
 					cut_weight += hg.capacity(e);
@@ -478,7 +509,7 @@ namespace whfc {
 			BitVector he_seen(hg.numHyperedges()), node_seen(hg.numNodes());
 			LayeredQueue<Node> queue(hg.numNodes());
 			for (Node u : hg.nodeIDs()) {
-				if (n.isSource(u)) {
+				if (flow_algo.isSource(u)) {
 					queue.push(u);
 					node_seen.set(u);
 				}
@@ -495,8 +526,8 @@ namespace whfc {
 						he_seen.set(e);
 						for (auto& pin : hg.pinsOf(e)) {
 							Node v = pin.pin;
-							assert(!n.isTargetReachable(v));
-							assert(n.isSourceReachable(v));
+							assert(!flow_algo.isTargetReachable(v));
+							assert(flow_algo.isSourceReachable(v));
 							if (!node_seen[v]) {
 								node_seen.set(v);
 								queue.push(v);
@@ -507,9 +538,9 @@ namespace whfc {
 			}
 
 			for (Node u : hg.nodeIDs()) {
-				if (n.isTargetReachable(u))
+				if (flow_algo.isTargetReachable(u))
 					assert(!node_seen[u]);
-				if (n.isSourceReachable(u))
+				if (flow_algo.isSourceReachable(u))
 					assert(node_seen[u]);
 			}
 
@@ -517,7 +548,7 @@ namespace whfc {
 			he_seen.reset();
 			node_seen.reset();
 			for (Node u : hg.nodeIDs()) {
-				if (n.isTarget(u)) {
+				if (flow_algo.isTarget(u)) {
 					queue.push(u);
 					node_seen.set(u);
 				}
@@ -534,8 +565,8 @@ namespace whfc {
 						he_seen.set(e);
 						for (auto& pin : hg.pinsOf(e)) {
 							Node v = pin.pin;
-							assert(!n.isSourceReachable(v));
-							//no assert(n.isTargetReachable(v)) since we removed the source-side cut
+							assert(!flow_algo.isSourceReachable(v));
+							//no assert(flow_algo.isTargetReachable(v)) since we removed the source-side cut
 							if (!node_seen[v]) {
 								node_seen.set(v);
 								queue.push(v);
@@ -546,9 +577,9 @@ namespace whfc {
 			}
 
 			for (Node u : hg.nodeIDs()) {
-				if (n.isTargetReachable(u))
+				if (flow_algo.isTargetReachable(u))
 					assert(node_seen[u]);
-				if (n.isSourceReachable(u))
+				if (flow_algo.isSourceReachable(u))
 					assert(!node_seen[u]);
 			}
 #endif
