@@ -164,7 +164,7 @@ namespace whfc {
 		}
 
 		void assimilate() {
-			computeReachableWeights();		// TODO must be called explicitly in FlowCutter code to check if we continue before assimilating?
+			computeReachableWeights();
 
 			side_to_pierce = sideToGrow();
 

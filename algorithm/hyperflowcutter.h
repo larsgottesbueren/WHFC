@@ -65,15 +65,19 @@ namespace whfc {
 			}
 
 			if (cs.augmentingPathAvailableFromPiercing) {
-				cs.flow_algo.findMinCuts(cs);
+				cs.hasCut = cs.flow_algo.findMinCuts();
 			}
 			else {
-				cs.flow_algo.growReachable(cs);
-				cs.hasCut = true;
+				if (cs.side_to_pierce == 0) {
+					cs.flow_algo.deriveSourceSideCut();
+				} else {
+					cs.flow_algo.deriveTargetSideCut();
+				}
+				cs.hasCut = true;	// no flow increased
 			}
 
 			if (cs.hasCut) {
-				GrowAssimilated<FlowAlgorithm>::grow(cs, cs.flow_algo.getScanList());
+				cs.assimilate();
 			}
 
 			return cs.hasCut && cs.flowValue <= upperFlowBound;
@@ -106,10 +110,6 @@ namespace whfc {
 
 				LOGGER << cs.toString(true);
 				cs.verifyCutInducedByPartitionMatchesFlowValue();
-			}
-
-			if (cs.currentViewDirection() != 0) {
-				cs.flipViewDirection();
 			}
 
 			return has_balanced_cut_below_flow_bound;
