@@ -132,7 +132,7 @@ namespace whfc {
 		}
 		 */
 
-		bool reachableFromOppositeSide(const Node u) const {
+		bool reachableFromSideNotToPierce(const Node u) const {
 			return side_to_pierce == 0 ? flow_algo.isTargetReachable(u) : flow_algo.isSourceReachable(u);
 		}
 

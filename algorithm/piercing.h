@@ -34,7 +34,7 @@ namespace whfc {
 
 						if (isCandidate(p)) {
 							//Note: the first condition relies on not inserting target-reachable nodes during most balanced cut mode
-							if (reachability_bucket_type != NodeBorder::not_target_reachable_bucket_index || !cs.reachableFromOppositeSide(p)) {
+							if (reachability_bucket_type != NodeBorder::not_target_reachable_bucket_index || !cs.reachableFromSideNotToPierce(p)) {
 								return p;
 							}
 
