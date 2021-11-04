@@ -308,8 +308,9 @@ namespace whfc {
 				flipViewDirection();
 
 			using result_t = std::pair<NodeWeight, NodeWeight>;
+			result_t zero(0,0);
 			result_t extra = tbb::parallel_reduce(
-					tbb::blocked_range<Node>(Node(0), Node(hg.numNodes())),
+					tbb::blocked_range<Node>(Node(0), Node(hg.numNodes())), zero,
 					[&](const auto& r, result_t sum) -> result_t {
 						for (Node u = r.begin(); u < r.end(); ++u) {
 							if (flow_algo.isSourceReachable(u) && !flow_algo.isSource(u)) {
