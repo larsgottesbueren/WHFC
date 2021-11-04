@@ -17,7 +17,6 @@ namespace whfc {
 		bool assignUnclaimedToSource = true;
 		double imbalanceSourceBlock = std::numeric_limits<double>::max(), imbalanceTargetBlock = std::numeric_limits<double>::max();
 		size_t numberOfTrackedMoves = 0;
-		int direction = 0;
 
 		double imbalance() const {
 			return std::max(imbalanceSourceBlock, imbalanceTargetBlock);
@@ -42,7 +41,6 @@ namespace whfc {
 
 	struct NonDynamicCutterState {
 		std::vector<PiercingNode> sourcePiercingNodes, targetPiercingNodes;
-		int direction;
 	};
 
 	template<typename FlowAlgorithm>
@@ -53,7 +51,7 @@ namespace whfc {
 		using Pin = FlowHypergraph::Pin;
 
 		FlowAlgorithm flow_algo;
-		int last_pierced_side = 0;
+		int side_to_pierce = 0;
 		FlowHypergraph& hg;
 		Flow flowValue = 0;
 
@@ -131,9 +129,11 @@ namespace whfc {
 			return maxBlockWeightPerSide[side];
 		}
 
+		/*
 		NodeWeight maxBlockWeight() const {
-			return maxBlockWeight(last_pierced_side);
+			return maxBlockWeight(side_to_pierce);
 		}
+		 */
 
 		void computeReachableWeights() {
 			tbb::parallel_invoke([&] {
@@ -164,11 +164,11 @@ namespace whfc {
 		}
 
 		void assimilate() {
-			computeReachableWeights();
+			computeReachableWeights();		// TODO must be called explicitly in FlowCutter code to check if we continue before assimilating?
 
-			last_pierced_side = sideToGrow();
+			side_to_pierce = sideToGrow();
 
-			if (last_pierced_side == 0 /* source side */) {
+			if (side_to_pierce == 0 /* source side */) {
 				source_weight = source_reachable_weight;
 				for (Node u : flow_algo.sourceReachableNodes()) {
 					if (!flow_algo.isSource(u)) {
@@ -237,9 +237,9 @@ namespace whfc {
 		}
 
 		int sideToGrow() const {
-			const double imb_s = static_cast<double>(source_reachable_weight) / static_cast<double>(maxBlockWeight(currentViewDirection()));
-			const double imb_t = static_cast<double>(target_reachable_weight) / static_cast<double>(maxBlockWeight(oppositeViewDirection()));
-			return imb_s <= imb_t ? currentViewDirection() : oppositeViewDirection();
+			const double imb_s = static_cast<double>(source_reachable_weight) / static_cast<double>(maxBlockWeight(0));
+			const double imb_t = static_cast<double>(target_reachable_weight) / static_cast<double>(maxBlockWeight(1));
+			return imb_s <= imb_t ? 0 : 1;
 		}
 
 		bool isBalanced() {
@@ -252,8 +252,8 @@ namespace whfc {
 					uw = unclaimedNodeWeight();			//cannot be split (in current stages. if we integrate proper PCKP heuristics for MBMC this would change)
 
 			const NodeWeight
-					s_mbw = maxBlockWeight(currentViewDirection()),
-					t_mbw = maxBlockWeight(oppositeViewDirection());
+					s_mbw = maxBlockWeight(0),
+					t_mbw = maxBlockWeight(1);
 
 			if (sw > s_mbw || tw > t_mbw)					//this is good at late and early stages
 				return false;
@@ -273,13 +273,10 @@ namespace whfc {
 			mostBalancedCutMode = true;	// activates move tracking
 			borderNodes.enterMostBalancedCutMode();
 			cuts.enterMostBalancedCutMode();
-			return { sourcePiercingNodes, targetPiercingNodes, currentViewDirection() };
+			return { sourcePiercingNodes, targetPiercingNodes };
 		}
 
 		void resetToFirstBalancedState(NonDynamicCutterState& nds) {
-			if (currentViewDirection() != nds.direction) {
-				flipViewDirection();
-			}
 			sourcePiercingNodes = nds.sourcePiercingNodes;
 			targetPiercingNodes = nds.targetPiercingNodes;
 			revertMoves(0);
@@ -292,17 +289,16 @@ namespace whfc {
 				return (static_cast<double>(a) / static_cast<double>(max_a)) - 1.0;
 			};
 			SimulatedNodeAssignment suw;
-			suw.imbalanceSourceBlock = block_imb(hg.totalNodeWeight() - target_reachable_weight, maxBlockWeight(currentViewDirection()));
-			suw.imbalanceTargetBlock = block_imb(target_reachable_weight, maxBlockWeight(oppositeViewDirection()));
+			suw.imbalanceSourceBlock = block_imb(hg.totalNodeWeight() - target_reachable_weight, maxBlockWeight(0));
+			suw.imbalanceTargetBlock = block_imb(target_reachable_weight, maxBlockWeight(1));
 
 			SimulatedNodeAssignment tuw;
-			tuw.imbalanceSourceBlock = block_imb(source_reachable_weight, maxBlockWeight(currentViewDirection()));
-			tuw.imbalanceTargetBlock = block_imb(hg.totalNodeWeight() - source_reachable_weight, maxBlockWeight(oppositeViewDirection()));
+			tuw.imbalanceSourceBlock = block_imb(source_reachable_weight, maxBlockWeight(0));
+			tuw.imbalanceTargetBlock = block_imb(hg.totalNodeWeight() - source_reachable_weight, maxBlockWeight(1));
 
 			SimulatedNodeAssignment sol = suw.imbalance() < tuw.imbalance() ? suw : tuw;
 
 			sol.numberOfTrackedMoves = trackedMoves.size();
-			sol.direction = currentViewDirection();
 			return sol;
 		}
 
@@ -311,8 +307,6 @@ namespace whfc {
 		void writePartition(const SimulatedNodeAssignment& r) {
 			assert(!partitionWrittenToNodeSet);
 			assert(isBalanced());
-			if (currentViewDirection() != r.direction)
-				flipViewDirection();
 
 			using result_t = std::pair<NodeWeight, NodeWeight>;
 			result_t zero(0,0);
@@ -359,7 +353,7 @@ namespace whfc {
 				Move& m = trackedMoves.back();
 				flow_algo.unreach(m.node);
 				if (flow_algo.isHypernode(m.node)) {
-					if (m.direction == currentViewDirection()) source_weight -= hg.nodeWeight(m.node);
+					if (m.direction == 0) source_weight -= hg.nodeWeight(m.node);
 					else target_weight -= hg.nodeWeight(m.node);
 				}
 				trackedMoves.pop_back();
@@ -390,7 +384,7 @@ namespace whfc {
 			   << " t=" << target_weight << "|" << target_reachable_weight;
 			if (!skip_iso_and_unclaimed)
 			   os << " u=" << unclaimedNodeWeight();
-			os << " mbw=[" << maxBlockWeight(currentViewDirection()) << " " << maxBlockWeight(oppositeViewDirection()) << "]"
+			os << " mbw=[" << maxBlockWeight(0) << " " << maxBlockWeight(1) << "]"
 			   << " total=" << hg.totalNodeWeight()
 			   ;
 			return os.str();
