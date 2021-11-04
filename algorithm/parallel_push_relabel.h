@@ -4,6 +4,7 @@
 
 #include <tbb/parallel_for.h>
 #include <tbb/parallel_reduce.h>
+#include <tbb/parallel_invoke.h>
 #include "../datastructure/buffered_vector.h"
 
 #include "cutter_state.h"
@@ -402,28 +403,31 @@ public:
 	}
 
 	std::pair<NodeWeight, NodeWeight> computeReachableWeights() {
-		// next_active container is for source side. active for target side
-		NodeWeight extra_source_weight = tbb::parallel_reduce(
-				tbb::blocked_range<size_t>(0, last_source_side_queue_entry), 0, [&](const auto& r, NodeWeight sum) -> NodeWeight {
-			for (size_t i = r.begin(); i < r.end(); ++i) {
-				Node u = next_active[i];
-				if (isHypernode(u) && !isSource(u)) {
-					sum += hg.nodeWeight(u);
-				}
-			}
-			return sum;
-		}, std::plus<>());
+		NodeWeight extra_source_weight, extra_target_weight;
 
-		NodeWeight extra_target_weight = tbb::parallel_reduce(
-				tbb::blocked_range<size_t>(0, last_target_side_queue_entry), 0, [&](const auto& r, NodeWeight sum) -> NodeWeight {
-			for (size_t i = r.begin(); i < r.end(); ++i) {
-				Node u = active[i];
-				if (isHypernode(u) && !isTarget(u)) {
-					sum += hg.nodeWeight(u);
+		tbb::parallel_invoke([&] {
+			extra_source_weight = tbb::parallel_reduce(
+					tbb::blocked_range<size_t>(0, last_source_side_queue_entry), 0, [&](const auto& r, NodeWeight sum) -> NodeWeight {
+				for (size_t i = r.begin(); i < r.end(); ++i) {
+					Node u = next_active[i];	// next_active container is for source side. active for target side
+					if (isHypernode(u) && !isSource(u)) {
+						sum += hg.nodeWeight(u);
+					}
 				}
-			}
-			return sum;
-		}, std::plus<>());
+				return sum;
+			}, std::plus<>());
+		}, [&] {
+			extra_target_weight = tbb::parallel_reduce(
+					tbb::blocked_range<size_t>(0, last_target_side_queue_entry), 0, [&](const auto& r, NodeWeight sum) -> NodeWeight {
+				for (size_t i = r.begin(); i < r.end(); ++i) {
+					Node u = active[i];
+					if (isHypernode(u) && !isTarget(u)) {
+						sum += hg.nodeWeight(u);
+					}
+				}
+				return sum;
+			}, std::plus<>());
+		});
 
 		return std::make_pair(extra_source_weight, extra_target_weight);
 	}
