@@ -29,17 +29,9 @@ namespace whfc {
 	};
 
 	struct Move {
-		enum class Type : uint8_t { SettleNode, SettleAllPins, SettleFlowSendingPins };
 		Node node;
-		Hyperedge hyperedge;
 		int direction;
-		Type t;
-		Move(Node node, int dir, Type t) : node(node), hyperedge(invalidHyperedge), direction(dir), t(t) {
-			assert(t == Type::SettleNode);
-		}
-		Move(Hyperedge hyperedge, int dir, Type t) : node(invalidNode), hyperedge(hyperedge), direction(dir), t(t) {
-			assert(t == Type::SettleAllPins || t == Type::SettleFlowSendingPins);
-		}
+		Move(Node node, int dir) : node(node), direction(dir) { }
 	};
 
 	struct PiercingNode {
