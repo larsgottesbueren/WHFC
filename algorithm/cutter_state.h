@@ -351,31 +351,14 @@ namespace whfc {
 		void revertMoves(const size_t numberOfTrackedMoves) {
 			while (trackedMoves.size() > numberOfTrackedMoves) {
 				Move& m = trackedMoves.back();
-				if (m.node != invalidNode) {
-					assert(m.hyperedge == invalidHyperedge);
-					if (m.direction == currentViewDirection())
-						n.unsettleSource(m.node);
-					else
-						n.unsettleTarget(m.node);
-				}
-				else {
-					assert(m.node == invalidNode);
-					//for timestamp and distance reachable sets, we would only need unsettleAllPins and unsettleFlowSendingPins, since S and T are disjoint by nature.
-					if (currentViewDirection() == m.direction) {
-						if (m.t == Move::Type::SettleAllPins)
-							h.unsettleAllPins(m.hyperedge);
-						else
-							h.unsettleFlowSendingPins(m.hyperedge);
-					}
-					else {
-						if (m.t == Move::Type::SettleAllPins)
-							h.unsettleAllPinsTarget(m.hyperedge);
-						else
-							h.unsettleFlowSendingPinsTarget(m.hyperedge);
-					}
+				flow_algo.unreach(m.node);
+				if (flow_algo.isHypernode(m.node)) {
+					if (m.direction == currentViewDirection()) source_weight -= hg.nodeWeight(m.node);
+					else target_weight -= hg.nodeWeight(m.node);
 				}
 				trackedMoves.pop_back();
 			}
+			// TODO set reachable weights?
 		}
 
 		void applyMoves(const std::vector<Move>& moves) {
