@@ -22,7 +22,7 @@ namespace whfc {
 				timer("HyperFlowCutter"),
 				hg(hg),
 				cs(hg, timer),
-				piercer(hg, cs, timer)
+				piercer(hg, cs)
 		{
 			cs.rng.setSeed(seed);
 			reset();

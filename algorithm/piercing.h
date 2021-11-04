@@ -9,7 +9,7 @@ namespace whfc {
 	class Piercer {
 	public:
 
-		explicit Piercer(FlowHypergraph& hg, CutterState<FlowAlgorithm>& cs, TimeReporter& timer) : hg(hg), cs(cs), timer(timer) { }
+		explicit Piercer(FlowHypergraph& hg, CutterState<FlowAlgorithm>& cs) : hg(hg), cs(cs) { }
 
 		Node findPiercingNode() {
 			if (cs.notSettledNodeWeight() == 0)
@@ -34,7 +34,7 @@ namespace whfc {
 
 						if (isCandidate(p)) {
 							//Note: the first condition relies on not inserting target-reachable nodes during most balanced cut mode
-							if (reachability_bucket_type != NodeBorder::not_target_reachable_bucket_index || !reachableFromOppositeSide(p)) {
+							if (reachability_bucket_type != NodeBorder::not_target_reachable_bucket_index || !cs.reachableFromOppositeSide(p)) {
 								return p;
 							}
 
@@ -82,14 +82,9 @@ namespace whfc {
 			return cs.canBeSettled(u) && base_weight + hg.nodeWeight(u) <= cs.maxBlockWeight(cs.side_to_pierce);
 		}
 
-		bool reachableFromOppositeSide(const Node u) const {
-			return cs.side_to_pierce == 0 ? cs.flow_algo.isTargetReachable(u) : cs.flow_algo.isSourceReachable(u);
-		}
-
 		FlowHypergraph& hg;
 		CutterState<FlowAlgorithm>& cs;
 		NodeWeight base_weight = 0;
-		TimeReporter& timer;
 
 		static constexpr uint32_t max_random_score = 1 << 25;
 

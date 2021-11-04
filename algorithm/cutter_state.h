@@ -132,6 +132,10 @@ namespace whfc {
 		}
 		 */
 
+		bool reachableFromOppositeSide(const Node u) const {
+			return side_to_pierce == 0 ? flow_algo.isTargetReachable(u) : flow_algo.isSourceReachable(u);
+		}
+
 		void computeReachableWeights() {
 			if (augmentingPathAvailableFromPiercing) {
 				tbb::parallel_invoke(this->computeSourceReachableWeight, this->computeTargetReachableWeight);
