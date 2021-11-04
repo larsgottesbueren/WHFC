@@ -26,8 +26,13 @@ namespace whfc {
 				for ( ; d >= border->minOccupiedBucket[reachability_bucket_type]; --d) {
 					NodeBorder::Bucket& b = border->buckets[d][reachability_bucket_type];
 					while (!b.empty()) {
-						Node p = cs.rng.selectAndRemoveRandomElement(b);
+						// pick and remove random element from bucket
+						size_t it = cs.rng.randomIndex(0, b.size() - 1);
+						Node p = b[it];
+						b[it] = b.back();
+						b.pop_back();
 
+						// track removed nodes for revert
 						if (cs.mostBalancedCutMode) {
 							border->removed_during_most_balanced_cut_mode[reachability_bucket_type].push_back(p);
 						}
@@ -38,6 +43,8 @@ namespace whfc {
 								return p;
 							}
 
+							// the node was not reachable at the time it was inserted but became reachable since then
+							// --> migrate it to the reachable bucket
 							if (!cs.mostBalancedCutMode) {
 								border->insertIntoBucket(p, NodeBorder::target_reachable_bucket_index, d);
 							}
@@ -45,6 +52,7 @@ namespace whfc {
 					}
 				}
 
+				// the buckets are already empty --> also clear the span of occupied distances
 				border->clearBuckets(reachability_bucket_type);
 			}
 
