@@ -138,7 +138,7 @@ namespace whfc {
 						cs.assimilateSourceSide();
 					} else {
 						cs.flow_algo.deriveTargetSideCut();
-						cs.flow_algo.computeTargetReachableWeight();
+						cs.computeTargetReachableWeight();
 						cs.assimilateTargetSide();
 					}
 					cs.side_to_pierce = cs.sideToGrow();
