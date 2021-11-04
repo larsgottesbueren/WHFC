@@ -53,7 +53,7 @@ namespace whfc {
 		using Pin = FlowHypergraph::Pin;
 
 		FlowAlgorithm flow_algo;
-		int viewDirection = 0;
+		int last_pierced_side = 0;
 		FlowHypergraph& hg;
 		Flow flowValue = 0;
 
@@ -132,12 +132,43 @@ namespace whfc {
 		}
 
 		NodeWeight maxBlockWeight() const {
-			return maxBlockWeight(currentViewDirection());
+			return maxBlockWeight(last_pierced_side);
+		}
+
+		void computeReachableWeights() {
+			tbb::parallel_invoke([&] {
+				auto sr = flow_algo.sourceReachableNodes();
+				source_reachable_weight += tbb::parallel_reduce(
+						tbb::blocked_range<size_t>(0, sr.size()), 0, [&](const auto& r, NodeWeight sum) -> NodeWeight {
+					for (size_t i = r.begin(); i < r.end(); ++i) {
+						Node u = sr[i];	// next_active container is for source side. active for target side
+						if (flow_algo.isHypernode(u) && !flow_algo.isSource(u)) {
+							sum += hg.nodeWeight(u);
+						}
+					}
+					return sum;
+				}, std::plus<>());
+			}, [&] {
+				auto tr = flow_algo.targetReachableNodes();
+				target_reachable_weight += tbb::parallel_reduce(
+						tbb::blocked_range<size_t>(0, tr.size()), 0, [&](const auto& r, NodeWeight sum) -> NodeWeight {
+					for (size_t i = r.begin(); i < r.end(); ++i) {
+						Node u = tr[i];
+						if (flow_algo.isHypernode(u) && !flow_algo.isTarget(u)) {
+							sum += hg.nodeWeight(u);
+						}
+					}
+					return sum;
+				}, std::plus<>());
+			});
 		}
 
 		void assimilate() {
-			bool source_side = sideToGrow() == 0;
-			if (source_side) {
+			computeReachableWeights();
+
+			last_pierced_side = sideToGrow();
+
+			if (last_pierced_side == 0 /* source side */) {
 				source_weight = source_reachable_weight;
 				for (Node u : flow_algo.sourceReachableNodes()) {
 					if (!flow_algo.isSource(u)) {
@@ -174,28 +205,10 @@ namespace whfc {
 			}
 		}
 
-		void flipViewDirection() {
-			viewDirection = 1 - viewDirection;
-			hg.flipViewDirection();
-			h.flipViewDirection();
-			sourcePiercingNodes.swap(targetPiercingNodes);
-			cuts.flipViewDirection();
-			borderNodes.flipViewDirection();
-		}
-
-		int currentViewDirection() const {
-			return viewDirection;
-		}
-
-		int oppositeViewDirection() const {
-			return 1 - viewDirection;
-		}
 
 		void reset() {		// TODO could consolidate with initialize
-			viewDirection = 0;
 			flowValue = 0;
 			flow_algo.reset();
-			h.fullReset();
 			sourcePiercingNodes.clear();
 			targetPiercingNodes.clear();
 			trackedMoves.clear();
@@ -389,6 +402,7 @@ namespace whfc {
 			assert(hasCut);
 
 #ifndef NDEBUG
+			// TODO clean up the cut of the side that was just assimilated! on the other side we dont have the correct hyperedges?
 			cuts.sourceSide.cleanUp([&](const Hyperedge& e) { return h.areAllPinsSources(e); });
 			Flow expected_flow = 0;
 			for (const Hyperedge& e : cuts.sourceSide.entries()) {

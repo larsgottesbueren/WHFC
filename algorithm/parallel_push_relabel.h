@@ -402,35 +402,6 @@ public:
 		}
 	}
 
-	std::pair<NodeWeight, NodeWeight> computeReachableWeights() {
-		NodeWeight extra_source_weight, extra_target_weight;
-
-		tbb::parallel_invoke([&] {
-			extra_source_weight = tbb::parallel_reduce(
-					tbb::blocked_range<size_t>(0, last_source_side_queue_entry), 0, [&](const auto& r, NodeWeight sum) -> NodeWeight {
-				for (size_t i = r.begin(); i < r.end(); ++i) {
-					Node u = next_active[i];	// next_active container is for source side. active for target side
-					if (isHypernode(u) && !isSource(u)) {
-						sum += hg.nodeWeight(u);
-					}
-				}
-				return sum;
-			}, std::plus<>());
-		}, [&] {
-			extra_target_weight = tbb::parallel_reduce(
-					tbb::blocked_range<size_t>(0, last_target_side_queue_entry), 0, [&](const auto& r, NodeWeight sum) -> NodeWeight {
-				for (size_t i = r.begin(); i < r.end(); ++i) {
-					Node u = active[i];
-					if (isHypernode(u) && !isTarget(u)) {
-						sum += hg.nodeWeight(u);
-					}
-				}
-				return sum;
-			}, std::plus<>());
-		});
-
-		return std::make_pair(extra_source_weight, extra_target_weight);
-	}
 
 	sub_range<vec<Node>> sourceReachableNodes() const {
 		return sub_range<vec<Node>>(next_active.getData(), 0, last_source_side_queue_entry);
