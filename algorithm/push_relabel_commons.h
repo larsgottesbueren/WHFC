@@ -100,6 +100,7 @@ namespace whfc {
 			work_since_last_global_relabel = std::numeric_limits<size_t>::max();
 			global_relabel_work_threshold = (global_relabel_alpha * max_level + 2 * hg.numPins() + hg.numHyperedges()) / global_relabel_frequency;
 
+			upper_flow_bound = std::numeric_limits<Flow>::max();
 			shall_terminate = false;
 		}
 

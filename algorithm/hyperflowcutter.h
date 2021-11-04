@@ -13,7 +13,6 @@ namespace whfc {
 		TimeReporter timer;
 		FlowHypergraph& hg;
 		CutterState<FlowAlgorithm> cs;
-		Flow upperFlowBound;
 		Piercer<FlowAlgorithm> piercer;
 		bool find_most_balanced = true;
 
@@ -23,7 +22,6 @@ namespace whfc {
 				timer("HyperFlowCutter"),
 				hg(hg),
 				cs(hg, timer),
-				upperFlowBound(maxFlow),
 				piercer(hg, cs, timer)
 		{
 			cs.rng.setSeed(seed);
@@ -33,7 +31,6 @@ namespace whfc {
 		void reset() {
 			cs.reset();
 			piercer.reset();
-			upperFlowBound = maxFlow;
 			//timer.clear();
 		}
 
@@ -80,7 +77,7 @@ namespace whfc {
 				cs.assimilate();
 			}
 
-			return cs.hasCut && cs.flowValue <= upperFlowBound;
+			return cs.hasCut && cs.flowValue <= cs.flow_algo.upper_flow_bound;
 		}
 
 
@@ -88,10 +85,9 @@ namespace whfc {
 		 * Equivalent to runUntilBalancedOrFlowBoundExceeded(s,t) except that it does not use the flow-based interleaving that is necessary when running multiple HFC instances
 		 */
 		bool enumerateCutsUntilBalancedOrFlowBoundExceeded(const Node s, const Node t) {
-			cs.flow_algo.upper_flow_bound = upperFlowBound;
 			cs.initialize(s,t);
 			bool has_balanced_cut_below_flow_bound = false;
-			while (!has_balanced_cut_below_flow_bound && findNextCut(cs.flowValue == upperFlowBound)) {
+			while (!has_balanced_cut_below_flow_bound && findNextCut(cs.flowValue == cs.flow_algo.upper_flow_bound)) {
 				has_balanced_cut_below_flow_bound |= cs.isBalanced();
 			}
 
@@ -172,6 +168,10 @@ namespace whfc {
 
 		void signalTermination() {
 			cs.flow_algo.shall_terminate = true;
+		}
+
+		void setFlowBound(Flow bound) {
+			cs.flow_algo.upper_flow_bound = bound;
 		}
 	};
 
