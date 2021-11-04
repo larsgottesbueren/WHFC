@@ -88,7 +88,7 @@ namespace whfc {
 		 * Equivalent to runUntilBalancedOrFlowBoundExceeded(s,t) except that it does not use the flow-based interleaving that is necessary when running multiple HFC instances
 		 */
 		bool enumerateCutsUntilBalancedOrFlowBoundExceeded(const Node s, const Node t) {
-			cs.flow_algo.upperFlowBound = upperFlowBound;
+			cs.flow_algo.upper_flow_bound = upperFlowBound;
 			cs.initialize(s,t);
 			bool has_balanced_cut_below_flow_bound = false;
 			while (!has_balanced_cut_below_flow_bound && findNextCut(cs.flowValue == upperFlowBound)) {
@@ -116,15 +116,13 @@ namespace whfc {
 
 		void mostBalancedCut() {
 			timer.start("MBMC");
-
 			LOGGER << "MBC Mode";
-
-			//settle target reachable nodes, so we don't have to track them in the moves
-			cs.flipViewDirection();
-			GrowAssimilated<FlowAlgorithm>::grow(cs, cs.flow_algo.getScanList());
-			cs.verifyCutPostConditions();
-			cs.flipViewDirection();
-
+			// assimilate the missing side, so we don't have to track it in the moves
+			if (cs.side_to_pierce == 0) {
+				cs.assimilateTargetSide();
+			} else {
+				cs.assimilateSourceSide();
+			}
 			assert(cs.n.sourceReachableWeight == cs.n.sourceWeight);
 			assert(cs.n.targetReachableWeight == cs.n.targetWeight);
 
@@ -136,17 +134,21 @@ namespace whfc {
 			const size_t mbc_iterations = 7;
 			for (size_t i = 0; i < mbc_iterations && !best_sol.isPerfectlyBalanced(); ++i) {
 				LOGGER << "MBC it" << i;
-				assert(cs.sideToGrow() == cs.currentViewDirection());
 				SimulatedNodeAssignment sol = best_sol;
 				while (!sol.isPerfectlyBalanced() && pierce(true)) {
-					GrowAssimilated<FlowAlgorithm>::grow(cs, cs.flow_algo.getScanList(), true);
+					if (cs.side_to_pierce == 0) {
+						cs.flow_algo.deriveSourceSideCut();
+						cs.computeSourceReachableWeight();
+						cs.assimilateSourceSide();
+					} else {
+						cs.flow_algo.deriveTargetSideCut();
+						cs.flow_algo.computeTargetReachableWeight();
+						cs.assimilateTargetSide();
+					}
+					cs.side_to_pierce = cs.sideToGrow();
 					cs.hasCut = true;
 					cs.verifyCutPostConditions();
 					LOGGER << cs.toString();
-
-					if (cs.sideToGrow() != cs.currentViewDirection()) {
-						cs.flipViewDirection();
-					}
 
 					SimulatedNodeAssignment sim = cs.mostBalancedAssignment();
 					if (sim.imbalance() < sol.imbalance()) {
