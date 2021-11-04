@@ -138,7 +138,7 @@ namespace whfc {
 		void computeReachableWeights() {
 			tbb::parallel_invoke([&] {
 				auto sr = flow_algo.sourceReachableNodes();
-				source_reachable_weight += tbb::parallel_reduce(
+				source_reachable_weight = source_weight + tbb::parallel_reduce(
 						tbb::blocked_range<size_t>(0, sr.size()), 0, [&](const auto& r, NodeWeight sum) -> NodeWeight {
 					for (size_t i = r.begin(); i < r.end(); ++i) {
 						Node u = sr[i];	// next_active container is for source side. active for target side
@@ -150,7 +150,7 @@ namespace whfc {
 				}, std::plus<>());
 			}, [&] {
 				auto tr = flow_algo.targetReachableNodes();
-				target_reachable_weight += tbb::parallel_reduce(
+				target_reachable_weight = target_weight + tbb::parallel_reduce(
 						tbb::blocked_range<size_t>(0, tr.size()), 0, [&](const auto& r, NodeWeight sum) -> NodeWeight {
 					for (size_t i = r.begin(); i < r.end(); ++i) {
 						Node u = tr[i];
