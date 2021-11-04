@@ -136,72 +136,90 @@ namespace whfc {
 		 */
 
 		void computeReachableWeights() {
-			tbb::parallel_invoke([&] {
-				auto sr = flow_algo.sourceReachableNodes();
-				source_reachable_weight = source_weight + tbb::parallel_reduce(
-						tbb::blocked_range<size_t>(0, sr.size()), 0, [&](const auto& r, NodeWeight sum) -> NodeWeight {
-					for (size_t i = r.begin(); i < r.end(); ++i) {
-						Node u = sr[i];	// next_active container is for source side. active for target side
-						if (flow_algo.isHypernode(u) && !flow_algo.isSource(u)) {
-							sum += hg.nodeWeight(u);
+			if (augmentingPathAvailableFromPiercing) {
+				tbb::parallel_invoke(this->computeSourceReachableWeight, this->computeTargetReachableWeight);
+			} else {
+				if (side_to_pierce == 0) {
+					computeSourceReachableWeight();
+				} else {
+					computeTargetReachableWeight();
+				}
+			}
+		}
+
+		void computeSourceReachableWeight() {
+			auto sr = flow_algo.sourceReachableNodes();
+			source_reachable_weight = source_weight + tbb::parallel_reduce(
+					tbb::blocked_range<size_t>(0, sr.size()), 0, [&](const auto& r, NodeWeight sum) -> NodeWeight {
+				for (size_t i = r.begin(); i < r.end(); ++i) {
+					Node u = sr[i];	// next_active container is for source side. active for target side
+					if (flow_algo.isHypernode(u) && !flow_algo.isSource(u)) {
+						sum += hg.nodeWeight(u);
+					}
+				}
+				return sum;
+			}, std::plus<>());
+		}
+
+		void computeTargetReachableWeight() {
+			auto tr = flow_algo.targetReachableNodes();
+			target_reachable_weight = target_weight + tbb::parallel_reduce(
+					tbb::blocked_range<size_t>(0, tr.size()), 0, [&](const auto& r, NodeWeight sum) -> NodeWeight {
+				for (size_t i = r.begin(); i < r.end(); ++i) {
+					Node u = tr[i];
+					if (flow_algo.isHypernode(u) && !flow_algo.isTarget(u)) {
+						sum += hg.nodeWeight(u);
+					}
+				}
+				return sum;
+			}, std::plus<>());
+		}
+
+		void assimilateSourceSide() {
+			source_weight = source_reachable_weight;
+			for (Node u : flow_algo.sourceReachableNodes()) {
+				if (!flow_algo.isSource(u)) {
+					if (mostBalancedCutMode) {
+						trackedMoves.emplace_back(u, 0);
+					}
+					if (flow_algo.isInNode(u)) {
+						Hyperedge e = flow_algo.inNodeToEdge(u);
+						Node out_node = flow_algo.edgeToOutNode(e);
+						if (!flow_algo.isSourceReachable(out_node)) {		// in node visited but not out node --> cut hyperedge
+							addToSourceSideCut(e);
 						}
 					}
-					return sum;
-				}, std::plus<>());
-			}, [&] {
-				auto tr = flow_algo.targetReachableNodes();
-				target_reachable_weight = target_weight + tbb::parallel_reduce(
-						tbb::blocked_range<size_t>(0, tr.size()), 0, [&](const auto& r, NodeWeight sum) -> NodeWeight {
-					for (size_t i = r.begin(); i < r.end(); ++i) {
-						Node u = tr[i];
-						if (flow_algo.isHypernode(u) && !flow_algo.isTarget(u)) {
-							sum += hg.nodeWeight(u);
+					flow_algo.makeSource(u);
+				}
+			}
+		}
+
+		void assimilateTargetSide() {
+			target_weight = target_reachable_weight;
+			for (Node u : flow_algo.targetReachableNodes()) {
+				if (!flow_algo.isTarget(u)) {
+					if (mostBalancedCutMode) {
+						trackedMoves.emplace_back(u, 1);
+					}
+					if (flow_algo.isOutNode(u)) {
+						Hyperedge e = flow_algo.outNodeToEdge(u);
+						Node in_node = flow_algo.edgeToInNode(e);
+						if (!flow_algo.isTargetReachable(in_node)) {		// out node visited but not in node --> cut hyperedge
+							addToTargetSideCut(e);
 						}
 					}
-					return sum;
-				}, std::plus<>());
-			});
+					flow_algo.makeTarget(u);
+				}
+			}
 		}
 
 		void assimilate() {
 			computeReachableWeights();
-
 			side_to_pierce = sideToGrow();
-
 			if (side_to_pierce == 0 /* source side */) {
-				source_weight = source_reachable_weight;
-				for (Node u : flow_algo.sourceReachableNodes()) {
-					if (!flow_algo.isSource(u)) {
-						if (mostBalancedCutMode) {
-							trackedMoves.emplace_back(u, 0);
-						}
-						if (flow_algo.isInNode(u)) {
-							Hyperedge e = flow_algo.inNodeToEdge(u);
-							Node out_node = flow_algo.edgeToOutNode(e);
-							if (!flow_algo.isSourceReachable(out_node)) {		// in node visited but not out node --> cut hyperedge
-								addToSourceSideCut(e);
-							}
-						}
-						flow_algo.makeSource(u);
-					}
-				}
+				assimilateSourceSide();
 			} else {
-				target_weight = target_reachable_weight;
-				for (Node u : flow_algo.sourceReachableNodes()) {
-					if (!flow_algo.isTarget(u)) {
-						if (mostBalancedCutMode) {
-							trackedMoves.emplace_back(u, 1);
-						}
-						if (flow_algo.isOutNode(u)) {
-							Hyperedge e = flow_algo.outNodeToEdge(u);
-							Node in_node = flow_algo.edgeToInNode(e);
-							if (!flow_algo.isTargetReachable(in_node)) {		// out node visited but not in node --> cut hyperedge
-								addToTargetSideCut(e);
-							}
-						}
-						flow_algo.makeTarget(u);
-					}
-				}
+				assimilateTargetSide();
 			}
 		}
 
