@@ -169,7 +169,9 @@ namespace whfc {
 			timer.stop("MBMC");
 		}
 
-
+		void signalTermination() {
+			cs.flow_algo.shall_terminate = true;
+		}
 	};
 
 }
