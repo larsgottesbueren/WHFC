@@ -92,7 +92,7 @@ namespace whfc {
 			}
 
 			if (has_balanced_cut_below_flow_bound) {
-				assert(cs.sideToGrow() == cs.currentViewDirection());
+				// TODO this doesnt work without directions
 				const double imb_S_U_ISO = static_cast<double>(hg.totalNodeWeight() - cs.n.targetReachableWeight) / static_cast<double>(cs.maxBlockWeight(cs.currentViewDirection()));
 				const double imb_T = static_cast<double>(cs.n.targetReachableWeight) / static_cast<double>(cs.maxBlockWeight(cs.oppositeViewDirection()));
 				const bool better_balance_impossible = cs.unclaimedNodeWeight() == 0 || imb_S_U_ISO <= imb_T;
@@ -119,8 +119,8 @@ namespace whfc {
 			} else {
 				cs.assimilateSourceSide();
 			}
-			assert(cs.n.sourceReachableWeight == cs.n.sourceWeight);
-			assert(cs.n.targetReachableWeight == cs.n.targetWeight);
+			assert(cs.source_reachable_weight == cs.source_weight);
+			assert(cs.target_reachable_weight == cs.target_weight);
 
 			NonDynamicCutterState first_balanced_state = cs.enterMostBalancedCutMode();
 			SimulatedNodeAssignment initial_sol = cs.mostBalancedAssignment();
