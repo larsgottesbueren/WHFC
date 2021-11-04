@@ -108,10 +108,6 @@ namespace whfc {
 			return hg.totalNodeWeight() - source_weight - target_weight;
 		}
 
-		inline bool shouldBeAddedToCut(const Hyperedge e) const {
-			return !h.areAllPinsSourceReachable(e) && !cuts.sourceSide.wasAdded(e) && hg.isSaturated(e); // the first condition is just an optimization, not really necessary
-		}
-
 		void addToSourceSideCut(const Hyperedge e) {
 			//Note: the current implementation of selecting piercing nodes relies on not inserting target-reachable nodes during most balanced cut mode
 			if (!cuts.sourceSide.wasAdded(e)) {
@@ -184,40 +180,9 @@ namespace whfc {
 			}
 		}
 
-		void settleNode(const Node u, bool check = true) {
-			assert(!flow_algo.isSource(u) && !flow_algo.isTarget(u));
-			unused(check);
-
-			if (!flow_algo.isSourceReachable(u))
-				n.reach(u);
-			n.settle(u);
-
-			if (mostBalancedCutMode) {
-				trackedMoves.emplace_back(u, currentViewDirection(), Move::Type::SettleNode);
-				return;
-			}
-
-		}
-
-		// TODO rename to report settling flow sending pins!
-		void settleFlowSendingPins(const Hyperedge e) {
-			if (mostBalancedCutMode) {
-				trackedMoves.emplace_back(e, currentViewDirection(), Move::Type::SettleFlowSendingPins);
-			}
-			h.settleFlowSendingPins(e);
-		}
-
-		void settleAllPins(const Hyperedge e) {
-			if (mostBalancedCutMode) {
-				trackedMoves.emplace_back(e, currentViewDirection(), Move::Type::SettleAllPins);
-			}
-			h.settleAllPins(e);
-		}
-
 		void flipViewDirection() {
 			viewDirection = 1 - viewDirection;
 			hg.flipViewDirection();
-			n.flipViewDirection();
 			h.flipViewDirection();
 			sourcePiercingNodes.swap(targetPiercingNodes);
 			cuts.flipViewDirection();
@@ -236,9 +201,9 @@ namespace whfc {
 			viewDirection = 0;
 			flowValue = 0;
 			flow_algo.reset();
-			n.fullReset();
 			h.fullReset();
-			sourcePiercingNodes.clear(); targetPiercingNodes.clear();
+			sourcePiercingNodes.clear();
+			targetPiercingNodes.clear();
 			trackedMoves.clear();
 			augmentingPathAvailableFromPiercing = true;
 			hasCut = false;
@@ -254,11 +219,14 @@ namespace whfc {
 			}
 			assert(sourcePiercingNodes.empty() && targetPiercingNodes.empty());
 			sourcePiercingNodes.emplace_back(s,false);
-			settleNode(s, false);
+			source_weight = hg.nodeWeight(s);
+			source_reachable_weight = source_weight;
+			flow_algo.makeSource(s);
+
 			targetPiercingNodes.emplace_back(t,false);
-			flipViewDirection();
-			settleNode(t, false);
-			flipViewDirection();
+			target_weight = hg.nodeWeight(t);
+			target_reachable_weight = target_weight;
+			flow_algo.makeTarget(t);
 		}
 
 		int sideToGrow() const {
@@ -284,7 +252,6 @@ namespace whfc {
 				return false;
 			if (sw + uw > s_mbw && tw + uw > t_mbw)			//this is good at early stages
 				return false;
-
 
 			bool balanced = false;
 			balanced |= sw + uw <= s_mbw && tw <= t_mbw;
@@ -340,25 +307,35 @@ namespace whfc {
 			if (currentViewDirection() != r.direction)
 				flipViewDirection();
 
-			for (const Node u : hg.nodeIDs()) {
-				if (flow_algo.isSourceReachable(u) && !flow_algo.isSource(u))
-					n.settle(u);
+			using result_t = std::pair<NodeWeight, NodeWeight>;
+			result_t extra = tbb::parallel_reduce(
+					tbb::blocked_range<Node>(Node(0), Node(hg.numNodes())),
+					[&](const auto& r, result_t sum) -> result_t {
+						for (Node u = r.begin(); u < r.end(); ++u) {
+							if (flow_algo.isSourceReachable(u) && !flow_algo.isSource(u)) {
+								flow_algo.makeSource(u);
+								sum.first += hg.nodeWeight(u);
+							} else if (flow_algo.isTargetReachable(u) && !flow_algo.isTarget(u)) {
+								flow_algo.settleTarget(u);
+								sum.second += hg.nodeWeight(u);
+							} else if (!flow_algo.isSourceReachable(u) && !flow_algo.isTargetReachable(u)) {
+								if (r.assignUnclaimedToSource) {
+									flow_algo.makeSource(u);
+									sum.first += hg.nodeWeight(u);
+								} else {
+									flow_algo.makeTarget(u);
+									sum.second += hg.nodeWeight(u);
+								}
+							}
+						}
+						return sum;
+					}, [](const auto& l, const auto& r) -> result_t {
+						return {l.first + r.first, l.second + r.second};
+					});
 
-				if (flow_algo.isTargetReachable(u) && !flow_algo.isTarget(u))
-					n.settleTarget(u);
+			source_weight += extra.first;
+			target_weight += extra.second;
 
-				if (!flow_algo.isSourceReachable(u) && !flow_algo.isTargetReachable(u)) {
-					if (r.assignUnclaimedToSource) {
-						n.reach(u); n.settle(u);
-					}
-					else {
-						n.reachTarget(u); n.settleTarget(u);
-					}
-				}
-			}
-
-			if (currentViewDirection() != 0)
-				flipViewDirection();
 
 			assert(source_weight + target_weight == hg.totalNodeWeight());
 			partitionWrittenToNodeSet = true;
