@@ -341,6 +341,7 @@ namespace whfc {
 		}
 
 		void revertMoves(const size_t numberOfTrackedMoves) {
+			// only in most balanced cut mode --> no need for parallelism
 			while (trackedMoves.size() > numberOfTrackedMoves) {
 				Move& m = trackedMoves.back();
 				flow_algo.unreach(m.node);
@@ -350,36 +351,23 @@ namespace whfc {
 				}
 				trackedMoves.pop_back();
 			}
-			// TODO set reachable weights?
+			source_reachable_weight = source_weight;
+			target_reachable_weight = target_weight;
 		}
 
 		void applyMoves(const std::vector<Move>& moves) {
 			for (const Move& m : moves) {
-				if (m.node != invalidNode) {
-					assert(!flow_algo.isSourceReachable(m.node) && !flow_algo.isTargetReachable(m.node));
-					if (m.direction == currentViewDirection()) {
-						n.reach(m.node); n.settle(m.node);
-					}
-					else {
-						n.reachTarget(m.node); n.settleTarget(m.node);
-					}
+				if (m.direction == 0) {
+					flow_algo.makeSource(m.node);
+					if (flow_algo.isHypernode(m.node)) source_weight += hg.nodeWeight(m.node);
 				}
 				else {
-					assert(m.hyperedge != invalidHyperedge);
-					if (currentViewDirection() == m.direction) {
-						if (m.t == Move::Type::SettleAllPins)
-							h.settleAllPins(m.hyperedge);
-						else
-							h.settleFlowSendingPins(m.hyperedge);
-					}
-					else {
-						if (m.t == Move::Type::SettleAllPins)
-							h.settleAllPinsTarget(m.hyperedge);
-						else
-							h.settleFlowSendingPinsTarget(m.hyperedge);
-					}
+					flow_algo.makeTarget(m.node);
+					if (flow_algo.isHypernode(m.node)) target_weight += hg.nodeWeight(m.node);
 				}
 			}
+			source_reachable_weight = source_weight;
+			target_reachable_weight = target_weight;
 		}
 
 		std::string toString(bool skip_iso_and_unclaimed = false) {
