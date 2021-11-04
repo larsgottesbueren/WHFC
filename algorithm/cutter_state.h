@@ -323,7 +323,7 @@ namespace whfc {
 
 			SimulatedNodeAssignment tuw;
 			tuw.imbalanceSourceBlock = block_imb(source_reachable_weight, maxBlockWeight(currentViewDirection()));
-			tuw.imbalanceTargetBlock = block_imb(hg.totalNodeWeight() - source_reachable_weight(), maxBlockWeight(oppositeViewDirection()));
+			tuw.imbalanceTargetBlock = block_imb(hg.totalNodeWeight() - source_reachable_weight, maxBlockWeight(oppositeViewDirection()));
 
 			SimulatedNodeAssignment sol = suw.imbalance() < tuw.imbalance() ? suw : tuw;
 
