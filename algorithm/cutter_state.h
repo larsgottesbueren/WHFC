@@ -100,8 +100,8 @@ namespace whfc {
 			if (!cuts.sourceSide.wasAdded(e)) {
 				cuts.sourceSide.add(e);
 				for (const Pin& px : hg.pinsOf(e)) {
-					if (canBeSettled(px.pin) && !borderNodes.sourceSide->wasAdded(px.pin) && (!mostBalancedCutMode || !flow_algo.isTargetReachable(px.pin))) {
-						borderNodes.sourceSide->add(px.pin, flow_algo.isTargetReachable(px.pin));
+					if (canBeSettled(px.pin) && !borderNodes.sourceSide.wasAdded(px.pin) && (!mostBalancedCutMode || !flow_algo.isTargetReachable(px.pin))) {
+						borderNodes.sourceSide.add(px.pin, flow_algo.isTargetReachable(px.pin));
 					}
 				}
 			}
@@ -111,8 +111,8 @@ namespace whfc {
 			if (!cuts.targetSide.wasAdded(e)) {
 				cuts.targetSide.add(e);
 				for (const Pin& px : hg.pinsOf(e)) {
-					if (canBeSettled(px.pin) && !borderNodes.targetSide->wasAdded(px.pin) && (!mostBalancedCutMode || !flow_algo.isSourceReachable(px.pin))) {
-						borderNodes.targetSide->add(px.pin, flow_algo.isSourceReachable(px.pin));
+					if (canBeSettled(px.pin) && !borderNodes.targetSide.wasAdded(px.pin) && (!mostBalancedCutMode || !flow_algo.isSourceReachable(px.pin))) {
+						borderNodes.targetSide.add(px.pin, flow_algo.isSourceReachable(px.pin));
 					}
 				}
 			}
