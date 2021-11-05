@@ -34,21 +34,13 @@ namespace whfc {
 			//timer.clear();
 		}
 
-		void setPiercingNode(const Node piercingNode) {
-			cs.augmentingPathAvailableFromPiercing = cs.n.isTargetReachable(piercingNode);
-			cs.sourcePiercingNodes.clear();
-			cs.sourcePiercingNodes.emplace_back(piercingNode, cs.n.isTargetReachable(piercingNode));
-			cs.settleNode(piercingNode);
-			cs.hasCut = false;
-		}
-
 		bool pierce() {
 			Node piercingNode = piercer.findPiercingNode();
 			if (piercingNode == invalidNode)
 				return false;
 			if (cs.rejectPiercingIfAugmenting() && cs.reachableFromSideNotToPierce(piercingNode))
 				return false;
-			setPiercingNode(piercingNode);
+			cs.setPiercingNode(piercingNode);
 			return true;
 		}
 

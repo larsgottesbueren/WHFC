@@ -127,6 +127,22 @@ namespace whfc {
 			return side_to_pierce == 0 ? flow_algo.isTargetReachable(u) : flow_algo.isSourceReachable(u);
 		}
 
+		void setPiercingNode(const Node piercingNode) {
+			augmentingPathAvailableFromPiercing = reachableFromSideNotToPierce(piercingNode);
+			if (side_to_pierce == 0) {
+				flow_algo.source_piercing_nodes.clear();
+				flow_algo.source_piercing_nodes.emplace_back(piercingNode);
+				flow_algo.makeSource(piercingNode);
+				source_weight += hg.nodeWeight(piercingNode);
+			} else {
+				flow_algo.target_piercing_nodes.clear();
+				flow_algo.target_piercing_nodes.emplace_back(piercingNode);
+				flow_algo.makeTarget(piercingNode);
+				target_weight += hg.nodeWeight(piercingNode);
+			}
+			hasCut = false;
+		}
+
 		void computeReachableWeights() {
 			if (augmentingPathAvailableFromPiercing) {
 				tbb::parallel_invoke([&]{ computeSourceReachableWeight(); }, [&]{ computeTargetReachableWeight(); });
@@ -349,7 +365,7 @@ namespace whfc {
 								flow_algo.makeSource(u);
 								sum.first += hg.nodeWeight(u);
 							} else if (flow_algo.isTargetReachable(u) && !flow_algo.isTarget(u)) {
-								flow_algo.settleTarget(u);
+								flow_algo.makeTarget(u);
 								sum.second += hg.nodeWeight(u);
 							} else if (!flow_algo.isSourceReachable(u) && !flow_algo.isTargetReachable(u)) {
 								if (r.assignUnclaimedToSource) {
