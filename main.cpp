@@ -1,15 +1,6 @@
-#include <iostream>
-
-#include "util/range.h"
-#include "datastructure/flow_hypergraph.h"
-#include "algorithm/hyperflowcutter.h"
-#include "algorithm/grow_assimilated.h"
 #include "io/hmetis_io.h"
-
-#include "util/random.h"
-#include "datastructure/flow_hypergraph_builder.h"
-#include "algorithm/dinic.h"
-
+#include "algorithm/hyperflowcutter.h"
+#include "algorithm/parallel_push_relabel.h"
 
 namespace whfc {
 	void run(const std::string& filename, Node s, Node t) {
@@ -18,13 +9,13 @@ namespace whfc {
 
 		if (s >= hg.numNodes() || t >= hg.numNodes())
 			throw std::runtime_error("s or t not within node id range");
-		
+
 		int seed = 42;
-		HyperFlowCutter<Dinic> hfc(hg, seed);
+		HyperFlowCutter<ParallelPushRelabel> hfc(hg, seed);
 		hfc.cs.setMaxBlockWeight(0, mbw);
 		hfc.cs.setMaxBlockWeight(1, mbw + (hg.totalNodeWeight() % NodeWeight(2)));
-		
-		hfc.runUntilBalancedOrFlowBoundExceeded(s, t);
+
+		hfc.enumerateCutsUntilBalancedOrFlowBoundExceeded(s, t);
 		hfc.timer.report(std::cout);
 	}
 }
