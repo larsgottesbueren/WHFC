@@ -53,7 +53,7 @@ namespace whfc {
 		FlowHypergraph& hg;
 
 		NodeWeight source_weight, target_weight, source_reachable_weight, target_reachable_weight;
-		std::vector<Move> trackedMoves;
+		vec<Move> trackedMoves;
 
 		bool augmentingPathAvailableFromPiercing = true;
 		bool hasCut = false;
@@ -402,7 +402,7 @@ namespace whfc {
 			target_reachable_weight = target_weight;
 		}
 
-		void applyMoves(const std::vector<Move>& moves) {
+		void applyMoves(const vec<Move>& moves) {
 			for (const Move& m : moves) {
 				if (m.direction == 0) {
 					flow_algo.makeSource(m.node);
@@ -453,7 +453,7 @@ namespace whfc {
 
 		void verifyCutInducedByPartitionMatchesExtractedCutHyperedges() {
 #ifndef NDEBUG
-			std::vector<Hyperedge> cut_from_partition;
+			vec<Hyperedge> cut_from_partition;
 			for (Hyperedge e : hg.hyperedgeIDs()) {
 				bool hasSource = false;
 				bool hasOther = false;
@@ -470,7 +470,7 @@ namespace whfc {
 				if (hasSource && !hasOther)
 					assert(h.areAllPinsSources(e));
 			}
-			std::vector<Hyperedge> sorted_cut = cuts.sourceSide.copy();
+			auto sorted_cut = cuts.sourceSide.copy();
 			std::sort(sorted_cut.begin(), sorted_cut.end());
 			assert(sorted_cut == cut_from_partition);
 #endif
