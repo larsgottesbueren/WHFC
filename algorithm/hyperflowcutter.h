@@ -84,7 +84,7 @@ namespace whfc {
 		bool enumerateCutsUntilBalancedOrFlowBoundExceeded(const Node s, const Node t) {
 			cs.initialize(s,t);
 			bool has_balanced_cut_below_flow_bound = false;
-			while (!has_balanced_cut_below_flow_bound && findNextCut(cs.flow_algo.flow_value == cs.flow_algo.upper_flow_bound)) {
+			while (!has_balanced_cut_below_flow_bound && findNextCut()) {
 				has_balanced_cut_below_flow_bound |= cs.isBalanced();
 			}
 
