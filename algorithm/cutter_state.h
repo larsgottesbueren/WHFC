@@ -10,9 +10,7 @@
 
 #include <tbb/parallel_reduce.h>
 #include <tbb/parallel_invoke.h>
-
-
-// TODO factor out verification code, maybe even balance checking?
+#include <tbb/blocked_range.h>
 
 namespace whfc {
 
@@ -125,12 +123,6 @@ namespace whfc {
 		NodeWeight maxBlockWeight(int side) const {
 			return maxBlockWeightPerSide[side];
 		}
-
-		/*
-		NodeWeight maxBlockWeight() const {
-			return maxBlockWeight(side_to_pierce);
-		}
-		 */
 
 		bool reachableFromSideNotToPierce(const Node u) const {
 			return side_to_pierce == 0 ? flow_algo.isTargetReachable(u) : flow_algo.isSourceReachable(u);
