@@ -8,6 +8,9 @@
 #include "../util/math.h"
 #include "../util/random.h"
 
+#include <tbb/parallel_reduce.h>
+#include <tbb/parallel_invoke.h>
+
 
 // TODO factor out verification code, maybe even balance checking?
 
@@ -55,8 +58,6 @@ namespace whfc {
 		FlowHypergraph& hg;
 		Flow flowValue = 0;
 
-		using ReachableHyperedges = typename FlowAlgorithm::ReachableHyperedges;
-		ReachableHyperedges h;
 		NodeWeight source_weight, target_weight, source_reachable_weight, target_reachable_weight;
 		std::vector<PiercingNode> sourcePiercingNodes, targetPiercingNodes;
 		std::vector<Move> trackedMoves;
@@ -74,7 +75,6 @@ namespace whfc {
 		CutterState(FlowHypergraph& _hg, TimeReporter& timer) :
 				flow_algo(_hg),
 				hg(_hg),
-				h(_hg),
 				cuts(_hg.numHyperedges()),
 				borderNodes(_hg.numNodes()),
 				maxBlockWeightPerSide({NodeWeight(0), NodeWeight(0)}),
