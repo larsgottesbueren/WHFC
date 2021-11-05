@@ -351,16 +351,16 @@ namespace whfc {
 
 		// takes the information from mostBalancedIsolatedNodesAssignment()
 		// can be an old run, since the DP solution for trackedIsolatedWeight only contains nodes that were isolated during that run
-		void writePartition(const SimulatedNodeAssignment& r) {
+		void writePartition(const SimulatedNodeAssignment& assignment) {
 			assert(!partitionWrittenToNodeSet);
 			assert(isBalanced());
 
 			using result_t = std::pair<NodeWeight, NodeWeight>;
 			result_t zero(0,0);
 			result_t extra = tbb::parallel_reduce(
-					tbb::blocked_range<Node>(Node(0), Node(hg.numNodes())), zero,
-					[&](const auto& r, result_t sum) -> result_t {
-						for (Node u = r.begin(); u < r.end(); ++u) {
+					tbb::blocked_range<size_t>(0, hg.numNodes()), zero,
+					[&](const auto& range, result_t sum) -> result_t {
+						for (Node u(range.begin()); u < range.end(); ++u) {
 							if (flow_algo.isSourceReachable(u) && !flow_algo.isSource(u)) {
 								flow_algo.makeSource(u);
 								sum.first += hg.nodeWeight(u);
@@ -368,7 +368,7 @@ namespace whfc {
 								flow_algo.makeTarget(u);
 								sum.second += hg.nodeWeight(u);
 							} else if (!flow_algo.isSourceReachable(u) && !flow_algo.isTargetReachable(u)) {
-								if (r.assignUnclaimedToSource) {
+								if (assignment.assignUnclaimedToSource) {
 									flow_algo.makeSource(u);
 									sum.first += hg.nodeWeight(u);
 								} else {
