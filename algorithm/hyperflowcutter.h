@@ -46,7 +46,7 @@ namespace whfc {
 			Node piercingNode = piercer.findPiercingNode();
 			if (piercingNode == invalidNode)
 				return false;
-			if (reject_piercing_if_it_creates_an_augmenting_path && cs.n.isTargetReachable(piercingNode))
+			if (reject_piercing_if_it_creates_an_augmenting_path && cs.reachableFromSideNotToPierce(piercingNode))
 				return false;
 			setPiercingNode(piercingNode);
 			return true;

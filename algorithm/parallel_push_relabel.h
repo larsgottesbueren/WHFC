@@ -5,9 +5,10 @@
 #include <tbb/parallel_for.h>
 #include <tbb/parallel_reduce.h>
 #include <tbb/parallel_invoke.h>
-#include "../datastructure/buffered_vector.h"
 
-#include "cutter_state.h"
+#include "../util/sub_range.h"
+
+#include "../datastructure/buffered_vector.h"
 
 namespace whfc {
 
