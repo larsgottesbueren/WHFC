@@ -459,25 +459,49 @@ namespace whfc {
 		void verifyCutInducedByPartitionMatchesExtractedCutHyperedges() {
 #ifndef NDEBUG
 			std::vector<Hyperedge> cut_from_partition;
-			for (Hyperedge e : hg.hyperedgeIDs()) {
-				bool hasSource = false;
-				bool hasOther = false;
-				for (Pin& p : hg.pinsOf(e)) {
-					Node v = p.pin;
-					hasSource |= flow_algo.isSource(v);
-					hasOther |= !flow_algo.isSource(v);
-				}
-				if (hasSource && hasOther) {
-					cut_from_partition.push_back(e);
-					assert(h.areFlowSendingPinsSources(e));
-				}
+			if (side_to_pierce == 0) {
+				for (Hyperedge e : hg.hyperedgeIDs()) {
+					bool hasSource = false;
+					bool hasOther = false;
+					for (Pin& p : hg.pinsOf(e)) {
+						Node v = p.pin;
+						hasSource |= flow_algo.isSource(v);
+						hasOther |= !flow_algo.isSource(v);
+					}
+					if (hasSource && hasOther) {
+						cut_from_partition.push_back(e);
+						assert(flow_algo.isSource(flow_algo.edgeToInNode(e)));
+					}
 
-				if (hasSource && !hasOther)
-					assert(h.areAllPinsSources(e));
+					if (hasSource && !hasOther) {
+						assert(flow_algo.isSource(flow_algo.edgeToOutNode(e)));
+					}
+				}
+				auto sorted_cut = cuts.sourceSide.copy();
+				std::sort(sorted_cut.begin(), sorted_cut.end());
+				assert(sorted_cut == cut_from_partition);
+			} else {
+				for (Hyperedge e : hg.hyperedgeIDs()) {
+					bool hasTarget = false;
+					bool hasOther = false;
+					for (Pin& p : hg.pinsOf(e)) {
+						Node v = p.pin;
+						hasTarget |= flow_algo.isTarget(v);
+						hasOther |= !flow_algo.isTarget(v);
+					}
+					if (hasTarget && hasOther) {
+						cut_from_partition.push_back(e);
+						assert(flow_algo.isTarget(flow_algo.edgeToOutNode(e)));
+					}
+
+					if (hasTarget && !hasOther) {
+						assert(flow_algo.isTarget(flow_algo.edgeToInNode(e)));
+					}
+				}
+				auto sorted_cut = cuts.targetSide.copy();
+				std::sort(sorted_cut.begin(), sorted_cut.end());
+				assert(sorted_cut == cut_from_partition);
 			}
-			auto sorted_cut = cuts.sourceSide.copy();
-			std::sort(sorted_cut.begin(), sorted_cut.end());
-			assert(sorted_cut == cut_from_partition);
 #endif
 		}
 
