@@ -7,8 +7,6 @@
 
 #include "algorithm/parallel_push_relabel.h"
 #include "algorithm/sequential_push_relabel.h"
-#include "algorithm/hyperflowcutter.h"
-#include "algorithm/dinic.h"
 
 namespace whfc {
 	void runSnapshotTester(const std::string& filename) {
