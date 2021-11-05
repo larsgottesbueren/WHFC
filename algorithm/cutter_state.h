@@ -53,7 +53,7 @@ namespace whfc {
 		FlowHypergraph& hg;
 
 		NodeWeight source_weight, target_weight, source_reachable_weight, target_reachable_weight;
-		vec<Move> trackedMoves;
+		std::vector<Move> trackedMoves;
 
 		bool augmentingPathAvailableFromPiercing = true;
 		bool hasCut = false;
@@ -402,7 +402,7 @@ namespace whfc {
 			target_reachable_weight = target_weight;
 		}
 
-		void applyMoves(const vec<Move>& moves) {
+		void applyMoves(const std::vector<Move>& moves) {
 			for (const Move& m : moves) {
 				if (m.direction == 0) {
 					flow_algo.makeSource(m.node);
@@ -436,16 +436,21 @@ namespace whfc {
 			assert(hasCut);
 
 #ifndef NDEBUG
-			// TODO clean up the cut of the side that was just assimilated! on the other side we dont have the correct hyperedges?
-			cuts.sourceSide.cleanUp([&](const Hyperedge& e) { return h.areAllPinsSources(e); });
 			Flow expected_flow = 0;
-			for (const Hyperedge& e : cuts.sourceSide.entries()) {
-				assert(hg.isSaturated(e));
-				expected_flow += hg.capacity(e);
+			if (side_to_pierce == 0) {
+				cuts.sourceSide.cleanUp([&](const Hyperedge& e) { return flow_algo.isSource(flow_algo.edgeToOutNode(e)); });
+				for (const Hyperedge& e : cuts.sourceSide.entries()) {
+					assert(flow_algo.flow[flow_algo.bridgeEdgeIndex(e)] == hg.capacity(e));
+					expected_flow += hg.capacity(e);
+				}
+			} else {
+				cuts.targetSide.cleanUp([&](const Hyperedge& e) { return flow_algo.isTarget(flow_algo.edgeToInNode(e)); });
+				for (const Hyperedge& e : cuts.targetSide.entries()) {
+					assert(flow_algo.flow[flow_algo.bridgeEdgeIndex(e)] == hg.capacity(e));
+					expected_flow += hg.capacity(e);
+				}
 			}
 			assert(flow_algo.flow_value == expected_flow);
-
-
 #endif
 			verifyExtractedCutHyperedgesActuallySplitHypergraph();
 			verifyCutInducedByPartitionMatchesExtractedCutHyperedges();
@@ -453,7 +458,7 @@ namespace whfc {
 
 		void verifyCutInducedByPartitionMatchesExtractedCutHyperedges() {
 #ifndef NDEBUG
-			vec<Hyperedge> cut_from_partition;
+			std::vector<Hyperedge> cut_from_partition;
 			for (Hyperedge e : hg.hyperedgeIDs()) {
 				bool hasSource = false;
 				bool hasOther = false;
