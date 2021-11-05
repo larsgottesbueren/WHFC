@@ -11,8 +11,11 @@
 #include <tbb/parallel_reduce.h>
 #include <tbb/parallel_invoke.h>
 #include <tbb/blocked_range.h>
+#include <tbb/scalable_allocator.h>
 
 namespace whfc {
+	template<typename T>
+	using vec = std::vector<T, tbb::scalable_allocator<T> >;
 
 	struct SimulatedNodeAssignment {
 		bool assignUnclaimedToSource = true;
@@ -34,14 +37,8 @@ namespace whfc {
 		Move(Node node, int dir) : node(node), direction(dir) { }
 	};
 
-	struct PiercingNode {
-		Node node;
-		bool isReachableFromOppositeSide;
-		PiercingNode(const Node node, bool isReachableFromOppositeSide) : node(node), isReachableFromOppositeSide(isReachableFromOppositeSide) { }
-	};
-
 	struct NonDynamicCutterState {
-		std::vector<PiercingNode> sourcePiercingNodes, targetPiercingNodes;
+		vec<Node> sourcePiercingNodes, targetPiercingNodes;
 	};
 
 	template<typename FlowAlgorithm>
@@ -56,7 +53,6 @@ namespace whfc {
 		FlowHypergraph& hg;
 
 		NodeWeight source_weight, target_weight, source_reachable_weight, target_reachable_weight;
-		std::vector<PiercingNode> sourcePiercingNodes, targetPiercingNodes;
 		std::vector<Move> trackedMoves;
 
 		bool augmentingPathAvailableFromPiercing = true;
@@ -237,8 +233,6 @@ namespace whfc {
 
 		void reset() {		// TODO could consolidate with initialize
 			flow_algo.reset();
-			sourcePiercingNodes.clear();
-			targetPiercingNodes.clear();
 			trackedMoves.clear();
 			augmentingPathAvailableFromPiercing = true;
 			hasCut = false;
@@ -252,13 +246,12 @@ namespace whfc {
 			if (hg.nodeWeight(s) > maxBlockWeight(0) || hg.nodeWeight(t) > maxBlockWeight(1)) {
 				throw std::runtime_error("Terminal weight already exceeds max block weight at initialization. Consider setting max block weights per side via hfc.cs.setMaxBlockWeight(  side  )");
 			}
-			assert(sourcePiercingNodes.empty() && targetPiercingNodes.empty());
-			sourcePiercingNodes.emplace_back(s,false);
+			flow_algo.source_piercing_nodes.push_back(s);
 			source_weight = hg.nodeWeight(s);
 			source_reachable_weight = source_weight;
 			flow_algo.makeSource(s);
 
-			targetPiercingNodes.emplace_back(t,false);
+			flow_algo.target_piercing_nodes.push_back(t);
 			target_weight = hg.nodeWeight(t);
 			target_reachable_weight = target_weight;
 			flow_algo.makeTarget(t);
@@ -320,12 +313,12 @@ namespace whfc {
 			mostBalancedCutMode = true;	// activates move tracking
 			borderNodes.enterMostBalancedCutMode();
 			cuts.enterMostBalancedCutMode();
-			return { sourcePiercingNodes, targetPiercingNodes };
+			return { flow_algo.source_piercing_nodes, flow_algo.target_piercing_nodes };
 		}
 
 		void resetToFirstBalancedState(NonDynamicCutterState& nds) {
-			sourcePiercingNodes = nds.sourcePiercingNodes;
-			targetPiercingNodes = nds.targetPiercingNodes;
+			flow_algo.source_piercing_nodes = nds.sourcePiercingNodes;
+			flow_algo.target_piercing_nodes = nds.targetPiercingNodes;
 			revertMoves(0);
 			borderNodes.resetForMostBalancedCut();
 			cuts.resetForMostBalancedCut();

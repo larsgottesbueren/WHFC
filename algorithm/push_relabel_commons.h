@@ -102,6 +102,9 @@ namespace whfc {
 
 			upper_flow_bound = std::numeric_limits<Flow>::max();
 			shall_terminate = false;
+
+			source_piercing_nodes.clear();
+			target_piercing_nodes.clear();
 		}
 
 		/** BFS stuff */
