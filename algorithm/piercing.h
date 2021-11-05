@@ -15,6 +15,7 @@ namespace whfc {
 			if (cs.notSettledNodeWeight() == 0)
 				return invalidNode;
 
+			bool reject_if_augmenting = cs.rejectPiercingIfAugmenting();
 			NodeBorder* border = cs.side_to_pierce == 0 ? &cs.borderNodes.sourceSide : &cs.borderNodes.targetSide;
 			base_weight = cs.side_to_pierce == 0 ? cs.source_weight : cs.target_weight;
 

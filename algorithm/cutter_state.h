@@ -54,7 +54,6 @@ namespace whfc {
 		FlowAlgorithm flow_algo;
 		int side_to_pierce = 0;
 		FlowHypergraph& hg;
-		Flow flowValue = 0;
 
 		NodeWeight source_weight, target_weight, source_reachable_weight, target_reachable_weight;
 		std::vector<PiercingNode> sourcePiercingNodes, targetPiercingNodes;
@@ -221,7 +220,6 @@ namespace whfc {
 
 
 		void reset() {		// TODO could consolidate with initialize
-			flowValue = 0;
 			flow_algo.reset();
 			sourcePiercingNodes.clear();
 			targetPiercingNodes.clear();
@@ -278,6 +276,10 @@ namespace whfc {
 			balanced |= sw + uw <= s_mbw && tw <= t_mbw;
 			balanced |= tw + uw <= t_mbw && sw <= s_mbw;
 			return balanced;
+		}
+
+		bool rejectPiercingIfAugmenting() const {
+			return mostBalancedCutMode || flow_algo.flow_value == flow_algo.upper_flow_bound;
 		}
 
 		NonDynamicCutterState enterMostBalancedCutMode() {
@@ -393,7 +395,7 @@ namespace whfc {
 
 		std::string toString(bool skip_iso_and_unclaimed = false) {
 			std::stringstream os;
-			os << " cut= " << flowValue
+			os << " cut= " << flow_algo.flow_value
 			   << " s=" << source_weight << "|" << source_reachable_weight
 			   << " t=" << target_weight << "|" << target_reachable_weight;
 			if (!skip_iso_and_unclaimed)
@@ -417,7 +419,7 @@ namespace whfc {
 				assert(hg.isSaturated(e));
 				expected_flow += hg.capacity(e);
 			}
-			assert(flowValue == expected_flow);
+			assert(flow_algo.flow_value == expected_flow);
 
 
 #endif
@@ -464,7 +466,7 @@ namespace whfc {
 					cut_weight += hg.capacity(e);
 				}
 			}
-			assert(flowValue == cut_weight);
+			assert(flow_algo.flow_value == cut_weight);
 #endif
 		}
 

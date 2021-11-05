@@ -42,23 +42,20 @@ namespace whfc {
 			cs.hasCut = false;
 		}
 
-		bool pierce(bool reject_piercing_if_it_creates_an_augmenting_path = false) {
+		bool pierce() {
 			Node piercingNode = piercer.findPiercingNode();
 			if (piercingNode == invalidNode)
 				return false;
-			if (reject_piercing_if_it_creates_an_augmenting_path && cs.reachableFromSideNotToPierce(piercingNode))
+			if (cs.rejectPiercingIfAugmenting() && cs.reachableFromSideNotToPierce(piercingNode))
 				return false;
 			setPiercingNode(piercingNode);
 			return true;
 		}
 
 
-		bool findNextCut(bool reject_piercing_if_it_creates_an_augmenting_path = false) {
-			if (cs.hasCut) {	// false on the first call, true on subsequent calls.
-				const bool early_reject = !pierce(reject_piercing_if_it_creates_an_augmenting_path);
-				if (early_reject) {
-					return false;
-				}
+		bool findNextCut() {
+			if (cs.hasCut && !pierce()) {
+				return false;
 			}
 
 			if (cs.augmentingPathAvailableFromPiercing) {
@@ -77,7 +74,7 @@ namespace whfc {
 				cs.assimilate();
 			}
 
-			return cs.hasCut && cs.flowValue <= cs.flow_algo.upper_flow_bound;
+			return cs.hasCut && cs.flow_algo.flow_value <= cs.flow_algo.upper_flow_bound;
 		}
 
 
@@ -87,7 +84,7 @@ namespace whfc {
 		bool enumerateCutsUntilBalancedOrFlowBoundExceeded(const Node s, const Node t) {
 			cs.initialize(s,t);
 			bool has_balanced_cut_below_flow_bound = false;
-			while (!has_balanced_cut_below_flow_bound && findNextCut(cs.flowValue == cs.flow_algo.upper_flow_bound)) {
+			while (!has_balanced_cut_below_flow_bound && findNextCut(cs.flow_algo.flow_value == cs.flow_algo.upper_flow_bound)) {
 				has_balanced_cut_below_flow_bound |= cs.isBalanced();
 			}
 
@@ -131,7 +128,7 @@ namespace whfc {
 			for (size_t i = 0; i < mbc_iterations && !best_sol.isPerfectlyBalanced(); ++i) {
 				LOGGER << "MBC it" << i;
 				SimulatedNodeAssignment sol = best_sol;
-				while (!sol.isPerfectlyBalanced() && pierce(true)) {
+				while (!sol.isPerfectlyBalanced() && pierce()) {
 					if (cs.side_to_pierce == 0) {
 						cs.flow_algo.deriveSourceSideCut();
 						cs.computeSourceReachableWeight();
