@@ -282,6 +282,21 @@ namespace whfc {
 			return mostBalancedCutMode || flow_algo.flow_value == flow_algo.upper_flow_bound;
 		}
 
+		bool betterBalanceImpossible() const {
+			if (unclaimedNodeWeight() == 0) {
+				return false;
+			}
+			if (sideToGrow() == 0) {
+				const double imb_S_U = static_cast<double>(hg.totalNodeWeight() - target_reachable_weight) / static_cast<double>(maxBlockWeight(0));
+				const double imb_T = static_cast<double>(target_reachable_weight) / static_cast<double>(maxBlockWeight(1));
+				return imb_S_U <= imb_T;
+			} else {
+				const double imb_S = static_cast<double>(source_reachable_weight) / static_cast<double>(maxBlockWeight(0));
+				const double imb_T_U = static_cast<double>(hg.totalNodeWeight() - source_reachable_weight) / static_cast<double>(maxBlockWeight(1));
+				return imb_T_U <= imb_S;
+			}
+		}
+
 		NonDynamicCutterState enterMostBalancedCutMode() {
 			assert(!mostBalancedCutMode);
 			assert(trackedMoves.empty());
