@@ -138,7 +138,7 @@ namespace whfc {
 
 		void computeReachableWeights() {
 			if (augmentingPathAvailableFromPiercing) {
-				tbb::parallel_invoke(this->computeSourceReachableWeight, this->computeTargetReachableWeight);
+				tbb::parallel_invoke([&]{ computeSourceReachableWeight(); }, [&]{ computeTargetReachableWeight(); });
 			} else {
 				// no flow increased --> one side didn't change
 				if (side_to_pierce == 0) {
