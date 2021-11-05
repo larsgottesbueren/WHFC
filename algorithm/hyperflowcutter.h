@@ -2,7 +2,6 @@
 
 #include "../datastructure/flow_hypergraph.h"
 #include "cutter_state.h"
-#include "grow_assimilated.h"
 #include "piercing.h"
 
 namespace whfc {
