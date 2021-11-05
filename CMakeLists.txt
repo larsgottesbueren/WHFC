@@ -19,6 +19,7 @@ add_executable(TESTS run_tests.cpp)
 target_link_libraries(TESTS ${TBB_LIBRARIES})
 
 add_executable(SnapshotTester snapshot_tester.cpp)
+target_link_libraries(SnapshotTester ${TBB_LIBRARIES})
 
 add_executable(FlowTester flow_tester.cpp)
 target_link_libraries(FlowTester ${TBB_LIBRARIES})
