@@ -535,8 +535,11 @@ namespace whfc {
 				}
 			}
 
-			for (Hyperedge e : cuts.sourceSide.entries())
-				he_seen.set(e);
+			if (side_to_pierce == 0) {
+				for (Hyperedge e : cuts.sourceSide.entries()) he_seen.set(e);
+			} else {
+				for (Hyperedge e : cuts.targetSide.entries()) he_seen.set(e);
+			}
 
 			while (!queue.empty()) {
 				Node u = queue.pop();
@@ -574,8 +577,11 @@ namespace whfc {
 				}
 			}
 
-			for (Hyperedge e : cuts.sourceSide.entries())
-				he_seen.set(e);
+			if (side_to_pierce == 0) {
+				for (Hyperedge e : cuts.sourceSide.entries()) he_seen.set(e);
+			} else {
+				for (Hyperedge e : cuts.targetSide.entries()) he_seen.set(e);
+			}
 
 			while (!queue.empty()) {
 				Node u = queue.pop();
