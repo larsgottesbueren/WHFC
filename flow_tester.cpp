@@ -30,7 +30,9 @@ namespace whfc {
 			thread_pinner.observe(true);
 			for (int i = 0; i < 5; ++i) {
 				ParallelPushRelabel pr(hg);
-				pr.computeFlow(s, t);
+				pr.reset();
+				pr.initialize(s, t);
+				pr.findMinCuts();
 				std::cout << base_filename << "," << i << "," << "ParPR-RL" << "," << threads << "," << pr.timer.get("push relabel").count() << std::endl;
 			}
 		}

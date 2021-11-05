@@ -242,19 +242,17 @@ namespace whfc {
 			partitionWrittenToNodeSet = false;
 		}
 
-		void initialize(const Node s, const Node t) {
+		void initialize(Node s, Node t) {
 			if (hg.nodeWeight(s) > maxBlockWeight(0) || hg.nodeWeight(t) > maxBlockWeight(1)) {
 				throw std::runtime_error("Terminal weight already exceeds max block weight at initialization. Consider setting max block weights per side via hfc.cs.setMaxBlockWeight(  side  )");
 			}
-			flow_algo.source_piercing_nodes.push_back(s);
+
+			flow_algo.initialize(s, t);
+
 			source_weight = hg.nodeWeight(s);
 			source_reachable_weight = source_weight;
-			flow_algo.makeSource(s);
-
-			flow_algo.target_piercing_nodes.push_back(t);
 			target_weight = hg.nodeWeight(t);
 			target_reachable_weight = target_weight;
-			flow_algo.makeTarget(t);
 		}
 
 		int sideToGrow() const {

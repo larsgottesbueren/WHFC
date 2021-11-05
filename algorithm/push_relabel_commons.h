@@ -83,6 +83,14 @@ namespace whfc {
 		/** source / sink */
 		vec<Node> source_piercing_nodes, target_piercing_nodes;
 
+		void initialize(Node s, Node t) {
+			makeSource(s);
+			source_piercing_nodes.push_back(s);
+
+			makeTarget(s);
+			source_piercing_nodes.push_back(t);
+		}
+
 		void reset() {
 			out_node_offset = hg.numPins();
 			bridge_node_offset = 2 * hg.numPins();
