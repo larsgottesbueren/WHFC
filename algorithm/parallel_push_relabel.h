@@ -421,7 +421,7 @@ public:
 	void saturateSourceEdges() {
 		// TODO parallelize?
 		next_active.clear();
-		for (const Node& source : source_piercing_nodes) {
+		for (const Node source : source_piercing_nodes) {
 			level[source] = max_level;
 			for (InHeIndex inc_iter : hg.incidentHyperedgeIndices(source)) {
 				const Hyperedge e = hg.getInHe(inc_iter).e;
@@ -431,6 +431,10 @@ public:
 				flow[inNodeIncidenceIndex(inc_iter)] += d;
 				next_active.push_back_atomic(edgeToInNode(e));
 			}
+		}
+
+		for (const Node target : target_piercing_nodes) {
+			level[target] = 0;
 		}
 	}
 
