@@ -17,7 +17,6 @@ namespace whfc {
 		TimeReporter timer;
 		Flow upper_flow_bound = std::numeric_limits<Flow>::max();
 		bool shall_terminate = false;
-		bool has_cut = false;
 
 		/** mapping between ID types */
 		// hypernodes | in-nodes | out-nodes

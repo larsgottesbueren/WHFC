@@ -332,15 +332,16 @@ public:
 				if (!isSource(v) && !isTarget(v) && level[v] == max_level
 						&& __atomic_exchange_n(&level[v], dist, __ATOMIC_ACQ_REL) == max_level) {
 					next_layer.push_back(v);
-					if constexpr (set_reachability) {
-						reach[v] = target_reachable_stamp;
-					}
 				}
 			});
 
 			if (excess[u] > 0 && last_activated[u] != round) { // add previously mis-labeled nodes to active queue, if not already contained
 				size_t pos = __atomic_fetch_add(&num_active, 1, __ATOMIC_RELAXED);
 				active[pos] = u;
+			}
+
+			if constexpr (set_reachability) {
+				reach[u] = target_reachable_stamp;
 			}
 		};
 
