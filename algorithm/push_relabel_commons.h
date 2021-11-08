@@ -85,7 +85,7 @@ namespace whfc {
 			makeSource(s);
 			source_piercing_nodes.push_back(s);
 
-			makeTarget(s);
+			makeTarget(t);
 			target_piercing_nodes.push_back(t);
 		}
 
