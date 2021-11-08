@@ -23,6 +23,11 @@ namespace whfc {
 
 		std::string base_filename = filename.substr(filename.find_last_of("/\\") + 1);
 
+		{
+			SequentialPushRelabel spr(hg);
+			std::cout << spr.computeFlow(s, t) << std::endl;
+		}
+
 		int max_num_threads = 4;
 		for (int threads = 1; threads <= max_num_threads; threads *= 2) {
 			tbb::task_scheduler_init tsi(threads);

@@ -15,13 +15,14 @@ namespace whfc {
 class ParallelPushRelabel : public PushRelabelCommons {
 public:
 	using Type = ParallelPushRelabel;
-	static constexpr bool log = false;
+	static constexpr bool log = true;
 	static constexpr bool capacitate_incoming_edges_of_in_nodes = true;
 
 	ParallelPushRelabel(FlowHypergraph& hg) : PushRelabelCommons(hg), next_active(0) { }
 
 	bool findMinCuts() {
 		saturateSourceEdges();
+		LOGGER << "saturate source";
 		size_t num_tries = 0;
 		do {
 			while (!next_active.empty()) {
@@ -31,8 +32,10 @@ public:
 				num_active = next_active.size();
 				next_active.swap_container(active);
 				if (work_since_last_global_relabel > 2 * global_relabel_work_threshold) {
-					globalRelabel();
+					LOGGER << "GR";
+					globalRelabel<false>();
 				}
+				LOGGER << "discharge" << V(flow_value);
 				dischargeActiveNodes();
 				applyUpdates();
 			}
@@ -41,12 +44,14 @@ public:
 			// however labels might be broken from parallelism
 			// --> run global relabeling to check if done.
 			num_active = 0;
+			LOGGER << "termination global relabel check";
 			globalRelabel<true>();	// setting the template parameter to true means the function sets reachability info, since we expect to be finished
 			// plug queue back in (regular loop picks it out again)
 			next_active.swap_container(active);
 			next_active.set_size(num_active);
 			num_tries++;
 		} while (!next_active.empty());
+		LOGGER << "flows done. now derive source side cut" << V(flow_value);
 
 		deriveSourceSideCut();
 		return true;
@@ -307,7 +312,7 @@ public:
 		return work;
 	}
 
-	template<bool set_reachability = false>
+	template<bool set_reachability>
 	void globalRelabel() {
 		work_since_last_global_relabel = 0;
 		tbb::parallel_for(0, max_level, [&](size_t i) { level[i] = max_level; }, tbb::static_partitioner());
@@ -376,7 +381,7 @@ public:
 		}
 
 		auto scan = [&](Node u, int ) {
-			scanForward(u, [&](const Node v) {
+			scanBackward(u, [&](const Node v) {
 				auto next_layer = next_active.local_buffer();
 				if (!isSourceReachable(v) && __atomic_exchange_n(&reach[v], source_reachable_stamp, __ATOMIC_ACQ_REL)) {	/* TODO get the right function! */
 					next_layer.push_back(v);
