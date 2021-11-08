@@ -22,7 +22,6 @@ public:
 
 	bool findMinCuts() {
 		saturateSourceEdges();
-		LOGGER << "saturate source";
 		size_t num_tries = 0;
 		do {
 			while (!next_active.empty()) {
@@ -31,13 +30,15 @@ public:
 				}
 				num_active = next_active.size();
 				next_active.swap_container(active);
-				if (work_since_last_global_relabel > 2 * global_relabel_work_threshold) {
+				if (work_since_last_global_relabel > global_relabel_work_threshold) {
 					LOGGER << "GR";
 					globalRelabel<false>();
 				}
-				LOGGER << "discharge" << V(flow_value);
 				dischargeActiveNodes();
 				applyUpdates();
+
+				Node t = target_piercing_nodes.front();
+				LOGGER << "discharge" << V(num_active) << V(flow_value) << V(excess[t]) << V(excess_diff[t]) << V(round);
 			}
 
 			// no more nodes with level < n and excess > 0 left.
@@ -51,7 +52,7 @@ public:
 			next_active.set_size(num_active);
 			num_tries++;
 		} while (!next_active.empty());
-		LOGGER << "flows done. now derive source side cut" << V(flow_value);
+		LOGGER << "flows done. now derive source side cut" << V(flow_value) << V(num_tries);
 
 		deriveSourceSideCut();
 		return true;
@@ -67,7 +68,7 @@ public:
 		auto task = [&](size_t i) {
 			const Node u = active[i];
 			assert(excess[u] > 0);
-			if (level[u] >= max_level || isTarget(u)) { return; }		// target nodes can now be pushed to consume the updates
+			if (level[u] >= max_level || isTarget(u)) { return; }	// target nodes can be pushed to consume updates
 			if (isHypernode(u)) { work.local() += dischargeHypernode(u); }
 			else if (isOutNode(u)) { work.local() += dischargeOutNode(u); }
 			else { work.local() += dischargeInNode(u); }
@@ -80,10 +81,12 @@ public:
 	void applyUpdates() {
 		tbb::parallel_for(0UL, num_active, [&](size_t i) {
 			const Node u = active[i];
-			if (level[u] >= max_level) { assert(excess_diff[u] == 0); return; }
-			level[u] = next_level[u];
+			if (level[u] >= max_level) { return; }
+			if (!isTarget(u)) {
+				level[u] = next_level[u];
+			}
 			excess[u] += excess_diff[u];
-			if (isTarget(u) && isHypernode(u)) {
+			if (isTarget(u) && isHypernode(u)) {		// TODO might have to consume updates on non-hypernodes, since we won't push those?
 				__atomic_fetch_add(&flow_value, excess_diff[u], __ATOMIC_RELAXED);
 			}
 			excess_diff[u] = 0;
@@ -261,6 +264,8 @@ public:
 				Node v = p.pin;
 				Flow d = my_excess;
 				if (my_level == level[v] + 1) {
+					// subtlety here. if target has excess updated (for tracking flow value) winEdge(e_out, v) has to be true if isTarget(v)
+					// otherwise there's an infinite loop. --> reverted winEdge condition to the original one
 					if (excess[v] > 0 && !winEdge(e_out, v)) {
 						skipped = true;
 					} else {
@@ -315,11 +320,12 @@ public:
 	template<bool set_reachability>
 	void globalRelabel() {
 		work_since_last_global_relabel = 0;
-		tbb::parallel_for(0, max_level, [&](size_t i) { level[i] = max_level; }, tbb::static_partitioner());
+		tbb::parallel_for(0, max_level, [&](size_t i) {
+			if (!isTarget(Node(i))) level[i] = max_level;
+		}, tbb::static_partitioner());
 		next_active.clear();
-		for (const Node& s : target_piercing_nodes) {
-			level[s] = 0;
-			next_active.push_back_atomic(s);
+		for (const Node t : target_piercing_nodes) {
+			next_active.push_back_atomic(t);
 		}
 
 		if (set_reachability) {
@@ -335,7 +341,7 @@ public:
 				}
 			});
 
-			if (excess[u] > 0 && last_activated[u] != round) { // add previously mis-labeled nodes to active queue, if not already contained
+			if (!isTarget(u) && excess[u] > 0 && last_activated[u] != round) { // add previously mis-labeled nodes to active queue, if not already contained
 				size_t pos = __atomic_fetch_add(&num_active, 1, __ATOMIC_RELAXED);
 				active[pos] = u;
 			}

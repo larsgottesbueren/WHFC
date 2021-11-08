@@ -47,7 +47,7 @@ namespace whfc {
 		int max_level = 0;
 		vec<int> level;
 		// to avoid concurrently pushing the same edge in different directions
-		bool winEdge(Node v, Node u) { return level[u] == level[v] + 1 || level[u] < level[v] - 1 || (level[u] == level[v] && u < v); }
+		bool winEdge(Node u, Node v) { return level[u] == level[v] + 1 || level[u] < level[v] - 1 || (level[u] == level[v] && u < v); }
 
 		/** reachability */
 		vec<uint32_t> reach;

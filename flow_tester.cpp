@@ -28,7 +28,7 @@ namespace whfc {
 			std::cout << spr.computeFlow(s, t) << std::endl;
 		}
 
-		int max_num_threads = 4;
+		int max_num_threads = 1;
 		for (int threads = 1; threads <= max_num_threads; threads *= 2) {
 			tbb::task_scheduler_init tsi(threads);
 			whfc::pinning_observer thread_pinner;
