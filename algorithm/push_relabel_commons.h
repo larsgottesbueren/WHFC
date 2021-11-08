@@ -87,7 +87,7 @@ namespace whfc {
 			source_piercing_nodes.push_back(s);
 
 			makeTarget(s);
-			source_piercing_nodes.push_back(t);
+			target_piercing_nodes.push_back(t);
 		}
 
 		void reset() {
