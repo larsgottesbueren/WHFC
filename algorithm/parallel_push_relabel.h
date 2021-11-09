@@ -427,22 +427,35 @@ public:
 	}
 
 	void saturateSourceEdges() {
-		// TODO parallelize?
 		next_active.clear();
-		for (const Node source : source_piercing_nodes) {
-			level[source] = max_level;
-			for (InHeIndex inc_iter : hg.incidentHyperedgeIndices(source)) {
-				const Hyperedge e = hg.getInHe(inc_iter).e;
-				const Flow d = hg.capacity(e);		// TODO adapt for residual capacity
-				excess[source] -= d;
-				excess[edgeToInNode(e)] += d;
-				flow[inNodeIncidenceIndex(inc_iter)] += d;
-				next_active.push_back_atomic(edgeToInNode(e));
-			}
-		}
 
-		for (const Node target : target_piercing_nodes) {
-			level[target] = 0;
+		if (source_side_pierced_last) {
+			for (const Node source : source_piercing_nodes) {
+				level[source] = max_level;
+				for (InHeIndex inc_iter : hg.incidentHyperedgeIndices(source)) {
+					const Hyperedge e = hg.getInHe(inc_iter).e;
+					const Flow d = hg.capacity(e);
+					excess[source] -= d;
+					excess[edgeToInNode(e)] += d;
+					flow[inNodeIncidenceIndex(inc_iter)] += d;
+					next_active.push_back_atomic(edgeToInNode(e));
+				}
+			}
+		} else {
+			// don't add anything to next_active. no new excess nodes created and we don't know the old ones with distance label > max_level
+			// even if we did they'd be useless because the labels are broken --> trigger global relabel right away and let it find the active nodes
+			#ifndef NDEBUG
+			for (Node source : source_piercing_nodes) {
+				for (InHeIndex inc_iter : hg.incidentHyperedgeIndices(source)) {
+					const Hyperedge e = hg.getInHe(inc_iter).e;
+					assert(flow[inNodeIncidenceIndex(inc_iter)] == hg.capacity(e));		// should still be saturated because no flow was pushed back to source
+				}
+			}
+			#endif
+
+			for (const Node target : target_piercing_nodes) {
+				level[target] = 0;
+			}
 		}
 	}
 

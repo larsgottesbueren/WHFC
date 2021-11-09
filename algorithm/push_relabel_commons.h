@@ -79,14 +79,17 @@ namespace whfc {
 		size_t work_since_last_global_relabel = 0, global_relabel_work_threshold = 0;
 
 		/** source / sink */
+		bool source_side_pierced_last = false;
 		vec<Node> source_piercing_nodes, target_piercing_nodes;
 
 		void initialize(Node s, Node t) {
 			makeSource(s);
 			source_piercing_nodes.push_back(s);
+			level[s] = max_level;
 
 			makeTarget(t);
 			target_piercing_nodes.push_back(t);
+			level[t] = 0;	// set here manually. when pierced freshly, the labels do get set
 		}
 
 		void reset() {
@@ -111,6 +114,7 @@ namespace whfc {
 
 			source_piercing_nodes.clear();
 			target_piercing_nodes.clear();
+			source_side_pierced_last = true;
 		}
 
 		/** BFS stuff */
