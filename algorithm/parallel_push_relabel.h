@@ -36,8 +36,6 @@ public:
 				}
 				dischargeActiveNodes();
 				applyUpdates();
-
-				Node t = target_piercing_nodes.front();
 				LOGGER << "discharge" << V(num_active) << V(flow_value) << V(round);
 			}
 
@@ -84,17 +82,16 @@ public:
 			if (level[u] >= max_level) { return; }
 			if (!isTarget(u)) {
 				level[u] = next_level[u];
-			}
-			excess[u] += excess_diff[u];
-			if (isTarget(u) && isHypernode(u)) {		// TODO might have to consume updates on non-hypernodes, since we won't push those?
+			} else {
 				__atomic_fetch_add(&flow_value, excess_diff[u], __ATOMIC_RELAXED);
 			}
+			excess[u] += excess_diff[u];
 			excess_diff[u] = 0;
 		});
 		tbb::parallel_for(0UL, next_active.size(), [&](size_t i) {
 			const Node u = next_active[i];
 			excess[u] += excess_diff[u];
-			if (isTarget(u) && isHypernode(u)) {
+			if (isTarget(u) && excess_diff[u] > 0) {
 				__atomic_fetch_add(&flow_value, excess_diff[u], __ATOMIC_RELAXED);
 			}
 			excess_diff[u] = 0;

@@ -15,7 +15,7 @@ namespace whfc {
 		Piercer<FlowAlgorithm> piercer;
 		bool find_most_balanced = true;
 
-		static constexpr bool log = false;
+		static constexpr bool log = true;
 
 		HyperFlowCutter(FlowHypergraph& hg, int seed) :
 				timer("HyperFlowCutter"),
@@ -62,6 +62,7 @@ namespace whfc {
 			}
 
 			if (cs.hasCut) {
+				LOGGER << cs.toString(true);
 				cs.assimilate();
 			}
 

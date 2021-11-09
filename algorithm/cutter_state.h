@@ -44,7 +44,7 @@ namespace whfc {
 	template<typename FlowAlgorithm>
 	class CutterState {
 	public:
-		static constexpr bool log = false;
+		static constexpr bool log = true;
 
 		using Pin = FlowHypergraph::Pin;
 
@@ -219,7 +219,10 @@ namespace whfc {
 		}
 
 		void assimilate() {
+			LOGGER << "before" << V(source_reachable_weight) << V(target_reachable_weight);
 			computeReachableWeights();
+			LOGGER << "after" << V(source_reachable_weight) << V(target_reachable_weight);
+			LOGGER << V(hg.nodeWeight(flow_algo.source_piercing_nodes.front())) << V(hg.nodeWeight(flow_algo.target_piercing_nodes.front()));
 
 			side_to_pierce = sideToGrow();
 

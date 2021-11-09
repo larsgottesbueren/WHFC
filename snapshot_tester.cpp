@@ -32,8 +32,9 @@ namespace whfc {
 		WHFC_IO::readRandomGeneratorState(filename, hfc.cs.rng);
 
 		hfc.timer.start();
-		hfc.enumerateCutsUntilBalancedOrFlowBoundExceeded(s, t);
+		bool result = hfc.enumerateCutsUntilBalancedOrFlowBoundExceeded(s, t);
 		hfc.timer.stop();
+		std::cout << V(result) << std::endl;
 		hfc.timer.report(std::cout);
 		hfc.timer.clear();
 	}

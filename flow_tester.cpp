@@ -39,9 +39,7 @@ namespace whfc {
 				pr.reset();
 				pr.initialize(s, t);
 				pr.findMinCuts();
-				if (pr.flow_value != expected) {
-					std::cout << base_filename << "," << expected << "," << pr.flow_value << std::endl;
-				}
+				std::cout << "f=" << pr.flow_value << " expected=" << expected << std::endl;
 				// std::cout << base_filename << "," << i << "," << "ParPR-RL" << "," << threads << "," << pr.timer.get("push relabel").count() << std::endl;
 			}
 		}
