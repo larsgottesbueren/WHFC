@@ -22,10 +22,11 @@ namespace whfc {
 			throw std::runtime_error("s or t not within node id range");
 
 		std::string base_filename = filename.substr(filename.find_last_of("/\\") + 1);
+		int expected;
 
 		{
 			SequentialPushRelabel spr(hg);
-			std::cout << spr.computeFlow(s, t) << std::endl;
+			expected = spr.computeFlow(s, t);
 		}
 
 		int max_num_threads = 1;
@@ -38,7 +39,10 @@ namespace whfc {
 				pr.reset();
 				pr.initialize(s, t);
 				pr.findMinCuts();
-				std::cout << base_filename << "," << i << "," << "ParPR-RL" << "," << threads << "," << pr.timer.get("push relabel").count() << std::endl;
+				if (pr.flow_value != expected) {
+					std::cout << base_filename << "," << expected << "," << pr.flow_value << std::endl;
+				}
+				// std::cout << base_filename << "," << i << "," << "ParPR-RL" << "," << threads << "," << pr.timer.get("push relabel").count() << std::endl;
 			}
 		}
 

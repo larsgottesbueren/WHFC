@@ -15,7 +15,7 @@ namespace whfc {
 class ParallelPushRelabel : public PushRelabelCommons {
 public:
 	using Type = ParallelPushRelabel;
-	static constexpr bool log = true;
+	static constexpr bool log = false;
 	static constexpr bool capacitate_incoming_edges_of_in_nodes = true;
 
 	ParallelPushRelabel(FlowHypergraph& hg) : PushRelabelCommons(hg), next_active(0) { }
@@ -38,7 +38,7 @@ public:
 				applyUpdates();
 
 				Node t = target_piercing_nodes.front();
-				LOGGER << "discharge" << V(num_active) << V(flow_value) << V(excess[t]) << V(excess_diff[t]) << V(round);
+				LOGGER << "discharge" << V(num_active) << V(flow_value) << V(round);
 			}
 
 			// no more nodes with level < n and excess > 0 left.
