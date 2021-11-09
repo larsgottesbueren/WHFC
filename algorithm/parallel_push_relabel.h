@@ -320,9 +320,7 @@ public:
 	template<bool set_reachability>
 	void globalRelabel() {
 		work_since_last_global_relabel = 0;
-		tbb::parallel_for(0, max_level, [&](size_t i) {
-			if (!isTarget(Node(i))) level[i] = max_level;
-		}, tbb::static_partitioner());
+		tbb::parallel_for(0, max_level, [&](size_t i) { level[i] = isTarget(Node(i)) ? 0 : max_level; }, tbb::static_partitioner());
 		next_active.clear();
 		for (const Node t : target_piercing_nodes) {
 			next_active.push_back_atomic(t);
@@ -452,10 +450,11 @@ public:
 				}
 			}
 			#endif
-
+			/*		// no need to set! global relabeling sets the levels
 			for (const Node target : target_piercing_nodes) {
 				level[target] = 0;
 			}
+			 */
 		}
 	}
 
