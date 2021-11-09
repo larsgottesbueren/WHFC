@@ -368,7 +368,7 @@ public:
 		auto scan = [&](Node u, int ) {
 			scanForward(u, [&](const Node v) {
 				auto next_layer = next_active.local_buffer();
-				if (!isSourceReachable(v) && __atomic_exchange_n(&reach[v], source_reachable_stamp, __ATOMIC_ACQ_REL)) {	/* TODO get the right function! */
+				if (!isSourceReachable(v) && __atomic_exchange_n(&reach[v], source_reachable_stamp, __ATOMIC_ACQ_REL) != source_reachable_stamp) {
 					next_layer.push_back(v);
 				}
 			});
@@ -390,7 +390,7 @@ public:
 		auto scan = [&](Node u, int ) {
 			scanBackward(u, [&](const Node v) {
 				auto next_layer = next_active.local_buffer();
-				if (!isSourceReachable(v) && __atomic_exchange_n(&reach[v], source_reachable_stamp, __ATOMIC_ACQ_REL)) {	/* TODO get the right function! */
+				if (!isTargetReachable(v) && __atomic_exchange_n(&reach[v], target_reachable_stamp, __ATOMIC_ACQ_REL) != target_reachable_stamp) {
 					next_layer.push_back(v);
 				}
 			});
