@@ -365,6 +365,8 @@ public:
 			next_active.push_back_atomic(s);
 		}
 
+		// TODO add sequential version? depending on testing
+
 		auto scan = [&](Node u, int ) {
 			scanForward(u, [&](const Node v) {
 				auto next_layer = next_active.local_buffer();
