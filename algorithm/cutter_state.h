@@ -155,6 +155,8 @@ namespace whfc {
 					computeTargetReachableWeight();
 				}
 			}
+			LOGGER << toString();
+			assert(source_reachable_weight + target_reachable_weight <= hg.totalNodeWeight());
 		}
 
 		void computeSourceReachableWeight() {
@@ -226,7 +228,6 @@ namespace whfc {
 		void assimilate() {
 			LOGGER << "before" << V(source_reachable_weight) << V(target_reachable_weight);
 			computeReachableWeights();
-			LOGGER << toString();
 
 			side_to_pierce = sideToGrow();
 
@@ -425,13 +426,13 @@ namespace whfc {
 		std::string toString(bool skip_iso_and_unclaimed = false) {
 			std::stringstream os;
 			os << " cut= " << flow_algo.flow_value
-			   << " s=" << source_weight << "|" << source_reachable_weight
-			   << " t=" << target_weight << "|" << target_reachable_weight;
-			if (!skip_iso_and_unclaimed)
-			   os << " u=" << unclaimedNodeWeight();
+				<< " s=" << source_weight << "|" << source_reachable_weight
+				<< " t=" << target_weight << "|" << target_reachable_weight;
+			if (!skip_iso_and_unclaimed) {
+				os << " u=" << unclaimedNodeWeight();
+			}
 			os << " mbw=[" << maxBlockWeight(0) << " " << maxBlockWeight(1) << "]"
-			   << " total=" << hg.totalNodeWeight()
-			   ;
+				<< " total=" << hg.totalNodeWeight();
 			return os.str();
 		}
 
