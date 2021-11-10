@@ -48,8 +48,17 @@ public:
 			num_tries++;
 		} while (!next_active.empty());
 		LOGGER << "flows done. now derive source side cut" << V(flow_value) << V(num_tries);
-
 		deriveSourceSideCut();
+
+		#ifndef NDEBUG
+		Flow target_excess = 0;
+		for (Node u(0); u < max_level; ++u) {
+			if (isTarget(u)) {
+				target_excess += excess[u];
+			}
+		}
+		assert(target_excess == flow_value);
+		#endif
 		return true;
 	}
 
@@ -354,7 +363,6 @@ public:
 
 		if (set_reachability) {
 			last_target_side_queue_entry = next_active.size();
-			LOGGER << V(last_target_side_queue_entry) << V(max_level) << V(visited_source);
 		}
 	}
 
@@ -382,7 +390,6 @@ public:
 
 		parallelBFS(0, scan);
 		last_source_side_queue_entry = next_active.size();
-		LOGGER << V(last_source_side_queue_entry) << V(max_level);
 	}
 
 	void deriveTargetSideCut() {
@@ -408,7 +415,6 @@ public:
 
 		last_target_side_queue_entry = next_active.size();
 		next_active.swap_container(active); 	// go back
-		LOGGER << V(last_target_side_queue_entry) << V(max_level);
 	}
 
 	template<typename ScanFunc>

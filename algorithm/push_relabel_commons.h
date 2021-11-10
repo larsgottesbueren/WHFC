@@ -65,6 +65,7 @@ namespace whfc {
 		void makeTarget(Node u) {
 			reach[u] = 2;
 			level[u] = 0;
+			flow_value += excess[u];	// if source-reachable nodes with excess get pierced
 		}
 		bool isTargetReachable(Node u) const { return isTarget(u) || reach[u] == target_reachable_stamp; }
 		void reachFromTarget(Node u) { reach[u] = target_reachable_stamp; }
@@ -79,7 +80,6 @@ namespace whfc {
 			} else {
 				target_reachable_stamp = running_timestamp;
 			}
-			LOGGER << V(source_reachable_stamp) << V(target_reachable_stamp) << V(forward);
 		}
 
 		/** global relabeling */

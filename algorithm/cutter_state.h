@@ -226,7 +226,6 @@ namespace whfc {
 		}
 
 		void assimilate() {
-			LOGGER << "before" << V(source_reachable_weight) << V(target_reachable_weight);
 			computeReachableWeights();
 
 			side_to_pierce = sideToGrow();
@@ -447,20 +446,22 @@ namespace whfc {
 			if (side_to_pierce == 0) {
 				cuts.sourceSide.cleanUp([&](const Hyperedge& e) { return flow_algo.isSource(flow_algo.edgeToOutNode(e)); });
 				for (const Hyperedge& e : cuts.sourceSide.entries()) {
+					assert(flow_algo.isSource(flow_algo.edgeToInNode(e)) && !flow_algo.isSource(flow_algo.edgeToOutNode(e)));
 					assert(flow_algo.flow[flow_algo.bridgeEdgeIndex(e)] == hg.capacity(e));
 					expected_flow += hg.capacity(e);
 				}
 			} else {
 				cuts.targetSide.cleanUp([&](const Hyperedge& e) { return flow_algo.isTarget(flow_algo.edgeToInNode(e)); });
 				for (const Hyperedge& e : cuts.targetSide.entries()) {
+					assert(!flow_algo.isTarget(flow_algo.edgeToInNode(e)) && flow_algo.isTarget(flow_algo.edgeToOutNode(e)));
 					assert(flow_algo.flow[flow_algo.bridgeEdgeIndex(e)] == hg.capacity(e));
 					expected_flow += hg.capacity(e);
 				}
 			}
 			assert(flow_algo.flow_value == expected_flow);
-#endif
 			verifyCutInducedByPartitionMatchesExtractedCutHyperedges();
 			verifyExtractedCutHyperedgesActuallySplitHypergraph();
+#endif
 		}
 
 		void verifyCutInducedByPartitionMatchesExtractedCutHyperedges() {
