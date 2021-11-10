@@ -65,7 +65,10 @@ namespace whfc {
 		void makeTarget(Node u) {
 			reach[u] = 2;
 			level[u] = 0;
-			flow_value += excess[u];	// if source-reachable nodes with excess get pierced
+			// flow_value += excess[u];	// if source-reachable nodes with excess get pierced
+			if (excess[u] > 0) {
+				__atomic_fetch_add(&flow_value, excess[u], __ATOMIC_RELAXED);
+			}
 		}
 		bool isTargetReachable(Node u) const { return isTarget(u) || reach[u] == target_reachable_stamp; }
 		void reachFromTarget(Node u) { reach[u] = target_reachable_stamp; }

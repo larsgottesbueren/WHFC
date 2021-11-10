@@ -155,7 +155,6 @@ namespace whfc {
 					computeTargetReachableWeight();
 				}
 			}
-			LOGGER << toString();
 			assert(source_reachable_weight + target_reachable_weight <= hg.totalNodeWeight());
 		}
 
@@ -164,13 +163,20 @@ namespace whfc {
 			source_reachable_weight = source_weight + tbb::parallel_reduce(
 					tbb::blocked_range<size_t>(0, sr.size()), 0, [&](const auto& r, NodeWeight sum) -> NodeWeight {
 				for (size_t i = r.begin(); i < r.end(); ++i) {
-					Node u = sr[i];	// next_active container is for source side. active for target side
+					Node u = sr[i];
+					assert(flow_algo.isSourceReachable(u));
 					if (flow_algo.isHypernode(u) && !flow_algo.isSource(u)) {
 						sum += hg.nodeWeight(u);
 					}
 				}
 				return sum;
 			}, std::plus<>());
+
+			assert([&] {
+				NodeWeight w = 0;
+				for (Node u : hg.nodeIDs()) { if (flow_algo.isSourceReachable(u)) w += hg.nodeWeight(u); }
+				return w == source_reachable_weight;
+			}());
 		}
 
 		void computeTargetReachableWeight() {
@@ -179,12 +185,19 @@ namespace whfc {
 					tbb::blocked_range<size_t>(0, tr.size()), 0, [&](const auto& r, NodeWeight sum) -> NodeWeight {
 				for (size_t i = r.begin(); i < r.end(); ++i) {
 					Node u = tr[i];
+					assert(flow_algo.isTargetReachable(u));
 					if (flow_algo.isHypernode(u) && !flow_algo.isTarget(u)) {
 						sum += hg.nodeWeight(u);
 					}
 				}
 				return sum;
 			}, std::plus<>());
+
+			assert([&] {
+				NodeWeight w = 0;
+				for (Node u : hg.nodeIDs()) { if (flow_algo.isTargetReachable(u)) w += hg.nodeWeight(u); }
+				return w == target_reachable_weight;
+			}());
 		}
 
 		void assimilateSourceSide() {
@@ -227,14 +240,13 @@ namespace whfc {
 
 		void assimilate() {
 			computeReachableWeights();
-
 			side_to_pierce = sideToGrow();
-
 			if (side_to_pierce == 0 /* source side */) {
 				assimilateSourceSide();
 			} else {
 				assimilateTargetSide();
 			}
+			LOGGER << toString();
 			verifyCutPostConditions();
 		}
 
@@ -337,14 +349,17 @@ namespace whfc {
 			SimulatedNodeAssignment suw;
 			suw.imbalanceSourceBlock = block_imb(hg.totalNodeWeight() - target_reachable_weight, maxBlockWeight(0));
 			suw.imbalanceTargetBlock = block_imb(target_reachable_weight, maxBlockWeight(1));
+			suw.assignUnclaimedToSource = true;
 
 			SimulatedNodeAssignment tuw;
 			tuw.imbalanceSourceBlock = block_imb(source_reachable_weight, maxBlockWeight(0));
 			tuw.imbalanceTargetBlock = block_imb(hg.totalNodeWeight() - source_reachable_weight, maxBlockWeight(1));
+			tuw.assignUnclaimedToSource = false;
 
 			SimulatedNodeAssignment sol = suw.imbalance() < tuw.imbalance() ? suw : tuw;
 
 			sol.numberOfTrackedMoves = trackedMoves.size();
+			LOGGER << V(sol.assignUnclaimedToSource);
 			return sol;
 		}
 
@@ -384,9 +399,21 @@ namespace whfc {
 			source_weight += extra.first;
 			target_weight += extra.second;
 
-
 			assert(source_weight + target_weight == hg.totalNodeWeight());
+			source_reachable_weight = source_weight;
+			target_reachable_weight = target_weight;
 			partitionWrittenToNodeSet = true;
+
+			#ifndef NDEBUG
+			NodeWeight sw = 0, tw = 0;
+			for (Node u : hg.nodeIDs()) {
+				assert(flow_algo.isSource(u) || flow_algo.isTarget(u));
+				if (flow_algo.isSource(u)) sw += hg.nodeWeight(u);
+				else tw += hg.nodeWeight(u);
+			}
+			assert(source_weight == sw);
+			assert(target_weight == tw);
+			#endif
 		}
 
 		void writePartition() {
@@ -436,8 +463,6 @@ namespace whfc {
 			return os.str();
 		}
 
-
-
 		void verifyCutPostConditions() {
 			assert(hasCut);
 
@@ -458,9 +483,9 @@ namespace whfc {
 					expected_flow += hg.capacity(e);
 				}
 			}
-			assert(flow_algo.flow_value == expected_flow);
 			verifyCutInducedByPartitionMatchesExtractedCutHyperedges();
 			verifyExtractedCutHyperedgesActuallySplitHypergraph();
+			assert(flow_algo.flow_value == expected_flow);
 #endif
 		}
 
@@ -476,6 +501,7 @@ namespace whfc {
 						hasSource |= flow_algo.isSource(v);
 						hasOther |= !flow_algo.isSource(v);
 					}
+
 					if (hasSource && hasOther) {
 						cut_from_partition.push_back(e);
 						assert(flow_algo.isSource(flow_algo.edgeToInNode(e)));
@@ -515,18 +541,26 @@ namespace whfc {
 
 		void verifyCutInducedByPartitionMatchesFlowValue() {
 #ifndef NDEBUG
-			Flow cut_weight = 0;
+			Flow cut_weight = 0, t_cut_weight = 0;
 			for (Hyperedge e : hg.hyperedgeIDs()) {
-				bool hasSource = false;
-				bool hasOther = false;
+				bool hasSource = false, hasOther = false, hasTarget = false, hasTargetOther = false;
 				for (Pin& p : hg.pinsOf(e)) {
 					hasSource |= flow_algo.isSource(p.pin);
 					hasOther |= !flow_algo.isSource(p.pin);
+					hasTarget |= flow_algo.isTarget(p.pin);
+					hasTargetOther |= !flow_algo.isTarget(p.pin);
 				}
+				if (hasTarget && hasTargetOther) {
+					assert(flow_algo.flow[flow_algo.bridgeEdgeIndex(e)] == hg.capacity(e));
+					t_cut_weight += hg.capacity(e);
+				}
+
 				if (hasSource && hasOther) {
+					assert(flow_algo.flow[flow_algo.bridgeEdgeIndex(e)] == hg.capacity(e));
 					cut_weight += hg.capacity(e);
 				}
 			}
+			assert(flow_algo.flow_value == t_cut_weight);
 			assert(flow_algo.flow_value == cut_weight);
 #endif
 		}
