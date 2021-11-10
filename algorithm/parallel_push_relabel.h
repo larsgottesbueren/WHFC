@@ -31,19 +31,16 @@ public:
 				num_active = next_active.size();
 				next_active.swap_container(active);
 				if (work_since_last_global_relabel > global_relabel_work_threshold) {
-					LOGGER << "GR";
 					globalRelabel<false>();
 				}
 				dischargeActiveNodes();
 				applyUpdates();
-				LOGGER << "discharge" << V(num_active) << V(flow_value) << V(round);
 			}
 
 			// no more nodes with level < n and excess > 0 left.
 			// however labels might be broken from parallelism
 			// --> run global relabeling to check if done.
 			num_active = 0;
-			LOGGER << "termination global relabel check";
 			globalRelabel<true>();	// setting the template parameter to true means the function sets reachability info, since we expect to be finished
 			// plug queue back in (regular loop picks it out again)
 			next_active.swap_container(active);
@@ -327,9 +324,14 @@ public:
 			resetReachability(false);
 		}
 
+		bool visited_source = false;
+
 		auto scan = [&](Node u, int dist) {
 			auto next_layer = next_active.local_buffer();
 			scanBackward(u, [&](const Node v) {
+				if (isSource(v)) {
+					visited_source = true;
+				}
 				if (!isSource(v) && !isTarget(v) && level[v] == max_level
 						&& __atomic_exchange_n(&level[v], dist, __ATOMIC_ACQ_REL) == max_level) {
 					next_layer.push_back(v);
@@ -342,7 +344,9 @@ public:
 			}
 
 			if constexpr (set_reachability) {
-				reach[u] = target_reachable_stamp;
+				if (!isTarget(u)) {
+					reach[u] = target_reachable_stamp;
+				}
 			}
 		};
 
@@ -350,7 +354,7 @@ public:
 
 		if (set_reachability) {
 			last_target_side_queue_entry = next_active.size();
-			LOGGER << V(last_target_side_queue_entry) << V(max_level);
+			LOGGER << V(last_target_side_queue_entry) << V(max_level) << V(visited_source);
 		}
 	}
 
@@ -366,7 +370,11 @@ public:
 		auto scan = [&](Node u, int ) {
 			auto next_layer = next_active.local_buffer();
 			scanForward(u, [&](const Node v) {
-				if (!isSourceReachable(v) && __atomic_exchange_n(&reach[v], source_reachable_stamp, __ATOMIC_ACQ_REL) != source_reachable_stamp) {
+				assert(!isTargetReachable(v) || isTarget(v));
+				// target nodes are the only ones with excess > 0 on the target side --> cannot push those
+				// no extra cache miss incurred, the value is already loaded for isSourceReachable(v) check
+				// we have to push nodes that are not reachable via residual edges but have excess to get the proper source-side cut
+				if (!isTarget(v) && !isSourceReachable(v) && __atomic_exchange_n(&reach[v], source_reachable_stamp, __ATOMIC_ACQ_REL) != source_reachable_stamp) {
 					next_layer.push_back(v);
 				}
 			});
@@ -389,6 +397,7 @@ public:
 		auto scan = [&](Node u, int ) {
 			auto next_layer = next_active.local_buffer();
 			scanBackward(u, [&](const Node v) {
+				assert(!isSourceReachable(v));
 				if (!isTargetReachable(v) && __atomic_exchange_n(&reach[v], target_reachable_stamp, __ATOMIC_ACQ_REL) != target_reachable_stamp) {
 					next_layer.push_back(v);
 				}

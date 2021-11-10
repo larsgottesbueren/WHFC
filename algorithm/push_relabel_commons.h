@@ -13,6 +13,8 @@ namespace whfc {
 
 		}
 
+		static constexpr bool log = true;
+
 		FlowHypergraph& hg;
 		TimeReporter timer;
 		Flow upper_flow_bound = std::numeric_limits<Flow>::max();
@@ -77,6 +79,7 @@ namespace whfc {
 			} else {
 				target_reachable_stamp = running_timestamp;
 			}
+			LOGGER << V(source_reachable_stamp) << V(target_reachable_stamp) << V(forward);
 		}
 
 		/** global relabeling */
