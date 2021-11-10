@@ -62,7 +62,6 @@ namespace whfc {
 			}
 
 			if (cs.hasCut) {
-				LOGGER << cs.toString(true);
 				cs.assimilate();
 			}
 

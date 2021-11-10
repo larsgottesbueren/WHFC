@@ -53,11 +53,17 @@ namespace whfc {
 		vec<uint32_t> reach;
 		uint32_t source_reachable_stamp = 0, target_reachable_stamp = 0, running_timestamp = 0;
 		bool isSource(Node u) const { return reach[u] == 1; }
-		void makeSource(Node u) { reach[u] = 1; }
+		void makeSource(Node u) {
+			reach[u] = 1;
+			level[u] = max_level;
+		}
 		bool isSourceReachable(Node u) const { return isSource(u) || reach[u] == source_reachable_stamp; }
 		void reachFromSource(Node u) { reach[u] = source_reachable_stamp; }
 		bool isTarget(Node u) const { return reach[u] == 2; }
-		void makeTarget(Node u) { reach[u] = 2; }
+		void makeTarget(Node u) {
+			reach[u] = 2;
+			level[u] = 0;
+		}
 		bool isTargetReachable(Node u) const { return isTarget(u) || reach[u] == target_reachable_stamp; }
 		void reachFromTarget(Node u) { reach[u] = target_reachable_stamp; }
 		void unreach(Node u) { reach[u] = 0; }
@@ -85,11 +91,8 @@ namespace whfc {
 		void initialize(Node s, Node t) {
 			makeSource(s);
 			source_piercing_nodes.push_back(s);
-			level[s] = max_level;
-
 			makeTarget(t);
 			target_piercing_nodes.push_back(t);
-			level[t] = 0;	// set here manually. when pierced freshly, the labels do get set
 		}
 
 		void reset() {

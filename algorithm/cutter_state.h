@@ -125,7 +125,8 @@ namespace whfc {
 
 		void setPiercingNode(const Node piercingNode) {
 			augmentingPathAvailableFromPiercing = reachableFromSideNotToPierce(piercingNode);
-			if (side_to_pierce == 0) {
+			flow_algo.source_side_pierced_last = side_to_pierce == 0;
+			if (flow_algo.source_side_pierced_last) {
 				flow_algo.source_piercing_nodes.clear();
 				flow_algo.source_piercing_nodes.emplace_back(piercingNode);
 				flow_algo.makeSource(piercingNode);
@@ -141,7 +142,11 @@ namespace whfc {
 
 		void computeReachableWeights() {
 			if (augmentingPathAvailableFromPiercing) {
-				tbb::parallel_invoke([&]{ computeSourceReachableWeight(); }, [&]{ computeTargetReachableWeight(); });
+				// tbb::parallel_invoke([&] {
+						computeSourceReachableWeight();
+				//	}, [&] {
+						computeTargetReachableWeight();
+				// });
 			} else {
 				// no flow increased --> one side didn't change
 				if (side_to_pierce == 0) {
@@ -221,8 +226,7 @@ namespace whfc {
 		void assimilate() {
 			LOGGER << "before" << V(source_reachable_weight) << V(target_reachable_weight);
 			computeReachableWeights();
-			LOGGER << "after" << V(source_reachable_weight) << V(target_reachable_weight);
-			LOGGER << V(hg.nodeWeight(flow_algo.source_piercing_nodes.front())) << V(hg.nodeWeight(flow_algo.target_piercing_nodes.front()));
+			LOGGER << toString();
 
 			side_to_pierce = sideToGrow();
 

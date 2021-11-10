@@ -15,7 +15,7 @@ namespace whfc {
 class ParallelPushRelabel : public PushRelabelCommons {
 public:
 	using Type = ParallelPushRelabel;
-	static constexpr bool log = false;
+	static constexpr bool log = true;
 	static constexpr bool capacitate_incoming_edges_of_in_nodes = true;
 
 	ParallelPushRelabel(FlowHypergraph& hg) : PushRelabelCommons(hg), next_active(0) { }
@@ -350,6 +350,7 @@ public:
 
 		if (set_reachability) {
 			last_target_side_queue_entry = next_active.size();
+			LOGGER << V(last_target_side_queue_entry) << V(max_level);
 		}
 	}
 
@@ -363,8 +364,8 @@ public:
 		// TODO add sequential version? depending on testing
 
 		auto scan = [&](Node u, int ) {
+			auto next_layer = next_active.local_buffer();
 			scanForward(u, [&](const Node v) {
-				auto next_layer = next_active.local_buffer();
 				if (!isSourceReachable(v) && __atomic_exchange_n(&reach[v], source_reachable_stamp, __ATOMIC_ACQ_REL) != source_reachable_stamp) {
 					next_layer.push_back(v);
 				}
@@ -373,6 +374,7 @@ public:
 
 		parallelBFS(0, scan);
 		last_source_side_queue_entry = next_active.size();
+		LOGGER << V(last_source_side_queue_entry) << V(max_level);
 	}
 
 	void deriveTargetSideCut() {
@@ -385,8 +387,8 @@ public:
 		}
 
 		auto scan = [&](Node u, int ) {
+			auto next_layer = next_active.local_buffer();
 			scanBackward(u, [&](const Node v) {
-				auto next_layer = next_active.local_buffer();
 				if (!isTargetReachable(v) && __atomic_exchange_n(&reach[v], target_reachable_stamp, __ATOMIC_ACQ_REL) != target_reachable_stamp) {
 					next_layer.push_back(v);
 				}
@@ -397,6 +399,7 @@ public:
 
 		last_target_side_queue_entry = next_active.size();
 		next_active.swap_container(active); 	// go back
+		LOGGER << V(last_target_side_queue_entry) << V(max_level);
 	}
 
 	template<typename ScanFunc>
@@ -426,7 +429,6 @@ public:
 
 		if (source_side_pierced_last) {
 			for (const Node source : source_piercing_nodes) {
-				level[source] = max_level;
 				for (InHeIndex inc_iter : hg.incidentHyperedgeIndices(source)) {
 					const Hyperedge e = hg.getInHe(inc_iter).e;
 					const Flow d = hg.capacity(e);
