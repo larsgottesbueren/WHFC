@@ -236,6 +236,7 @@ namespace whfc {
 			} else {
 				assimilateTargetSide();
 			}
+			verifyCutPostConditions();
 		}
 
 
