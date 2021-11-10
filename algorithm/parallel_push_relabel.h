@@ -26,6 +26,7 @@ public:
 		do {
 			while (!next_active.empty()) {
 				if (flow_value > upper_flow_bound || shall_terminate) {
+					LOGGER << "flow bound exceeded" << V(flow_value) << V(upper_flow_bound);
 					return false;
 				}
 				num_active = next_active.size();
@@ -47,7 +48,6 @@ public:
 			next_active.set_size(num_active);
 			num_tries++;
 		} while (!next_active.empty());
-		LOGGER << "flows done. now derive source side cut" << V(flow_value) << V(num_tries);
 		deriveSourceSideCut();
 
 		#ifndef NDEBUG
