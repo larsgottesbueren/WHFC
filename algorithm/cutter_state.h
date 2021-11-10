@@ -459,8 +459,8 @@ namespace whfc {
 			}
 			assert(flow_algo.flow_value == expected_flow);
 #endif
-			verifyExtractedCutHyperedgesActuallySplitHypergraph();
 			verifyCutInducedByPartitionMatchesExtractedCutHyperedges();
+			verifyExtractedCutHyperedgesActuallySplitHypergraph();
 		}
 
 		void verifyCutInducedByPartitionMatchesExtractedCutHyperedges() {
@@ -542,7 +542,9 @@ namespace whfc {
 				}
 			}
 
-			if (side_to_pierce == 0) {
+			bool source_side_grown = side_to_pierce == 0;
+
+			if (source_side_grown) {
 				for (Hyperedge e : cuts.sourceSide.entries()) he_seen.set(e);
 			} else {
 				for (Hyperedge e : cuts.targetSide.entries()) he_seen.set(e);
@@ -557,7 +559,8 @@ namespace whfc {
 						for (auto& pin : hg.pinsOf(e)) {
 							Node v = pin.pin;
 							assert(!flow_algo.isTargetReachable(v));
-							assert(flow_algo.isSourceReachable(v));
+							// if target-side cut hyperedges are blocked but not source-side cut, we can still visit unreachable nodes
+							assert(!source_side_grown || flow_algo.isSourceReachable(v));
 							if (!node_seen[v]) {
 								node_seen.set(v);
 								queue.push(v);
@@ -599,7 +602,7 @@ namespace whfc {
 						for (auto& pin : hg.pinsOf(e)) {
 							Node v = pin.pin;
 							assert(!flow_algo.isSourceReachable(v));
-							//no assert(flow_algo.isTargetReachable(v)) since we removed the source-side cut
+							assert(source_side_grown || flow_algo.isTargetReachable(v)); // since we removed the source-side cut
 							if (!node_seen[v]) {
 								node_seen.set(v);
 								queue.push(v);
