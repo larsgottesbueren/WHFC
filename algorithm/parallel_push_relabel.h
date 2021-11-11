@@ -333,14 +333,9 @@ public:
 			resetReachability(false);
 		}
 
-		bool visited_source = false;
-
 		auto scan = [&](Node u, int dist) {
 			auto next_layer = next_active.local_buffer();
 			scanBackward(u, [&](const Node v) {
-				if (isSource(v)) {
-					visited_source = true;
-				}
 				if (!isSource(v) && !isTarget(v) && level[v] == max_level
 						&& __atomic_exchange_n(&level[v], dist, __ATOMIC_ACQ_REL) == max_level) {
 					next_layer.push_back(v);
