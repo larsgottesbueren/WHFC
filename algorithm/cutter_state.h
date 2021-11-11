@@ -395,7 +395,6 @@ namespace whfc {
 					}, [](const auto& l, const auto& r) -> result_t {
 						return {l.first + r.first, l.second + r.second};
 					});
-
 			source_weight += extra.first;
 			target_weight += extra.second;
 
@@ -414,6 +413,7 @@ namespace whfc {
 			assert(source_weight == sw);
 			assert(target_weight == tw);
 			#endif
+			verifyCutInducedByPartitionMatchesFlowValue();
 		}
 
 		void writePartition() {
@@ -560,6 +560,7 @@ namespace whfc {
 					cut_weight += hg.capacity(e);
 				}
 			}
+			LOGGER << V(flow_algo.flow_value) << V(t_cut_weight) << V(cut_weight);
 			assert(flow_algo.flow_value == t_cut_weight);
 			assert(flow_algo.flow_value == cut_weight);
 #endif

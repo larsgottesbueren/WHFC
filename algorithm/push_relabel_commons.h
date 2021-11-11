@@ -166,16 +166,16 @@ namespace whfc {
 			if (isHypernode(u)) {
 				for (InHeIndex incnet_ind : hg.incidentHyperedgeIndices(u)) {
 					const Hyperedge e = hg.getInHe(incnet_ind).e;
-					if (flow[inNodeIncidenceIndex(incnet_ind)] < hg.capacity(e) || excess[edgeToInNode(e)] > 0) {
+					if (flow[inNodeIncidenceIndex(incnet_ind)] < hg.capacity(e)) {
 						push(edgeToInNode(e));
 					}
-					if (flow[outNodeIncidenceIndex(incnet_ind)] > 0 || excess[edgeToOutNode(e)] > 0) {
+					if (flow[outNodeIncidenceIndex(incnet_ind)] > 0) {
 						push(edgeToOutNode(e));
 					}
 				}
 			} else if (isOutNode(u)) {
 				const Hyperedge e = outNodeToEdge(u);
-				if (flow[bridgeEdgeIndex(e)] > 0 || excess[edgeToInNode(e)] > 0) {
+				if (flow[bridgeEdgeIndex(e)] > 0) {
 					push(edgeToInNode(e));
 				}
 				for (const auto& pin : hg.pinsOf(e)) {
@@ -184,11 +184,11 @@ namespace whfc {
 			} else {
 				assert(isInNode(u));
 				const Hyperedge e = inNodeToEdge(u);
-				if (flow[bridgeEdgeIndex(e)] < hg.capacity(e) || excess[edgeToOutNode(e)] > 0) {
+				if (flow[bridgeEdgeIndex(e)] < hg.capacity(e)) {
 					push(edgeToOutNode(e));
 				}
 				for (const auto& pin : hg.pinsOf(e)) {
-					if (flow[inNodeIncidenceIndex(pin.he_inc_iter)] > 0 || excess[pin.pin] > 0) {
+					if (flow[inNodeIncidenceIndex(pin.he_inc_iter)] > 0) {
 						push(pin.pin);
 					}
 				}

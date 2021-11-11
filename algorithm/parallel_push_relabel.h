@@ -378,10 +378,7 @@ public:
 		auto scan = [&](Node u, int ) {
 			auto next_layer = next_active.local_buffer();
 			scanForward(u, [&](const Node v) {
-				assert(!isTargetReachable(v) || isTarget(v));
-				// target nodes are the only ones with excess > 0 on the target side --> cannot push those
-				// no extra cache miss incurred, the value is already loaded for isSourceReachable(v) check
-				// we have to push nodes that are not reachable via residual edges but have excess to get the proper source-side cut
+				assert(!isTargetReachable(v));
 				if (!isTarget(v) && !isSourceReachable(v) && __atomic_exchange_n(&reach[v], source_reachable_stamp, __ATOMIC_ACQ_REL) != source_reachable_stamp) {
 					next_layer.push_back(v);
 				}
@@ -429,7 +426,6 @@ public:
 			dist++;
 		}
 	}
-
 
 	sub_range<vec<Node>> sourceReachableNodes() const {
 		return sub_range<vec<Node>>(next_active.getData(), 0, last_source_side_queue_entry);

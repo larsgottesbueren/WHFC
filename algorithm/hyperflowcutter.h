@@ -86,9 +86,7 @@ namespace whfc {
 				else {
 					cs.writePartition();
 				}
-
 				LOGGER << cs.toString();
-				cs.verifyCutInducedByPartitionMatchesFlowValue();
 			}
 
 			return has_balanced_cut_below_flow_bound;
