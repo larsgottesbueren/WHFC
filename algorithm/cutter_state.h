@@ -161,7 +161,7 @@ namespace whfc {
 		void computeSourceReachableWeight() {
 			auto sr = flow_algo.sourceReachableNodes();
 			source_reachable_weight = source_weight + tbb::parallel_reduce(
-					tbb::blocked_range<size_t>(0, sr.size()), 0, [&](const auto& r, NodeWeight sum) -> NodeWeight {
+					tbb::blocked_range<size_t>(0, sr.size(), 2000), 0, [&](const auto& r, NodeWeight sum) -> NodeWeight {
 				for (size_t i = r.begin(); i < r.end(); ++i) {
 					Node u = sr[i];
 					assert(flow_algo.isSourceReachable(u));
@@ -182,7 +182,7 @@ namespace whfc {
 		void computeTargetReachableWeight() {
 			auto tr = flow_algo.targetReachableNodes();
 			target_reachable_weight = target_weight + tbb::parallel_reduce(
-					tbb::blocked_range<size_t>(0, tr.size()), 0, [&](const auto& r, NodeWeight sum) -> NodeWeight {
+					tbb::blocked_range<size_t>(0, tr.size(), 2000), 0, [&](const auto& r, NodeWeight sum) -> NodeWeight {
 				for (size_t i = r.begin(); i < r.end(); ++i) {
 					Node u = tr[i];
 					assert(flow_algo.isTargetReachable(u));

@@ -23,6 +23,7 @@ public:
 	bool findMinCuts() {
 		saturateSourceEdges();
 		size_t num_tries = 0;
+
 		do {
 			while (!next_active.empty()) {
 				if (flow_value > upper_flow_bound || shall_terminate) {
@@ -48,15 +49,19 @@ public:
 			next_active.set_size(num_active);
 			num_tries++;
 		} while (!next_active.empty());
+
 		deriveSourceSideCut();
 
 		#ifndef NDEBUG
 		Flow target_excess = 0;
+		size_t num_excess_nodes = 0;
 		for (Node u(0); u < max_level; ++u) {
+			if (excess[u] > 0) num_excess_nodes++;
 			if (isTarget(u)) {
 				target_excess += excess[u];
 			}
 		}
+		LOGGER << V(num_excess_nodes) << V(max_level) << V(hg.numNodes());
 		assert(target_excess == flow_value);
 		#endif
 		return true;
