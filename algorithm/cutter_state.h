@@ -137,6 +137,9 @@ namespace whfc {
 				flow_algo.makeTarget(piercingNode);
 				target_weight += hg.nodeWeight(piercingNode);
 			}
+			if (mostBalancedCutMode) {
+				trackedMoves.emplace_back(piercingNode, side_to_pierce);
+			}
 			hasCut = false;
 		}
 
@@ -203,6 +206,7 @@ namespace whfc {
 		void assimilateSourceSide() {
 			source_weight = source_reachable_weight;
 			for (Node u : flow_algo.sourceReachableNodes()) {
+				assert(flow_algo.isSourceReachable(u));
 				if (!flow_algo.isSource(u)) {
 					if (mostBalancedCutMode) {
 						trackedMoves.emplace_back(u, 0);
@@ -222,6 +226,7 @@ namespace whfc {
 		void assimilateTargetSide() {
 			target_weight = target_reachable_weight;
 			for (Node u : flow_algo.targetReachableNodes()) {
+				assert(flow_algo.isTargetReachable(u));
 				if (!flow_algo.isTarget(u)) {
 					if (mostBalancedCutMode) {
 						trackedMoves.emplace_back(u, 1);
@@ -359,7 +364,6 @@ namespace whfc {
 			SimulatedNodeAssignment sol = suw.imbalance() < tuw.imbalance() ? suw : tuw;
 
 			sol.numberOfTrackedMoves = trackedMoves.size();
-			LOGGER << V(sol.assignUnclaimedToSource);
 			return sol;
 		}
 
@@ -504,6 +508,14 @@ namespace whfc {
 
 					if (hasSource && hasOther) {
 						cut_from_partition.push_back(e);
+						if (!flow_algo.isSource(flow_algo.edgeToInNode(e))) {
+							Node e_in = flow_algo.edgeToInNode(e), e_out = flow_algo.edgeToOutNode(e);
+							LOGGER << V(e) << V(flow_algo.reach[e_in]) << V(flow_algo.reach[e_out]) << V(flow_algo.excess[e_in]) << V(flow_algo.excess[e_out]);
+							for (Pin& p : hg.pinsOf(e)) {
+								Node v = p.pin;
+								LOGGER << V(v) << V(flow_algo.reach[v]);
+							}
+						}
 						assert(flow_algo.isSource(flow_algo.edgeToInNode(e)));
 					}
 

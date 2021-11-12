@@ -32,7 +32,7 @@ public:
 				}
 				num_active = next_active.size();
 				next_active.swap_container(active);
-				if (work_since_last_global_relabel > global_relabel_work_threshold) {
+				if (distance_labels_broken_from_target_side_piercing || work_since_last_global_relabel > global_relabel_work_threshold) {
 					globalRelabel<false>();
 				}
 				dischargeActiveNodes();
@@ -56,7 +56,7 @@ public:
 		Flow target_excess = 0;
 		size_t num_excess_nodes = 0;
 		for (Node u(0); u < max_level; ++u) {
-			if (excess[u] > 0) num_excess_nodes++;
+			if (excess[u] > 0 && !isTarget(u)) num_excess_nodes++;
 			if (isTarget(u)) {
 				target_excess += excess[u];
 			}
@@ -364,14 +364,26 @@ public:
 		if (set_reachability) {
 			last_target_side_queue_entry = next_active.size();
 		}
+		distance_labels_broken_from_target_side_piercing = false;
 	}
 
 	void deriveSourceSideCut() {
 		// after global relabel with termination check its container is swapped out --> this function doesn't swap
 		resetReachability(true);
+		next_active.clear();
 		for (const Node& s : source_piercing_nodes) {
 			next_active.push_back_atomic(s);
 		}
+
+
+		// TODO track. can't run this every time (e.g. when augmenting path is avoided)
+		tbb::parallel_for(0, max_level, [&](int i) {
+			Node u(i);
+			if (!isSource(u) && !isTarget(u) && excess[u] > 0) {
+				next_active.push_back_atomic(u);
+				reach[u] = source_reachable_stamp;
+			}
+		});
 
 		// TODO add sequential version? depending on testing
 
@@ -390,6 +402,7 @@ public:
 	}
 
 	void deriveTargetSideCut() {
+		distance_labels_broken_from_target_side_piercing = true;
 		next_active.swap_container(active);		// don't overwrite contents of source side
 		next_active.clear();
 
@@ -437,7 +450,6 @@ public:
 
 	void saturateSourceEdges() {
 		next_active.clear();
-
 		if (source_side_pierced_last) {
 			for (const Node source : source_piercing_nodes) {
 				for (InHeIndex inc_iter : hg.incidentHyperedgeIndices(source)) {
@@ -450,6 +462,7 @@ public:
 				}
 			}
 		} else {
+			distance_labels_broken_from_target_side_piercing = true;
 			// don't add anything to next_active. no new excess nodes created and we don't know the old ones with distance label > max_level
 			// even if we did they'd be useless because the labels are broken --> trigger global relabel right away and let it find the active nodes
 			#ifndef NDEBUG
@@ -460,11 +473,6 @@ public:
 				}
 			}
 			#endif
-			/*		// no need to set! global relabeling sets the levels
-			for (const Node target : target_piercing_nodes) {
-				level[target] = 0;
-			}
-			 */
 		}
 	}
 

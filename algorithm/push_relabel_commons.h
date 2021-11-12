@@ -92,6 +92,7 @@ namespace whfc {
 
 		/** source / sink */
 		bool source_side_pierced_last = false;
+		bool distance_labels_broken_from_target_side_piercing = false;
 		vec<Node> source_piercing_nodes, target_piercing_nodes;
 
 		void initialize(Node s, Node t) {
@@ -124,6 +125,7 @@ namespace whfc {
 			source_piercing_nodes.clear();
 			target_piercing_nodes.clear();
 			source_side_pierced_last = true;
+			distance_labels_broken_from_target_side_piercing = true;	// triggers initial global relabeling
 		}
 
 		/** BFS stuff */
@@ -166,9 +168,10 @@ namespace whfc {
 			if (isHypernode(u)) {
 				for (InHeIndex incnet_ind : hg.incidentHyperedgeIndices(u)) {
 					const Hyperedge e = hg.getInHe(incnet_ind).e;
-					if (flow[inNodeIncidenceIndex(incnet_ind)] < hg.capacity(e)) {
+					// no restriction for forward search so that we can visit in-nodes and detect their cuts
+					//if (flow[inNodeIncidenceIndex(incnet_ind)] < hg.capacity(e)) {
 						push(edgeToInNode(e));
-					}
+					//}
 					if (flow[outNodeIncidenceIndex(incnet_ind)] > 0) {
 						push(edgeToOutNode(e));
 					}
