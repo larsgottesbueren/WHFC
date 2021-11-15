@@ -15,7 +15,7 @@ namespace whfc {
 class ParallelPushRelabel : public PushRelabelCommons {
 public:
 	using Type = ParallelPushRelabel;
-	static constexpr bool log = true;
+	static constexpr bool log = false;
 	static constexpr bool capacitate_incoming_edges_of_in_nodes = true;
 
 	ParallelPushRelabel(FlowHypergraph& hg) : PushRelabelCommons(hg), next_active(0) { }
