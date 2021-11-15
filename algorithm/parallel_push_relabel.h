@@ -490,7 +490,8 @@ public:
 			for (Node source : source_piercing_nodes) {
 				for (InHeIndex inc_iter : hg.incidentHyperedgeIndices(source)) {
 					const Hyperedge e = hg.getInHe(inc_iter).e;
-					assert(flow[inNodeIncidenceIndex(inc_iter)] == hg.capacity(e));		// should still be saturated because no flow was pushed back to source
+					// should still be saturated because no flow was pushed back to source
+					assert(flow[inNodeIncidenceIndex(inc_iter)] == hg.capacity(e) || isSource(edgeToInNode(e)));
 				}
 			}
 			#endif
