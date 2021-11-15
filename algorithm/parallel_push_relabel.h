@@ -51,7 +51,6 @@ public:
 			num_tries++;
 		} while (!next_active.empty());
 
-
 		#ifndef NDEBUG
 		Flow target_excess = 0;
 		size_t num_excess_nodes = 0;
