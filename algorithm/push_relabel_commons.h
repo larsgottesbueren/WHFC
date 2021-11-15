@@ -58,6 +58,7 @@ namespace whfc {
 		void makeSource(Node u) {
 			reach[u] = 1;
 			level[u] = max_level;
+			// excess[u] = 0;
 		}
 		bool isSourceReachable(Node u) const { return isSource(u) || reach[u] == source_reachable_stamp; }
 		void reachFromSource(Node u) { reach[u] = source_reachable_stamp; }

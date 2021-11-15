@@ -44,19 +44,21 @@ public:
 			// --> run global relabeling to check if done.
 			num_active = 0;
 			globalRelabel<true>();	// setting the template parameter to true means the function sets reachability info, since we expect to be finished
+			LOGGER << "terminate?" << V(flow_value) << V(num_active);
 			// plug queue back in (regular loop picks it out again)
 			next_active.swap_container(active);
 			next_active.set_size(num_active);
 			num_tries++;
 		} while (!next_active.empty());
 
-		deriveSourceSideCut();
 
 		#ifndef NDEBUG
 		Flow target_excess = 0;
 		size_t num_excess_nodes = 0;
 		for (Node u(0); u < max_level; ++u) {
-			if (excess[u] > 0 && !isTarget(u)) num_excess_nodes++;
+			if (excess[u] > 0 && !isTarget(u) && !isSource(u)) {
+				num_excess_nodes++;
+			}
 			if (isTarget(u)) {
 				target_excess += excess[u];
 			}
@@ -64,6 +66,8 @@ public:
 		LOGGER << V(num_excess_nodes) << V(max_level) << V(hg.numNodes());
 		assert(target_excess == flow_value);
 		#endif
+
+		deriveSourceSideCut();
 		return true;
 	}
 
@@ -371,10 +375,10 @@ public:
 		// after global relabel with termination check its container is swapped out --> this function doesn't swap
 		resetReachability(true);
 		next_active.clear();
+
 		for (const Node& s : source_piercing_nodes) {
 			next_active.push_back_atomic(s);
 		}
-
 
 		// TODO track. can't run this every time (e.g. when augmenting path is avoided)
 		tbb::parallel_for(0, max_level, [&](int i) {
@@ -390,6 +394,9 @@ public:
 		auto scan = [&](Node u, int ) {
 			auto next_layer = next_active.local_buffer();
 			scanForward(u, [&](const Node v) {
+				if (isTargetReachable(v)) {
+					LOGGER << V(excess[v]) << V(v) << V(isInNode(v)) << V(isOutNode(v)) << V(u);
+				}
 				assert(!isTargetReachable(v));
 				if (!isTarget(v) && !isSourceReachable(v) && __atomic_exchange_n(&reach[v], source_reachable_stamp, __ATOMIC_ACQ_REL) != source_reachable_stamp) {
 					next_layer.push_back(v);
@@ -411,7 +418,7 @@ public:
 			next_active.push_back_atomic(t);
 		}
 
-		auto scan = [&](Node u, int ) {
+		auto scan = [&](Node u, int dist) {
 			auto next_layer = next_active.local_buffer();
 			scanBackward(u, [&](const Node v) {
 				assert(!isSourceReachable(v));
@@ -454,11 +461,25 @@ public:
 			for (const Node source : source_piercing_nodes) {
 				for (InHeIndex inc_iter : hg.incidentHyperedgeIndices(source)) {
 					const Hyperedge e = hg.getInHe(inc_iter).e;
-					const Flow d = hg.capacity(e);
-					excess[source] -= d;
-					excess[edgeToInNode(e)] += d;
-					flow[inNodeIncidenceIndex(inc_iter)] += d;
-					next_active.push_back_atomic(edgeToInNode(e));
+					if (!isSource(edgeToInNode(e))) {
+						Flow d = hg.capacity(e) - flow[inNodeIncidenceIndex(inc_iter)];
+						if (d > 0) {
+							excess[source] -= d;
+							excess[edgeToInNode(e)] += d;
+							flow[inNodeIncidenceIndex(inc_iter)] += d;
+							next_active.push_back_atomic(edgeToInNode(e));
+						}
+						assert(flow[inNodeIncidenceIndex(inc_iter)] == hg.capacity(e));
+					}
+					if (!isSource(edgeToOutNode(e))) {
+						Flow d = flow[outNodeIncidenceIndex(inc_iter)];
+						if (d > 0) {
+							excess[source] -= d;
+							excess[edgeToOutNode(e)] += d;
+							flow[outNodeIncidenceIndex(inc_iter)] -= d;
+							next_active.push_back_atomic(edgeToOutNode(e));
+						}
+					}
 				}
 			}
 		} else {

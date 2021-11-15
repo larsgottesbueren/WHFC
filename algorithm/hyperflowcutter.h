@@ -35,7 +35,7 @@ namespace whfc {
 
 		bool pierce() {
 			Node piercingNode = piercer.findPiercingNode();
-			LOGGER << V(piercingNode) << V(cs.side_to_pierce);
+			LOGGER << V(piercingNode) << V(cs.side_to_pierce) << V(cs.reachableFromSideNotToPierce(piercingNode));
 			if (piercingNode == invalidNode)
 				return false;
 			if (cs.rejectPiercingIfAugmenting() && cs.reachableFromSideNotToPierce(piercingNode))
