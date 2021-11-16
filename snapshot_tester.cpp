@@ -19,7 +19,7 @@ namespace whfc {
 		WHFC_IO::WHFCInformation info = WHFC_IO::readAdditionalInformation(filename);
 		Node s = info.s;
 		Node t = info.t;
-		// std::cout << s << " " << t << " " << info.maxBlockWeight[0] << " " << info.maxBlockWeight[1] << " " << info.upperFlowBound<< std::endl;
+		std::cout << s << " " << t << " " << info.maxBlockWeight[0] << " " << info.maxBlockWeight[1] << " " << info.upperFlowBound<< std::endl;
 
 		FlowHypergraphBuilder hg;
 		HMetisIO::readFlowHypergraphWithBuilder(hg, filename);
@@ -39,8 +39,8 @@ namespace whfc {
 		hfc.timer.start();
 		bool result = hfc.enumerateCutsUntilBalancedOrFlowBoundExceeded(s, t);
 		hfc.timer.stop();
-		// std::cout << V(result) << std::endl;
-		// hfc.timer.report(std::cout);
+		std::cout << V(result) << std::endl;
+		hfc.timer.report(std::cout);
 		hfc.timer.clear();
 	}
 }

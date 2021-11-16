@@ -15,7 +15,7 @@ namespace whfc {
 class ParallelPushRelabel : public PushRelabelCommons {
 public:
 	using Type = ParallelPushRelabel;
-	static constexpr bool log = false;
+	static constexpr bool log = true;
 	static constexpr bool capacitate_incoming_edges_of_in_nodes = true;
 
 	ParallelPushRelabel(FlowHypergraph& hg) : PushRelabelCommons(hg), next_active(0) { }
@@ -44,7 +44,7 @@ public:
 			// --> run global relabeling to check if done.
 			num_active = 0;
 			globalRelabel<true>();	// setting the template parameter to true means the function sets reachability info, since we expect to be finished
-			LOGGER << "terminate?" << V(flow_value) << V(num_active);
+			LOGGER << "terminate check" << V(flow_value) << V(num_active);
 			// plug queue back in (regular loop picks it out again)
 			next_active.swap_container(active);
 			next_active.set_size(num_active);
@@ -71,11 +71,12 @@ public:
 	}
 
 	void dischargeActiveNodes() {
-		if (++round == 0) {
-			last_activated.assign(max_level, 0);
-			++round;
-		}
-		next_active.clear();
+		resetRound();
+		#ifndef NDEBUG
+		vec<Node> copy(active.begin(), active.begin() + num_active);
+		std::sort(copy.begin(), copy.end());
+		assert(std::unique(copy.begin(), copy.end()) == copy.end());	// active nodes not unique
+		#endif
 		tbb::enumerable_thread_specific<size_t> work(0);
 		auto task = [&](size_t i) {
 			const Node u = active[i];
@@ -263,7 +264,9 @@ public:
 		Node e_in = edgeToInNode(e);
 		assert(my_excess <= hg.capacity(e));
 
+		size_t iteration = 0;
 		while (my_excess > 0 && my_level < max_level) {
+			++iteration;
 			int new_level = max_level;
 			bool skipped = false;
 
@@ -455,28 +458,33 @@ public:
 	}
 
 	void saturateSourceEdges() {
-		next_active.clear();
+		resetRound();
 		if (source_side_pierced_last) {
 			for (const Node source : source_piercing_nodes) {
 				for (InHeIndex inc_iter : hg.incidentHyperedgeIndices(source)) {
 					const Hyperedge e = hg.getInHe(inc_iter).e;
-					if (!isSource(edgeToInNode(e))) {
+					Node e_in = edgeToInNode(e), e_out = edgeToOutNode(e);
+					if (!isSource(e_in)) {
 						Flow d = hg.capacity(e) - flow[inNodeIncidenceIndex(inc_iter)];
 						if (d > 0) {
 							excess[source] -= d;
-							excess[edgeToInNode(e)] += d;
+							excess[e_in] += d;
 							flow[inNodeIncidenceIndex(inc_iter)] += d;
-							next_active.push_back_atomic(edgeToInNode(e));
+							if (activate(e_in)) {	// necessary, otherwise global relabel may add them as well --> duplicates
+								next_active.push_back_atomic(e_in);
+							}
 						}
 						assert(flow[inNodeIncidenceIndex(inc_iter)] == hg.capacity(e));
 					}
-					if (!isSource(edgeToOutNode(e))) {
+					if (!isSource(e_out)) {
 						Flow d = flow[outNodeIncidenceIndex(inc_iter)];
 						if (d > 0) {
 							excess[source] -= d;
-							excess[edgeToOutNode(e)] += d;
+							excess[e_out] += d;
 							flow[outNodeIncidenceIndex(inc_iter)] -= d;
-							next_active.push_back_atomic(edgeToOutNode(e));
+							if (activate(e_out)) {
+								next_active.push_back_atomic(e_out);
+							}
 						}
 					}
 				}
@@ -524,6 +532,13 @@ private:
 	uint32_t round = 0;
 	bool activate(Node u) {
 		return last_activated[u] != round && __atomic_exchange_n(&last_activated[u], round, __ATOMIC_ACQ_REL) != round;
+	}
+	void resetRound() {
+		if (++round == 0) {
+			last_activated.assign(max_level, 0);
+			++round;
+		}
+		next_active.clear();
 	}
 
 	size_t last_source_side_queue_entry = 0, last_target_side_queue_entry = 0;
