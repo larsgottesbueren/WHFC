@@ -490,6 +490,13 @@ public:
 				}
 			}
 		} else {
+			size_t num_excess = 0;
+			for (Node u(0); u < max_level; ++u) {
+				if (!isSource(u) && !isTarget(u) && excess[u] > 0) {
+					num_excess++;
+				}
+			}
+			LOGGER << V(num_excess);
 			distance_labels_broken_from_target_side_piercing = true;
 			// don't add anything to next_active. no new excess nodes created and we don't know the old ones with distance label > max_level
 			// even if we did they'd be useless because the labels are broken --> trigger global relabel right away and let it find the active nodes

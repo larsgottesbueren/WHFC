@@ -15,7 +15,7 @@ namespace whfc {
 		Piercer<FlowAlgorithm> piercer;
 		bool find_most_balanced = true;
 
-		static constexpr bool log = false;
+		static constexpr bool log = true;
 
 		HyperFlowCutter(FlowHypergraph& hg, int seed) :
 				timer("HyperFlowCutter"),
@@ -35,8 +35,11 @@ namespace whfc {
 
 		bool pierce() {
 			Node piercingNode = piercer.findPiercingNode();
-			if (piercingNode == invalidNode)
+			if (piercingNode == invalidNode) {
+				LOGGER << "invalid piercing node";
 				return false;
+			}
+			LOGGER << V(piercingNode) << V(cs.side_to_pierce) << V(cs.reachableFromSideNotToPierce(piercingNode));
 			if (cs.rejectPiercingIfAugmenting() && cs.reachableFromSideNotToPierce(piercingNode))
 				return false;
 			cs.setPiercingNode(piercingNode);
