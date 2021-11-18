@@ -325,6 +325,7 @@ namespace whfc {
 			revertMoves(0);
 			borderNodes.resetForMostBalancedCut();
 			cuts.resetForMostBalancedCut();
+			side_to_pierce = sideToGrow();
 		}
 
 		SimulatedNodeAssignment mostBalancedAssignment() {
