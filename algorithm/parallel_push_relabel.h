@@ -392,7 +392,6 @@ public:
 				}
 			});
 			next_active.finalize();
-			num_non_terminal_excess_nodes = next_active.size();
 		}
 
 		LOGGER << next_active.size() << "excess nodes";
@@ -405,11 +404,9 @@ public:
 		auto scan = [&](Node u, int ) {
 			auto next_layer = next_active.local_buffer();
 			scanForward(u, [&](const Node v) {
-				if (isTargetReachable(v)) {
-					LOGGER << V(excess[v]) << V(v) << V(isInNode(v)) << V(isOutNode(v)) << V(u);
-				}
 				assert(!isTargetReachable(v));
 				if (!isTarget(v) && !isSourceReachable(v) && __atomic_exchange_n(&reach[v], source_reachable_stamp, __ATOMIC_ACQ_REL) != source_reachable_stamp) {
+					assert(flow_changed || excess[v] == 0);
 					next_layer.push_back(v);
 				}
 			});
