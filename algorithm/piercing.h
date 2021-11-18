@@ -12,6 +12,13 @@ namespace whfc {
 		explicit Piercer(FlowHypergraph& hg, CutterState<FlowAlgorithm>& cs) : hg(hg), cs(cs) { }
 
 		Node findPiercingNode() {
+			/*
+			 * TODO
+			 * 1) perform piercing directly instead of returning one node
+			 * 2) if avoid augmenting path is possible and cs.addingAllUnreachableNodesDoesNotChangeHeavierBlock(),
+			 * 	  then add all piercing nodes from the non-reachable bucket pq to speed up the process
+			 * 3) if avoid augmenting path is not possible, adapt the amount of piercing nodes added
+			 */
 			if (cs.notSettledNodeWeight() == 0)
 				return invalidNode;
 
