@@ -36,10 +36,8 @@ namespace whfc {
 		bool pierce() {
 			Node piercingNode = piercer.findPiercingNode();
 			if (piercingNode == invalidNode) {
-				LOGGER << "invalid piercing node";
 				return false;
 			}
-			LOGGER << V(piercingNode) << V(cs.side_to_pierce) << V(cs.reachableFromSideNotToPierce(piercingNode)) << V(cs.flow_algo.excess[piercingNode]);
 			if (cs.rejectPiercingIfAugmenting() && cs.reachableFromSideNotToPierce(piercingNode))
 				return false;
 			cs.setPiercingNode(piercingNode);
@@ -83,7 +81,7 @@ namespace whfc {
 			}
 
 			if (has_balanced_cut_below_flow_bound) {
-				if (find_most_balanced && !cs.betterBalanceImpossible()) {
+				if (find_most_balanced && !cs.addingAllUnreachableNodesDoesNotChangeHeavierBlock()) {
 					mostBalancedCut();
 				}
 				else {
@@ -128,7 +126,7 @@ namespace whfc {
 					}
 					cs.side_to_pierce = cs.sideToGrow();
 					cs.hasCut = true;
-					LOGGER << cs.toString() << V(cs.side_to_pierce);
+					// LOGGER << cs.toString() << V(cs.side_to_pierce);
 					cs.verifyCutPostConditions();
 
 					SimulatedNodeAssignment sim = cs.mostBalancedAssignment();

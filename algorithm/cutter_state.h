@@ -72,9 +72,7 @@ namespace whfc {
 				borderNodes(_hg.numNodes()),
 				maxBlockWeightPerSide({NodeWeight(0), NodeWeight(0)}),
 				timer(timer)
-		{
-			timer.registerCategory("Balance Check");
-		}
+		{ }
 
 		inline bool canBeSettled(const Node u) const {
 			return !flow_algo.isSource(u) && !flow_algo.isTarget(u);
@@ -285,32 +283,15 @@ namespace whfc {
 		bool isBalanced() {
 			assert(hasCut);
 			assert(!partitionWrittenToNodeSet && "Cannot call isBalanced() once the partition has been written");
-
-			const NodeWeight
-					sw = source_reachable_weight,		//cannot be split
-					tw = target_reachable_weight,		//cannot be split
-					uw = unclaimedNodeWeight();			//cannot be split (in current stages. if we integrate proper PCKP heuristics for MBMC this would change)
-
-			const NodeWeight
-					s_mbw = maxBlockWeight(0),
-					t_mbw = maxBlockWeight(1);
-
-			if (sw > s_mbw || tw > t_mbw)					//this is good at late and early stages
-				return false;
-			if (sw + uw > s_mbw && tw + uw > t_mbw)			//this is good at early stages
-				return false;
-
-			bool balanced = false;
-			balanced |= sw + uw <= s_mbw && tw <= t_mbw;
-			balanced |= tw + uw <= t_mbw && sw <= s_mbw;
-			return balanced;
+			return (source_reachable_weight <= maxBlockWeight(0) && hg.totalNodeWeight() - source_reachable_weight <= maxBlockWeight(1))
+				|| (hg.totalNodeWeight() - target_reachable_weight <= maxBlockWeight(0) && target_reachable_weight <= maxBlockWeight(1));
 		}
 
 		bool rejectPiercingIfAugmenting() const {
 			return mostBalancedCutMode || flow_algo.flow_value == flow_algo.upper_flow_bound;
 		}
 
-		bool betterBalanceImpossible() const {
+		bool addingAllUnreachableNodesDoesNotChangeHeavierBlock() const {
 			if (unclaimedNodeWeight() == 0) {
 				return false;
 			}
