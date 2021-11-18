@@ -428,8 +428,19 @@ public:
 				}
 			});
 		};
-
 		parallelBFS(0, scan);
+
+		/*
+		auto scan = [&](Node u, int ) {
+			scanBackward(u, [&](const Node v) {
+				if (!isTargetReachable(v)) {
+					reach[v] = target_reachable_stamp;
+					next_active.push_back_atomic(v);
+				}
+			});
+		};
+		sequentialBFS(0, scan);
+		*/
 
 		last_target_side_queue_entry = next_active.size();
 		next_active.swap_container(active); 	// go back
@@ -443,6 +454,19 @@ public:
 			tbb::parallel_for(first, last, [&](size_t i) { scan(next_active[i], dist); });
 			next_active.finalize();
 			first = last;
+			last = next_active.size();
+			dist++;
+		}
+	}
+
+	template<typename ScanFunc>
+	void sequentialBFS(size_t first, ScanFunc&& scan) {
+		size_t last = next_active.size();
+		int dist = 1;
+		while (first != last) {
+			for ( ; first < last; ++first) {
+				scan(next_active[first], dist);
+			}
 			last = next_active.size();
 			dist++;
 		}

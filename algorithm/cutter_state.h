@@ -193,7 +193,6 @@ namespace whfc {
 				}
 				return sum;
 			}, std::plus<>());
-
 			assert([&] {
 				NodeWeight w = 0;
 				for (Node u : hg.nodeIDs()) { if (flow_algo.isTargetReachable(u)) w += hg.nodeWeight(u); }
