@@ -39,7 +39,7 @@ namespace whfc {
 				LOGGER << "invalid piercing node";
 				return false;
 			}
-			LOGGER << V(piercingNode) << V(cs.side_to_pierce) << V(cs.reachableFromSideNotToPierce(piercingNode));
+			LOGGER << V(piercingNode) << V(cs.side_to_pierce) << V(cs.reachableFromSideNotToPierce(piercingNode)) << V(cs.flow_algo.excess[piercingNode]);
 			if (cs.rejectPiercingIfAugmenting() && cs.reachableFromSideNotToPierce(piercingNode))
 				return false;
 			cs.setPiercingNode(piercingNode);
@@ -57,7 +57,7 @@ namespace whfc {
 			}
 			else {
 				if (cs.side_to_pierce == 0) {
-					cs.flow_algo.deriveSourceSideCut();
+					cs.flow_algo.deriveSourceSideCut(false);  // no flow changed --> no new excesses created
 				} else {
 					cs.flow_algo.deriveTargetSideCut();
 				}
@@ -118,7 +118,7 @@ namespace whfc {
 				SimulatedNodeAssignment sol = best_sol;
 				while (!sol.isPerfectlyBalanced() && pierce()) {
 					if (cs.side_to_pierce == 0) {
-						cs.flow_algo.deriveSourceSideCut();
+						cs.flow_algo.deriveSourceSideCut(false);
 						cs.computeSourceReachableWeight();
 						cs.assimilateSourceSide();
 					} else {

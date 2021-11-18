@@ -66,7 +66,7 @@ public:
 		assert(target_excess == flow_value);
 		#endif
 
-		deriveSourceSideCut();
+		deriveSourceSideCut(true);
 		return true;
 	}
 
@@ -333,7 +333,6 @@ public:
 
 	template<bool set_reachability>
 	void globalRelabel() {
-		work_since_last_global_relabel = 0;
 		tbb::parallel_for(0, max_level, [&](size_t i) { level[i] = isTarget(Node(i)) ? 0 : max_level; }, tbb::static_partitioner());
 		next_active.clear();
 		for (const Node t : target_piercing_nodes) {
@@ -367,31 +366,41 @@ public:
 
 		parallelBFS(0, scan);
 
+		LOGGER << V(num_active);
 		if (set_reachability) {
 			last_target_side_queue_entry = next_active.size();
 		}
+		work_since_last_global_relabel = 0;
 		distance_labels_broken_from_target_side_piercing = false;
 	}
 
-	void deriveSourceSideCut() {
+	void deriveSourceSideCut(bool flow_changed) {
 		// after global relabel with termination check its container is swapped out --> this function doesn't swap
-		resetReachability(true);
+
 		next_active.clear();
+		if (flow_changed) {
+			// if flow didnt change, we can reuse the old stamp (all source-reachable nodes were made sources)
+			resetReachability(true);
+
+			// calculate new excess nodes
+			tbb::parallel_for(0, max_level, [&](int i) {
+				Node u(i);
+				if (!isSource(u) && !isTarget(u) && excess[u] > 0) {
+					assert(level[u] == max_level);
+					next_active.push_back_buffered(u);
+					reach[u] = source_reachable_stamp;
+				}
+			});
+			next_active.finalize();
+			num_non_terminal_excess_nodes = next_active.size();
+		}
+
+		LOGGER << next_active.size() << "excess nodes";
+		// TODO add sequential version? depending on testing
 
 		for (const Node& s : source_piercing_nodes) {
 			next_active.push_back_atomic(s);
 		}
-
-		// TODO track. can't run this every time (e.g. when augmenting path is avoided)
-		tbb::parallel_for(0, max_level, [&](int i) {
-			Node u(i);
-			if (!isSource(u) && !isTarget(u) && excess[u] > 0) {
-				next_active.push_back_atomic(u);
-				reach[u] = source_reachable_stamp;
-			}
-		});
-
-		// TODO add sequential version? depending on testing
 
 		auto scan = [&](Node u, int ) {
 			auto next_layer = next_active.local_buffer();
@@ -425,6 +434,7 @@ public:
 			scanBackward(u, [&](const Node v) {
 				assert(!isSourceReachable(v));
 				if (!isTargetReachable(v) && __atomic_exchange_n(&reach[v], target_reachable_stamp, __ATOMIC_ACQ_REL) != target_reachable_stamp) {
+					assert(excess[v] == 0);
 					next_layer.push_back(v);
 				}
 			});
