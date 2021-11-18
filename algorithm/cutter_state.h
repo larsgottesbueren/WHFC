@@ -19,15 +19,19 @@ namespace whfc {
 
 	struct SimulatedNodeAssignment {
 		bool assignUnclaimedToSource = true;
-		double imbalanceSourceBlock = std::numeric_limits<double>::max(), imbalanceTargetBlock = std::numeric_limits<double>::max();
+		bool perfectBalance = false;
+		double balanceSourceBlock = std::numeric_limits<double>::max(), balanceTargetBlock = std::numeric_limits<double>::max();
 		size_t numberOfTrackedMoves = 0;
 
-		double imbalance() const {
-			return std::max(imbalanceSourceBlock, imbalanceTargetBlock);
+		double balance() const {
+			if (perfectBalance) {
+				return 1.0;
+			}
+			return std::min(balanceSourceBlock, balanceTargetBlock);
 		}
 
 		bool isPerfectlyBalanced() const {
-			return std::abs(imbalanceSourceBlock - imbalanceTargetBlock) < 1e-9;
+			return perfectBalance || std::abs(balanceSourceBlock - balanceTargetBlock) < 1e-9;
 		}
 	};
 
@@ -325,20 +329,27 @@ namespace whfc {
 		}
 
 		SimulatedNodeAssignment mostBalancedAssignment() {
-			auto block_imb = [&](NodeWeight a, NodeWeight max_a) {
-				return (static_cast<double>(a) / static_cast<double>(max_a)) - 1.0;
+			assert(isBalanced());
+			auto gap = [&](NodeWeight a, NodeWeight max_a) {
+				return (static_cast<double>(a) / static_cast<double>(max_a));
 			};
 			SimulatedNodeAssignment suw;
-			suw.imbalanceSourceBlock = block_imb(hg.totalNodeWeight() - target_reachable_weight, maxBlockWeight(0));
-			suw.imbalanceTargetBlock = block_imb(target_reachable_weight, maxBlockWeight(1));
+			suw.balanceSourceBlock = gap(hg.totalNodeWeight() - target_reachable_weight, maxBlockWeight(0));
+			suw.balanceTargetBlock = gap(target_reachable_weight, maxBlockWeight(1));
 			suw.assignUnclaimedToSource = true;
 
 			SimulatedNodeAssignment tuw;
-			tuw.imbalanceSourceBlock = block_imb(source_reachable_weight, maxBlockWeight(0));
-			tuw.imbalanceTargetBlock = block_imb(hg.totalNodeWeight() - source_reachable_weight, maxBlockWeight(1));
+			tuw.balanceSourceBlock = gap(source_reachable_weight, maxBlockWeight(0));
+			tuw.balanceTargetBlock = gap(hg.totalNodeWeight() - source_reachable_weight, maxBlockWeight(1));
 			tuw.assignUnclaimedToSource = false;
 
-			SimulatedNodeAssignment sol = suw.imbalance() < tuw.imbalance() ? suw : tuw;
+			if (maxBlockWeight(0) == maxBlockWeight(1) && hg.totalNodeWeight() % 2 == 1) {
+				// special case because it's harder to catch
+				suw.perfectBalance = hg.totalNodeWeight() - 2 * target_reachable_weight == 1;
+				tuw.perfectBalance = hg.totalNodeWeight() - 2 * source_reachable_weight == 1;
+			}
+
+			SimulatedNodeAssignment sol = suw.balance() > tuw.balance() ? suw : tuw;
 
 			sol.numberOfTrackedMoves = trackedMoves.size();
 			return sol;

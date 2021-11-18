@@ -130,12 +130,12 @@ namespace whfc {
 					cs.verifyCutPostConditions();
 
 					SimulatedNodeAssignment sim = cs.mostBalancedAssignment();
-					if (sim.imbalance() < sol.imbalance()) {
+					if (sim.balance() > sol.balance()) {
 						sol = sim;
 					}
 				}
 
-				if (sol.imbalance() < best_sol.imbalance()) {
+				if (sol.balance() > best_sol.balance()) {
 					best_sol = sol;
 					cs.revertMoves(sol.numberOfTrackedMoves);
 					best_moves = cs.trackedMoves;
