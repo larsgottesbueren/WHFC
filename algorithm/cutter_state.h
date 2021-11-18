@@ -125,16 +125,12 @@ namespace whfc {
 
 		void setPiercingNode(const Node piercingNode) {
 			augmentingPathAvailableFromPiercing = reachableFromSideNotToPierce(piercingNode);
-			flow_algo.source_side_pierced_last = side_to_pierce == 0;
-			if (flow_algo.source_side_pierced_last) {
-				flow_algo.source_piercing_nodes.clear();
-				flow_algo.source_piercing_nodes.emplace_back(piercingNode);
-				flow_algo.makeSource(piercingNode);
+			bool pierce_source_side = side_to_pierce == 0;
+			flow_algo.clearPiercingNodes(pierce_source_side);
+			flow_algo.pierce(piercingNode, pierce_source_side);
+			if (pierce_source_side) {
 				source_weight += hg.nodeWeight(piercingNode);
 			} else {
-				flow_algo.target_piercing_nodes.clear();
-				flow_algo.target_piercing_nodes.emplace_back(piercingNode);
-				flow_algo.makeTarget(piercingNode);
 				target_weight += hg.nodeWeight(piercingNode);
 			}
 			if (mostBalancedCutMode) {
@@ -508,14 +504,6 @@ namespace whfc {
 
 					if (hasSource && hasOther) {
 						cut_from_partition.push_back(e);
-						if (!flow_algo.isSource(flow_algo.edgeToInNode(e))) {
-							Node e_in = flow_algo.edgeToInNode(e), e_out = flow_algo.edgeToOutNode(e);
-							LOGGER << V(e) << V(flow_algo.reach[e_in]) << V(flow_algo.reach[e_out]) << V(flow_algo.excess[e_in]) << V(flow_algo.excess[e_out]);
-							for (Pin& p : hg.pinsOf(e)) {
-								Node v = p.pin;
-								LOGGER << V(v) << V(flow_algo.reach[v]);
-							}
-						}
 						assert(flow_algo.isSource(flow_algo.edgeToInNode(e)));
 					}
 
@@ -572,7 +560,6 @@ namespace whfc {
 					cut_weight += hg.capacity(e);
 				}
 			}
-			LOGGER << V(flow_algo.flow_value) << V(t_cut_weight) << V(cut_weight);
 			assert(flow_algo.flow_value == t_cut_weight);
 			assert(flow_algo.flow_value == cut_weight);
 #endif

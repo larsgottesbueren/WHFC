@@ -27,7 +27,6 @@ public:
 		do {
 			while (!next_active.empty()) {
 				if (flow_value > upper_flow_bound || shall_terminate) {
-					LOGGER << "flow bound exceeded" << V(flow_value) << V(upper_flow_bound);
 					return false;
 				}
 				num_active = next_active.size();
@@ -44,7 +43,6 @@ public:
 			// --> run global relabeling to check if done.
 			num_active = 0;
 			globalRelabel<true>();	// setting the template parameter to true means the function sets reachability info, since we expect to be finished
-			LOGGER << "terminate check" << V(flow_value) << V(num_active);
 			// plug queue back in (regular loop picks it out again)
 			next_active.swap_container(active);
 			next_active.set_size(num_active);
@@ -62,7 +60,6 @@ public:
 				target_excess += excess[u];
 			}
 		}
-		LOGGER << V(num_excess_nodes) << V(max_level) << V(hg.numNodes());
 		assert(target_excess == flow_value);
 		#endif
 
@@ -366,7 +363,6 @@ public:
 
 		parallelBFS(0, scan);
 
-		LOGGER << V(num_active);
 		if (set_reachability) {
 			last_target_side_queue_entry = next_active.size();
 		}
@@ -394,9 +390,6 @@ public:
 			next_active.finalize();
 		}
 
-		LOGGER << next_active.size() << "excess nodes";
-		// TODO add sequential version? depending on testing
-
 		for (const Node& s : source_piercing_nodes) {
 			next_active.push_back_atomic(s);
 		}
@@ -417,7 +410,6 @@ public:
 	}
 
 	void deriveTargetSideCut() {
-		distance_labels_broken_from_target_side_piercing = true;
 		next_active.swap_container(active);		// don't overwrite contents of source side
 		next_active.clear();
 
@@ -466,7 +458,7 @@ public:
 
 	void saturateSourceEdges() {
 		resetRound();
-		if (source_side_pierced_last) {
+		if (source_piercing_nodes_not_exhausted) {
 			for (const Node source : source_piercing_nodes) {
 				for (InHeIndex inc_iter : hg.incidentHyperedgeIndices(source)) {
 					const Hyperedge e = hg.getInHe(inc_iter).e;
@@ -496,27 +488,17 @@ public:
 					}
 				}
 			}
-		} else {
-			size_t num_excess = 0;
-			for (Node u(0); u < max_level; ++u) {
-				if (!isSource(u) && !isTarget(u) && excess[u] > 0) {
-					num_excess++;
-				}
-			}
-			LOGGER << V(num_excess);
-			distance_labels_broken_from_target_side_piercing = true;
-			// don't add anything to next_active. no new excess nodes created and we don't know the old ones with distance label > max_level
-			// even if we did they'd be useless because the labels are broken --> trigger global relabel right away and let it find the active nodes
-			#ifndef NDEBUG
-			for (Node source : source_piercing_nodes) {
-				for (InHeIndex inc_iter : hg.incidentHyperedgeIndices(source)) {
-					const Hyperedge e = hg.getInHe(inc_iter).e;
-					// should still be saturated because no flow was pushed back to source
-					assert(flow[inNodeIncidenceIndex(inc_iter)] == hg.capacity(e) || isSource(edgeToInNode(e)));
-				}
-			}
-			#endif
+			source_piercing_nodes_not_exhausted = false;
 		}
+		#ifndef NDEBUG
+		for (Node source : source_piercing_nodes) {
+			for (InHeIndex inc_iter : hg.incidentHyperedgeIndices(source)) {
+				const Hyperedge e = hg.getInHe(inc_iter).e;
+				// should still be saturated because no flow was pushed back to source
+				assert(flow[inNodeIncidenceIndex(inc_iter)] == hg.capacity(e) || isSource(edgeToInNode(e)));
+			}
+		}
+		#endif
 	}
 
 	void reset() {

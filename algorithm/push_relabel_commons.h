@@ -58,7 +58,6 @@ namespace whfc {
 		void makeSource(Node u) {
 			reach[u] = 1;
 			level[u] = max_level;
-			// excess[u] = 0;
 		}
 		bool isSourceReachable(Node u) const { return isSource(u) || reach[u] == source_reachable_stamp; }
 		void reachFromSource(Node u) { reach[u] = source_reachable_stamp; }
@@ -66,10 +65,6 @@ namespace whfc {
 		void makeTarget(Node u) {
 			reach[u] = 2;
 			level[u] = 0;
-			// flow_value += excess[u];	// if source-reachable nodes with excess get pierced
-			if (excess[u] > 0) {
-				__atomic_fetch_add(&flow_value, excess[u], __ATOMIC_RELAXED);
-			}
 		}
 		bool isTargetReachable(Node u) const { return isTarget(u) || reach[u] == target_reachable_stamp; }
 		void reachFromTarget(Node u) { reach[u] = target_reachable_stamp; }
@@ -92,15 +87,30 @@ namespace whfc {
 		size_t work_since_last_global_relabel = 0, global_relabel_work_threshold = 0;
 
 		/** source / sink */
-		bool source_side_pierced_last = false;
 		bool distance_labels_broken_from_target_side_piercing = false;
+		bool source_piercing_nodes_not_exhausted = false;
 		vec<Node> source_piercing_nodes, target_piercing_nodes;
+		void clearPiercingNodes(bool source_side) {
+			if (source_side) { source_piercing_nodes.clear(); }
+			else { target_piercing_nodes.clear(); }
+		}
+		void pierce(Node u, bool source_side) {
+			if (source_side) {
+				makeSource(u);
+				source_piercing_nodes.push_back(u);
+				source_piercing_nodes_not_exhausted = true;
+			} else {
+				makeTarget(u);
+				target_piercing_nodes.push_back(u);
+				// flow_value += excess[u];	// if source-reachable nodes with excess get pierced
+				__atomic_fetch_add(&flow_value, excess[u], __ATOMIC_RELAXED);
+				distance_labels_broken_from_target_side_piercing = true;
+			}
+		}
 
 		void initialize(Node s, Node t) {
-			makeSource(s);
-			source_piercing_nodes.push_back(s);
-			makeTarget(t);
-			target_piercing_nodes.push_back(t);
+			pierce(s, true);
+			pierce(t, false);
 		}
 
 		void reset() {
@@ -125,7 +135,7 @@ namespace whfc {
 
 			source_piercing_nodes.clear();
 			target_piercing_nodes.clear();
-			source_side_pierced_last = true;
+			source_piercing_nodes_not_exhausted = true;
 			distance_labels_broken_from_target_side_piercing = true;	// triggers initial global relabeling
 		}
 
