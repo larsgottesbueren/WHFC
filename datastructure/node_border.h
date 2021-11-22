@@ -64,21 +64,22 @@ public:
 	void resetForMostBalancedCut() {
 		// remove everything that was added during most balanced cut and is still in the buckets
 		for (HopDistance d = minOccupiedBucket[most_balanced_cut_bucket_index]; d <= maxOccupiedBucket[most_balanced_cut_bucket_index]; ++d) {
-			for (Node u : buckets[d][most_balanced_cut_bucket_index])
+			for (Node u : buckets[d][most_balanced_cut_bucket_index]) {
 				was_added.reset(u);
+			}
 			buckets[d][most_balanced_cut_bucket_index].clear();
 		}
 
 		// reinsert the non-target-reachable nodes that were removed during most balanced cut
-		for (Node u : removed_during_most_balanced_cut_mode[not_target_reachable_bucket_index]) {
-			buckets[getDistance(u)][not_target_reachable_bucket_index].push_back(u);
+		for (Node u : removed_during_most_balanced_cut_mode[not_reachable_bucket_index]) {
+			buckets[getDistance(u)][not_reachable_bucket_index].push_back(u);
 		}
 
 		for (Node u : removed_during_most_balanced_cut_mode[most_balanced_cut_bucket_index]) {
 			was_added.reset(u);
 		}
 
-		removed_during_most_balanced_cut_mode[not_target_reachable_bucket_index].clear();
+		removed_during_most_balanced_cut_mode[not_reachable_bucket_index].clear();
 		removed_during_most_balanced_cut_mode[most_balanced_cut_bucket_index].clear();
 
 		maxOccupiedBucket = backupMaxOccupiedBucket;
@@ -89,15 +90,17 @@ public:
 
 
 	void clearBuckets(const Index i) {
-		for (HopDistance d = minOccupiedBucket[i]; d <= maxOccupiedBucket[i]; ++d)
+		for (HopDistance d = minOccupiedBucket[i]; d <= maxOccupiedBucket[i]; ++d) {
 			buckets[d][i].clear();
+		}
 		minOccupiedBucket[i] = 0;
 		maxOccupiedBucket[i] = -1;
 	}
 
 	void enterMostBalancedCutMode () {
 		mostBalancedCutMode = true;
-		clearBuckets(target_reachable_bucket_index);
+		clearBuckets(reachable_bucket_index);
+		// TODO could also filter non_reachable_bucket for already reachable nodes
 		backupMaxOccupiedBucket = maxOccupiedBucket;
 		backupMinOccupiedBucket = minOccupiedBucket;
 	}
@@ -106,10 +109,9 @@ public:
 		return std::max(multiplier * distance[u], 0); // distances of vertices on opposite side are negative --> throw away
 	}
 
-	static constexpr Index position_for_added_but_removed = invalidIndex - 1;
 	BitVector was_added;
 
-	static constexpr Index not_target_reachable_bucket_index = 0, target_reachable_bucket_index = 1, most_balanced_cut_bucket_index = 1;
+	static constexpr Index not_reachable_bucket_index = 0, reachable_bucket_index = 1, most_balanced_cut_bucket_index = 1;
 	std::vector< std::array<Bucket, 2> > buckets;
 
 	std::array<HopDistance, 2> maxOccupiedBucket, minOccupiedBucket, backupMaxOccupiedBucket, backupMinOccupiedBucket;

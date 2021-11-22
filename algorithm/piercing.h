@@ -11,61 +11,81 @@ namespace whfc {
 
 		explicit Piercer(FlowHypergraph& hg, CutterState<FlowAlgorithm>& cs) : hg(hg), cs(cs) { }
 
-		Node findPiercingNode() {
-			/*
-			 * TODO
-			 * 1) perform piercing directly instead of returning one node
-			 * 2) if avoid augmenting path is possible and cs.addingAllUnreachableNodesDoesNotChangeHeavierBlock(),
-			 * 	  then add all piercing nodes from the non-reachable bucket pq to speed up the process
-			 * 3) if avoid augmenting path is not possible, adapt the amount of piercing nodes added
-			 */
+		bool findPiercingNode() {
 			if (cs.notSettledNodeWeight() == 0)
-				return invalidNode;
+				return false;
 
-			// bool reject_if_augmenting = cs.rejectPiercingIfAugmenting();
 			NodeBorder* border = cs.side_to_pierce == 0 ? &cs.borderNodes.sourceSide : &cs.borderNodes.targetSide;
-			base_weight = cs.side_to_pierce == 0 ? cs.source_weight : cs.target_weight;
+			cs.clearPiercingNodes();
+			size_t num_piercing_nodes = 0;
+			const bool add_all_unreachables = cs.addingAllUnreachableNodesDoesNotChangeHeavierBlock() && !cs.mostBalancedCutMode;
 
-			// first look for piercing node in the bucket pqs
-			// 0 = not target-reachable, 1 == target-reachable or inserted during most BalancedCutMode
-			for (Index reachability_bucket_type(0); reachability_bucket_type < 2; ++reachability_bucket_type) {
-				HopDistance& d = border->maxOccupiedBucket[reachability_bucket_type];
+			static constexpr bool log = true;
 
-				for ( ; d >= border->minOccupiedBucket[reachability_bucket_type]; --d) {
-					NodeBorder::Bucket& b = border->buckets[d][reachability_bucket_type];
-					while (!b.empty()) {
-						// pick and remove random element from bucket
-						size_t it = cs.rng.randomIndex(0, b.size() - 1);
-						Node p = b[it];
-						b[it] = b.back();
-						b.pop_back();
+			for (Index i = 0; i < 2; ++i) {
+				HopDistance& dist = border->maxOccupiedBucket[i];
+				const size_t max_num_piercing_nodes = (i == 0 || cs.mostBalancedCutMode) ? 1 : estimateMaxNumPiercingNodes();
 
-						// track removed nodes for revert
-						if (cs.mostBalancedCutMode) {
-							border->removed_during_most_balanced_cut_mode[reachability_bucket_type].push_back(p);
+				for ( ; dist >= border->minOccupiedBucket[i]; --dist) {
+					NodeBorder::Bucket& bucket = border->buckets[dist][i];
+
+					if (false && i == NodeBorder::not_reachable_bucket_index && add_all_unreachables) {
+						// add all unreachable border nodes to speed up the process (we're going to add all unreachable nodes anyway)
+						for (Node candidate : bucket) {
+							if (cs.isNonTerminal(candidate) && settlingDoesNotExceedMaxWeight(candidate)) {
+								if (!cs.reachableFromSideNotToPierce(candidate)) {
+									cs.addPiercingNode(candidate);
+									num_piercing_nodes++;
+								} else {
+									border->insertIntoBucket(candidate, NodeBorder::reachable_bucket_index, dist);
+								}
+							}
 						}
+						bucket.clear();
+					} else {
+						// the old random, lazy-clear method. except we might do more than one node
+						while (!bucket.empty()) {
+							size_t it = cs.rng.randomIndex(0, bucket.size() - 1);
+							Node candidate = bucket[it];
+							bucket[it] = bucket.back();
+							bucket.pop_back();
 
-						if (isCandidate(p)) {
-							//Note: the first condition relies on not inserting target-reachable nodes during most balanced cut mode
-							if (reachability_bucket_type != NodeBorder::not_target_reachable_bucket_index || !cs.reachableFromSideNotToPierce(p)) {
-								return p;
+							if (cs.mostBalancedCutMode) {
+								// track for reset
+								border->removed_during_most_balanced_cut_mode[i].push_back(candidate);
 							}
 
-							// the node was not reachable at the time it was inserted but became reachable since then
-							// --> migrate it to the reachable bucket
-							if (!cs.mostBalancedCutMode) {
-								border->insertIntoBucket(p, NodeBorder::target_reachable_bucket_index, d);
+							if (cs.isNonTerminal(candidate) && settlingDoesNotExceedMaxWeight(candidate)) {
+								if (i != NodeBorder::not_reachable_bucket_index || !cs.reachableFromSideNotToPierce(candidate)) {
+									cs.addPiercingNode(candidate);
+									if (++num_piercing_nodes >= max_num_piercing_nodes) {
+										return true;
+									}
+									// TODO maybe restrict adding multiple nodes to one distance bucket at a time?
+								} else if (!cs.mostBalancedCutMode) {
+									// node got reachable --> move to other bucket. (no need to move if it can't be pierced in the future)
+									border->insertIntoBucket(candidate, NodeBorder::reachable_bucket_index, dist);
+								}
 							}
 						}
 					}
 				}
 
-				// the buckets are already empty --> also clear the span of occupied distances
-				border->clearBuckets(reachability_bucket_type);
+				border->clearBuckets(i);
+
+				if (num_piercing_nodes > 0) {
+					return true;
+				} else if (i == NodeBorder::not_reachable_bucket_index && !cs.mostBalancedCutMode && cs.rejectPiercingIfAugmenting()) {
+					// in mbc mode there can be unreachable nodes in the 2nd bucket
+					return false;
+				}
+			}
+
+			if (cs.rejectPiercingIfAugmenting()) {
+				return false;
 			}
 
 			Node p = invalidNode;
-
 			if (piercingFallbacks[cs.side_to_pierce]++ < piercingFallbackLimitPerSide) {
 				// didn't find one in the bucket PQs, so pick a random unsettled node
 				uint32_t rndScore = 0;
@@ -85,7 +105,12 @@ namespace whfc {
 				}
 			}
 
-			return p;
+			if (p != invalidNode) {
+				cs.addPiercingNode(p);
+				return true;
+			} else {
+				return false;
+			}
 		}
 
 		void reset() {
@@ -94,13 +119,21 @@ namespace whfc {
 
 	private:
 
+		size_t estimateMaxNumPiercingNodes() const {
+			// TODO implement...
+			return 1;
+		}
+
 		bool isCandidate(const Node u) const {
-			return cs.canBeSettled(u) && base_weight + hg.nodeWeight(u) <= cs.maxBlockWeight(cs.side_to_pierce);
+			return cs.isNonTerminal(u) && settlingDoesNotExceedMaxWeight(u);
+		}
+
+		bool settlingDoesNotExceedMaxWeight(const Node u) const {
+			return (cs.side_to_pierce == 0 ? cs.source_weight : cs.target_weight) + hg.nodeWeight(u) <= cs.maxBlockWeight(cs.side_to_pierce);
 		}
 
 		FlowHypergraph& hg;
 		CutterState<FlowAlgorithm>& cs;
-		NodeWeight base_weight = 0;
 
 		static constexpr uint32_t max_random_score = 1 << 25;
 

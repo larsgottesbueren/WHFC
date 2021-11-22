@@ -394,18 +394,33 @@ public:
 			next_active.push_back_atomic(s);
 		}
 
-		auto scan = [&](Node u, int ) {
-			auto next_layer = next_active.local_buffer();
-			scanForward(u, [&](const Node v) {
-				assert(!isTargetReachable(v));
-				if (!isTarget(v) && !isSourceReachable(v) && __atomic_exchange_n(&reach[v], source_reachable_stamp, __ATOMIC_ACQ_REL) != source_reachable_stamp) {
-					assert(flow_changed || excess[v] == 0);
-					next_layer.push_back(v);
-				}
-			});
-		};
+		if (flow_changed || true) {
+			auto scan = [&](Node u, int ) {
+				auto next_layer = next_active.local_buffer();
+				scanForward(u, [&](const Node v) {
+					assert(!isTargetReachable(v));
+					if (!isSourceReachable(v) && __atomic_exchange_n(&reach[v], source_reachable_stamp, __ATOMIC_ACQ_REL) != source_reachable_stamp) {
+						assert(flow_changed || excess[v] == 0);
+						next_layer.push_back(v);
+					}
+				});
+			};
+			parallelBFS(0, scan);
+		} else {
+			// expect less work
+			auto scan = [&](Node u, int ) {
+				scanForward(u, [&](const Node v) {
+					assert(!isTargetReachable(v));
+					if (!isSourceReachable(v)) {
+						assert(flow_changed || excess[v] == 0);
+						reach[v] = source_reachable_stamp;
+						next_active.push_back_atomic(v);
+					}
+				});
+			};
+			sequentialBFS(0, scan);
+		}
 
-		parallelBFS(0, scan);
 		last_source_side_queue_entry = next_active.size();
 	}
 

@@ -78,15 +78,15 @@ namespace whfc {
 				timer(timer)
 		{ }
 
-		inline bool canBeSettled(const Node u) const {
+		bool isNonTerminal(const Node u) const {
 			return !flow_algo.isSource(u) && !flow_algo.isTarget(u);
 		}
 
-		inline NodeWeight unclaimedNodeWeight() const {
+		NodeWeight unclaimedNodeWeight() const {
 			return hg.totalNodeWeight() - source_reachable_weight - target_reachable_weight;
 		}
 
-		inline NodeWeight notSettledNodeWeight() const {
+		NodeWeight notSettledNodeWeight() const {
 			return hg.totalNodeWeight() - source_weight - target_weight;
 		}
 
@@ -95,7 +95,7 @@ namespace whfc {
 			if (!cuts.sourceSide.wasAdded(e)) {
 				cuts.sourceSide.add(e);
 				for (const Pin& px : hg.pinsOf(e)) {
-					if (canBeSettled(px.pin) && !borderNodes.sourceSide.wasAdded(px.pin) && (!mostBalancedCutMode || !flow_algo.isTargetReachable(px.pin))) {
+					if (isNonTerminal(px.pin) && !borderNodes.sourceSide.wasAdded(px.pin) && (!mostBalancedCutMode || !flow_algo.isTargetReachable(px.pin))) {
 						borderNodes.sourceSide.add(px.pin, flow_algo.isTargetReachable(px.pin));
 					}
 				}
@@ -106,7 +106,7 @@ namespace whfc {
 			if (!cuts.targetSide.wasAdded(e)) {
 				cuts.targetSide.add(e);
 				for (const Pin& px : hg.pinsOf(e)) {
-					if (canBeSettled(px.pin) && !borderNodes.targetSide.wasAdded(px.pin) && (!mostBalancedCutMode || !flow_algo.isSourceReachable(px.pin))) {
+					if (isNonTerminal(px.pin) && !borderNodes.targetSide.wasAdded(px.pin) && (!mostBalancedCutMode || !flow_algo.isSourceReachable(px.pin))) {
 						borderNodes.targetSide.add(px.pin, flow_algo.isSourceReachable(px.pin));
 					}
 				}
@@ -125,12 +125,15 @@ namespace whfc {
 			return side_to_pierce == 0 ? flow_algo.isTargetReachable(u) : flow_algo.isSourceReachable(u);
 		}
 
-		void setPiercingNode(const Node piercingNode) {
-			augmentingPathAvailableFromPiercing = reachableFromSideNotToPierce(piercingNode);
-			bool pierce_source_side = side_to_pierce == 0;
-			flow_algo.clearPiercingNodes(pierce_source_side);
-			flow_algo.pierce(piercingNode, pierce_source_side);
-			if (pierce_source_side) {
+		void clearPiercingNodes() {
+			hasCut = false;
+			flow_algo.clearPiercingNodes(side_to_pierce == 0);
+			augmentingPathAvailableFromPiercing = false;
+		}
+
+		void addPiercingNode(const Node piercingNode) {
+			augmentingPathAvailableFromPiercing |= reachableFromSideNotToPierce(piercingNode);
+			if (side_to_pierce == 0) {
 				source_weight += hg.nodeWeight(piercingNode);
 			} else {
 				target_weight += hg.nodeWeight(piercingNode);
@@ -138,7 +141,7 @@ namespace whfc {
 			if (mostBalancedCutMode) {
 				trackedMoves.emplace_back(piercingNode, side_to_pierce);
 			}
-			hasCut = false;
+			flow_algo.pierce(piercingNode, side_to_pierce == 0);
 		}
 
 		void computeReachableWeights() {
@@ -161,17 +164,29 @@ namespace whfc {
 
 		void computeSourceReachableWeight() {
 			auto sr = flow_algo.sourceReachableNodes();
-			source_reachable_weight = source_weight + tbb::parallel_reduce(
-					tbb::blocked_range<size_t>(0, sr.size(), 2000), 0, [&](const auto& r, NodeWeight sum) -> NodeWeight {
-				for (size_t i = r.begin(); i < r.end(); ++i) {
-					Node u = sr[i];
+			source_reachable_weight = source_weight;
+			if (augmentingPathAvailableFromPiercing && sr.size() > 5000) {
+				source_reachable_weight += tbb::parallel_reduce(
+						tbb::blocked_range<size_t>(0, sr.size(), 2000), 0, [&](const auto& r, NodeWeight sum) -> NodeWeight {
+					for (size_t i = r.begin(); i < r.end(); ++i) {
+						Node u = sr[i];
+						assert(flow_algo.isSourceReachable(u));
+						if (flow_algo.isHypernode(u) && !flow_algo.isSource(u)) {
+							sum += hg.nodeWeight(u);
+						}
+					}
+					return sum;
+				}, std::plus<>());
+			} else {
+				// expect less work
+				for (Node u : sr) {
 					assert(flow_algo.isSourceReachable(u));
 					if (flow_algo.isHypernode(u) && !flow_algo.isSource(u)) {
-						sum += hg.nodeWeight(u);
+						source_reachable_weight += hg.nodeWeight(u);
 					}
 				}
-				return sum;
-			}, std::plus<>());
+			}
+
 
 			assert([&] {
 				NodeWeight w = 0;
@@ -182,17 +197,29 @@ namespace whfc {
 
 		void computeTargetReachableWeight() {
 			auto tr = flow_algo.targetReachableNodes();
-			target_reachable_weight = target_weight + tbb::parallel_reduce(
-					tbb::blocked_range<size_t>(0, tr.size(), 2000), 0, [&](const auto& r, NodeWeight sum) -> NodeWeight {
-				for (size_t i = r.begin(); i < r.end(); ++i) {
-					Node u = tr[i];
+			target_reachable_weight = target_weight;
+			if (augmentingPathAvailableFromPiercing && tr.size() > 5000) {
+				target_reachable_weight += tbb::parallel_reduce(
+						tbb::blocked_range<size_t>(0, tr.size(), 2000), 0, [&](const auto& r, NodeWeight sum) -> NodeWeight {
+					for (size_t i = r.begin(); i < r.end(); ++i) {
+						Node u = tr[i];
+						assert(flow_algo.isTargetReachable(u));
+						if (flow_algo.isHypernode(u) && !flow_algo.isTarget(u)) {
+							sum += hg.nodeWeight(u);
+						}
+					}
+					return sum;
+				}, std::plus<>());
+			} else {
+				// expect less work
+				for (Node u : tr) {
 					assert(flow_algo.isTargetReachable(u));
 					if (flow_algo.isHypernode(u) && !flow_algo.isTarget(u)) {
-						sum += hg.nodeWeight(u);
+						target_reachable_weight += hg.nodeWeight(u);
 					}
 				}
-				return sum;
-			}, std::plus<>());
+			}
+
 			assert([&] {
 				NodeWeight w = 0;
 				for (Node u : hg.nodeIDs()) { if (flow_algo.isTargetReachable(u)) w += hg.nodeWeight(u); }

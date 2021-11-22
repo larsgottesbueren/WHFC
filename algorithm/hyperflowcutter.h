@@ -34,14 +34,7 @@ namespace whfc {
 		}
 
 		bool pierce() {
-			Node piercingNode = piercer.findPiercingNode();
-			if (piercingNode == invalidNode) {
-				return false;
-			}
-			if (cs.rejectPiercingIfAugmenting() && cs.reachableFromSideNotToPierce(piercingNode))
-				return false;
-			cs.setPiercingNode(piercingNode);
-			return true;
+			return piercer.findPiercingNode() && (!cs.rejectPiercingIfAugmenting() || !cs.augmentingPathAvailableFromPiercing);
 		}
 
 
@@ -126,7 +119,7 @@ namespace whfc {
 					}
 					cs.side_to_pierce = cs.sideToGrow();
 					cs.hasCut = true;
-					// LOGGER << cs.toString() << V(cs.side_to_pierce);
+					LOGGER << cs.toString() << V(cs.side_to_pierce);
 					cs.verifyCutPostConditions();
 
 					SimulatedNodeAssignment sim = cs.mostBalancedAssignment();
