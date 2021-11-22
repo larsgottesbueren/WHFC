@@ -19,7 +19,6 @@ namespace whfc {
 			cs.clearPiercingNodes();
 			size_t num_piercing_nodes = 0;
 			const bool add_all_unreachables = cs.addingAllUnreachableNodesDoesNotChangeHeavierBlock() && !cs.mostBalancedCutMode;
-
 			static constexpr bool log = true;
 
 			for (Index i = 0; i < 2; ++i) {
@@ -29,7 +28,7 @@ namespace whfc {
 				for ( ; dist >= border->minOccupiedBucket[i]; --dist) {
 					NodeBorder::Bucket& bucket = border->buckets[dist][i];
 
-					if (false && i == NodeBorder::not_reachable_bucket_index && add_all_unreachables) {
+					if (i == NodeBorder::not_reachable_bucket_index && add_all_unreachables) {
 						// add all unreachable border nodes to speed up the process (we're going to add all unreachable nodes anyway)
 						for (Node candidate : bucket) {
 							if (cs.isNonTerminal(candidate) && settlingDoesNotExceedMaxWeight(candidate)) {

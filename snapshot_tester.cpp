@@ -39,7 +39,7 @@ namespace whfc {
 		hfc.timer.start();
 		bool result = hfc.enumerateCutsUntilBalancedOrFlowBoundExceeded(s, t);
 		hfc.timer.stop();
-		std::cout << V(result) << std::endl;
+		std::cout << V(result) << " " << V(hfc.cs.flow_algo.flow_value) << std::endl;
 		hfc.timer.report(std::cout);
 		hfc.timer.clear();
 	}
