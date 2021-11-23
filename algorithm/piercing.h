@@ -21,7 +21,7 @@ namespace whfc {
 			const bool add_all_unreachables = cs.addingAllUnreachableNodesDoesNotChangeHeavierBlock() && !cs.mostBalancedCutMode;
 			static constexpr bool log = true;
 
-			for (Index i = 0; i < 2; ++i) {
+			for (Index i = 0; i != 2; ++i) {
 				HopDistance& dist = border->maxOccupiedBucket[i];
 				const size_t max_num_piercing_nodes = (i == 0 || cs.mostBalancedCutMode) ? 1 : estimateMaxNumPiercingNodes();
 
@@ -60,7 +60,7 @@ namespace whfc {
 									if (++num_piercing_nodes >= max_num_piercing_nodes) {
 										return true;
 									}
-									// TODO maybe restrict adding multiple nodes to one distance bucket at a time?
+									// restrict adding multiple nodes to one distance bucket at a time?
 								} else if (!cs.mostBalancedCutMode) {
 									// node got reachable --> move to other bucket. (no need to move if it can't be pierced in the future)
 									border->insertIntoBucket(candidate, NodeBorder::reachable_bucket_index, dist);
@@ -74,9 +74,34 @@ namespace whfc {
 
 				if (num_piercing_nodes > 0) {
 					return true;
-				} else if (i == NodeBorder::not_reachable_bucket_index && !cs.mostBalancedCutMode && cs.rejectPiercingIfAugmenting()) {
-					// in mbc mode there can be unreachable nodes in the 2nd bucket
-					return false;
+				} else if (i == NodeBorder::not_reachable_bucket_index && !cs.mostBalancedCutMode) {
+					if (cs.unclaimedNodeWeight() > 0) {
+						// nodes may have been mis-classified as reachable when first inserted (this happens with nodes that get isolated)
+						// move those to the first PQ
+						size_t num_moved = 0;
+						size_t r = NodeBorder::reachable_bucket_index;
+						for (HopDistance d = border->maxOccupiedBucket[r]; d >= border->minOccupiedBucket[r]; --d) {
+							auto& bucket = border->buckets[d][r];
+							auto new_end = std::remove_if(bucket.begin(), bucket.end(), [&](const Node& u) {
+								if (cs.isNonTerminal(u)) {
+									if (!cs.reachableFromSideNotToPierce(u)) {
+										num_moved++;
+										border->insertIntoBucket(u, NodeBorder::not_reachable_bucket_index, d);
+									}
+									return true;
+								}
+								return false;
+							});
+							bucket.erase(new_end, bucket.end());
+						}
+
+						if (num_moved > 0) {
+							--i;	// go again with i == 0 in the next round
+						}
+					} else if (cs.rejectPiercingIfAugmenting()) {
+						// in mbc mode there can be unreachable nodes in the 2nd bucket
+						return false;
+					}
 				}
 			}
 
