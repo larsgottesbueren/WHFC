@@ -19,7 +19,7 @@ namespace whfc {
 		WHFC_IO::WHFCInformation info = WHFC_IO::readAdditionalInformation(filename);
 		Node s = info.s;
 		Node t = info.t;
-		std::cout << s << " " << t << " " << info.maxBlockWeight[0] << " " << info.maxBlockWeight[1] << " " << info.upperFlowBound<< std::endl;
+		// std::cout << s << " " << t << " " << info.maxBlockWeight[0] << " " << info.maxBlockWeight[1] << " " << info.upperFlowBound<< std::endl;
 
 		FlowHypergraphBuilder hg;
 		HMetisIO::readFlowHypergraphWithBuilder(hg, filename);
@@ -27,7 +27,7 @@ namespace whfc {
 		if (s >= hg.numNodes() || t >= hg.numNodes())
 			throw std::runtime_error("s or t not within node id range");
 
-		int seed = 42;
+		int seed = 0;
 		using FlowAlgorithm = ParallelPushRelabel;
 		HyperFlowCutter<FlowAlgorithm> hfc(hg, seed);
 		hfc.setFlowBound(info.upperFlowBound);
@@ -37,10 +37,25 @@ namespace whfc {
 		WHFC_IO::readRandomGeneratorState(filename, hfc.cs.rng);
 
 		hfc.timer.start();
-		bool result = hfc.enumerateCutsUntilBalancedOrFlowBoundExceeded(s, t);
+		auto [result, time_limit_exceeded, num_cuts] = hfc.enumerateCutsUntilBalancedOrFlowBoundExceeded(s, t);
 		hfc.timer.stop();
-		std::cout << V(result) << " " << V(hfc.cs.flow_algo.flow_value) << std::endl;
-		hfc.timer.report(std::cout);
+		std::string base_filename = filename.substr(filename.find_last_of("/\\") + 1);
+		/*
+		 * header
+		 * graph,algorithm,seed,threads,improved,flow,flowbound,time,mbc_time,time_limit_exceeded,num_cuts
+		 */
+		std::cout << base_filename << ",FlowCutter-ParPR," << seed << "," << threads << ",";
+		std::cout << (result ? "yes" : "no") << ",";
+		std::cout << hfc.cs.flow_algo.flow_value << "," << info.upperFlowBound << ",";
+		std::cout << hfc.timer.get("HyperFlowCutter").count() << "," << hfc.timer.get("MBC").count() << ",";
+		std::cout << (time_limit_exceeded ? "yes" : "no") << ",";
+		std::cout << num_cuts;
+
+		std::cout << std::endl;
+
+
+		// std::cout << V(result) << " " << V(hfc.cs.flow_algo.flow_value) << std::endl;
+		// hfc.timer.report(std::cout);
 		hfc.timer.clear();
 	}
 }

@@ -81,7 +81,6 @@ namespace whfc {
 						size_t r = NodeBorder::reachable_bucket_index;
 						for (HopDistance d = border->maxOccupiedBucket[r]; d >= border->minOccupiedBucket[r]; --d) {
 							auto& bucket = border->buckets[d][r];
-							size_t old_size = bucket.size();
 							auto new_end = std::remove_if(bucket.begin(), bucket.end(), [&](const Node& u) {
 								if (cs.isNonTerminal(u)) {
 									if (!cs.reachableFromSideNotToPierce(u)) {
