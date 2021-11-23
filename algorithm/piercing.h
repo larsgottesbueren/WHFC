@@ -19,7 +19,6 @@ namespace whfc {
 			cs.clearPiercingNodes();
 			size_t num_piercing_nodes = 0;
 			const bool add_all_unreachables = cs.addingAllUnreachableNodesDoesNotChangeHeavierBlock() && !cs.mostBalancedCutMode;
-			static constexpr bool log = true;
 
 			for (Index i = 0; i != 2; ++i) {
 				HopDistance& dist = border->maxOccupiedBucket[i];
@@ -82,15 +81,17 @@ namespace whfc {
 						size_t r = NodeBorder::reachable_bucket_index;
 						for (HopDistance d = border->maxOccupiedBucket[r]; d >= border->minOccupiedBucket[r]; --d) {
 							auto& bucket = border->buckets[d][r];
+							size_t old_size = bucket.size();
 							auto new_end = std::remove_if(bucket.begin(), bucket.end(), [&](const Node& u) {
 								if (cs.isNonTerminal(u)) {
 									if (!cs.reachableFromSideNotToPierce(u)) {
 										num_moved++;
 										border->insertIntoBucket(u, NodeBorder::not_reachable_bucket_index, d);
+										return true;
 									}
-									return true;
+									return false;
 								}
-								return false;
+								return true;
 							});
 							bucket.erase(new_end, bucket.end());
 						}
