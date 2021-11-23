@@ -15,7 +15,7 @@ namespace whfc {
 		Piercer<FlowAlgorithm> piercer;
 		bool find_most_balanced = true;
 
-		static constexpr bool log = false;
+		static constexpr bool log = true;
 
 		HyperFlowCutter(FlowHypergraph& hg, int seed) :
 				timer("HyperFlowCutter"),
@@ -66,28 +66,12 @@ namespace whfc {
 		/*
 		 * Equivalent to runUntilBalancedOrFlowBoundExceeded(s,t) except that it does not use the flow-based interleaving that is necessary when running multiple HFC instances
 		 */
-		std::tuple<bool, bool, size_t>
-		enumerateCutsUntilBalancedOrFlowBoundExceeded(const Node s, const Node t) {
-			bool time_limit_exceeded = false;
-			size_t measure_step = 0;
-			auto start_time = std::chrono::high_resolution_clock::now();
-			int time_limit = 3600; // seconds
-			size_t num_cuts = 0;
-			Flow last_cut = 0;
-
+		template<typename CutReporter>
+		bool enumerateCutsUntilBalancedOrFlowBoundExceeded(const Node s, const Node t, CutReporter&& on_cut) {
 			cs.initialize(s,t);
 			bool has_balanced_cut_below_flow_bound = false;
-			while (!has_balanced_cut_below_flow_bound && !time_limit_exceeded && findNextCut()) {
+			while (!has_balanced_cut_below_flow_bound && findNextCut() && on_cut()) {
 				has_balanced_cut_below_flow_bound |= cs.isBalanced();
-				if (cs.flow_algo.flow_value != last_cut) {
-					last_cut = cs.flow_algo.flow_value;
-					num_cuts++;
-				}
-				if (++measure_step == 500) {
-					measure_step = 0;
-					auto now = std::chrono::high_resolution_clock::now();
-					time_limit_exceeded = std::chrono::duration_cast<std::chrono::seconds>(now - start_time).count() > time_limit;
-				}
 			}
 
 			if (has_balanced_cut_below_flow_bound) {
@@ -100,7 +84,11 @@ namespace whfc {
 				LOGGER << cs.toString();
 			}
 
-			return std::make_tuple(has_balanced_cut_below_flow_bound, time_limit_exceeded, num_cuts);
+			return has_balanced_cut_below_flow_bound;
+		}
+
+		bool enumerateCutsUntilBalancedOrFlowBoundExceeded(const Node s, const Node t) {
+			return enumerateCutsUntilBalancedOrFlowBoundExceeded(s, t, []{ return true; });
 		}
 
 		void mostBalancedCut() {

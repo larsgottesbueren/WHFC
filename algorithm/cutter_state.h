@@ -48,7 +48,7 @@ namespace whfc {
 	template<typename FlowAlgorithm>
 	class CutterState {
 	public:
-		static constexpr bool log = false;
+		static constexpr bool log = true;
 
 		using Pin = FlowHypergraph::Pin;
 

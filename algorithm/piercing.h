@@ -139,15 +139,12 @@ namespace whfc {
 
 		void reset() {
 			piercingFallbacks = { 0, 0 };
+
+			past_cuts.clear();
+			num_bulk_piercing_nodes = 1;
 		}
 
 	private:
-
-		size_t estimateMaxNumPiercingNodes() const {
-			// TODO implement...
-			return 1;
-		}
-
 		bool isCandidate(const Node u) const {
 			return cs.isNonTerminal(u) && settlingDoesNotExceedMaxWeight(u);
 		}
@@ -163,5 +160,36 @@ namespace whfc {
 
 		std::array<int, 2> piercingFallbacks = { 0, 0 };
 		static constexpr int piercingFallbackLimitPerSide = 3;
+
+
+		size_t estimateMaxNumPiercingNodes() {
+			if (past_cuts.empty() || past_cuts.back().cut_size != cs.flow_algo.flow_value) {
+				past_cuts.push_back({cs.flow_algo.flow_value, cs.source_reachable_weight, cs.target_reachable_weight});
+			}
+			if (past_cuts.size() < 6) {
+				return 1;
+			}
+
+			static constexpr size_t max_rounds_desired = 500;
+			size_t estimated_rounds_needed = 50;
+
+			if (estimated_rounds_needed > max_rounds_desired) {
+				num_bulk_piercing_nodes *= 2;
+			} else {
+				num_bulk_piercing_nodes /= 2;
+				if (num_bulk_piercing_nodes == 0) {
+					num_bulk_piercing_nodes = 1;
+				}
+			}
+
+			return num_bulk_piercing_nodes;
+		}
+
+		size_t num_bulk_piercing_nodes = 1;
+		struct CutStats {
+			Flow cut_size = 0;
+			NodeWeight source_weight = 0, target_weight = 0;
+		};
+		vec<CutStats> past_cuts;
 	};
 }
