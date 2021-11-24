@@ -69,11 +69,6 @@ public:
 
 	void dischargeActiveNodes() {
 		resetRound();
-		#ifndef NDEBUG
-		vec<Node> copy(active.begin(), active.begin() + num_active);
-		std::sort(copy.begin(), copy.end());
-		assert(std::unique(copy.begin(), copy.end()) == copy.end());	// active nodes not unique
-		#endif
 		tbb::enumerable_thread_specific<size_t> work(0);
 		auto task = [&](size_t i) {
 			const Node u = active[i];

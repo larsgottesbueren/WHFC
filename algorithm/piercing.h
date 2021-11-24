@@ -139,9 +139,8 @@ namespace whfc {
 
 		void reset() {
 			piercingFallbacks = { 0, 0 };
-
-			past_cuts.clear();
-			num_bulk_piercing_nodes = 1;
+			bulk_piercing[0] = BulkPierce();
+			bulk_piercing[1] = BulkPierce();
 		}
 
 	private:
@@ -163,33 +162,37 @@ namespace whfc {
 
 
 		size_t estimateMaxNumPiercingNodes() {
-			if (past_cuts.empty() || past_cuts.back().cut_size != cs.flow_algo.flow_value) {
-				past_cuts.push_back({cs.flow_algo.flow_value, cs.source_reachable_weight, cs.target_reachable_weight});
-			}
-			if (past_cuts.size() < 6) {
+			int side = cs.side_to_pierce;
+			if (!use_bulk_piercing || ++bulk_piercing[side].num_steps < 5) {
 				return 1;
 			}
 
-			static constexpr size_t max_rounds_desired = 500;
-			size_t estimated_rounds_needed = 50;
+			static constexpr size_t max_rounds_desired = 30;
+			size_t estimated_rounds_needed = 20;
 
+			auto& bp = bulk_piercing[side];
 			if (estimated_rounds_needed > max_rounds_desired) {
-				num_bulk_piercing_nodes *= 2;
+				bp.num_nodes *= 3;
+				if (bp.num_nodes > 2000) {
+					bp.num_nodes = 2000;
+				}
 			} else {
-				num_bulk_piercing_nodes /= 2;
-				if (num_bulk_piercing_nodes == 0) {
-					num_bulk_piercing_nodes = 1;
+				bp.num_nodes /= 2;
+				if (bp.num_nodes <= 2) {
+					bp.num_nodes = 2;
 				}
 			}
 
-			return num_bulk_piercing_nodes;
+			return bp.num_nodes;
 		}
 
-		size_t num_bulk_piercing_nodes = 1;
-		struct CutStats {
-			Flow cut_size = 0;
-			NodeWeight source_weight = 0, target_weight = 0;
+		struct BulkPierce {
+			size_t num_steps = 0;
+			size_t num_nodes = 2;
+			NodeWeight initial_terminal_weight = 0;
 		};
-		vec<CutStats> past_cuts;
+		std::array<BulkPierce, 2> bulk_piercing;
+		bool use_bulk_piercing = true;
+
 	};
 }
