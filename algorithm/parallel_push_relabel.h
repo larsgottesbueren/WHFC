@@ -492,6 +492,10 @@ public:
 	}
 
 	void saturateSourceEdges() {
+		/*
+		 * if no new active nodes are pushed, we proceed straight to the termination checking global relabeling,
+		 * which then inserts the mis-labeled excess nodes, and then proceeds to the regular main loop
+		 */
 		resetRound();
 		if (source_piercing_nodes_not_exhausted) {
 			for (const Node source : source_piercing_nodes) {

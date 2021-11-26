@@ -63,10 +63,12 @@ namespace whfc {
 			return true;
 		};
 
+		std::string base_filename = filename.substr(filename.find_last_of("/\\") + 1);
+		std::cout << base_filename << std::endl;
+
 		hfc.timer.start();
 		bool result = hfc.enumerateCutsUntilBalancedOrFlowBoundExceeded(s, t, on_cut);
 		hfc.timer.stop();
-		std::string base_filename = filename.substr(filename.find_last_of("/\\") + 1);
 		/*
 		 * header
 		 * graph,algorithm,seed,threads,improved,flow,flowbound,time,mbc_time,time_limit_exceeded,num_cuts

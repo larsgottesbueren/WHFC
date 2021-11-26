@@ -13,7 +13,7 @@ namespace whfc {
 
 		}
 
-		static constexpr bool log = true;
+		static constexpr bool log = false;
 
 		FlowHypergraph& hg;
 		TimeReporter timer;

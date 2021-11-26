@@ -27,11 +27,12 @@ public:
 
 	bool findMinCuts() {
 		saturateSourceEdges();
+		globalRelabel();	// previous excess nodes have been relabeled to max_level and there is no back-up check to reinsert them
 		while (!active.empty()) {
 			if (flow_value > upper_flow_bound || shall_terminate) {
 				return false;
 			}
-			if (distance_labels_broken_from_target_side_piercing || work_since_last_global_relabel > global_relabel_work_threshold) {
+			if (work_since_last_global_relabel > global_relabel_work_threshold) {
 				globalRelabel();
 			}
 			const Node u = active.front();
@@ -41,9 +42,10 @@ public:
 			else if (isOutNode(u)) { work_since_last_global_relabel += dischargeOutNode(u); }
 			else { work_since_last_global_relabel += dischargeInNode(u); }
 		}
+		LOGGER << V(flow_value);
 
-		deriveTargetSideCut();
 		deriveSourceSideCut(true);
+		deriveTargetSideCut(true);
 		return true;
 	}
 
@@ -272,11 +274,14 @@ public:
 					reach[u] = source_reachable_stamp;
 				}
 			}
+			LOGGER << V(source_reachable_nodes.size()) << "excess nodes";
 		}
+		for (const Node s : source_piercing_nodes) { source_reachable_nodes.push_back(s); }
 
 		auto scan = [&](Node u, int ) {
 			scanForward(u, [&](const Node v) {
-				assert(!isTargetReachable(v));
+				assert(flow_changed || !isTargetReachable(v));
+				assert(!isTarget(v));
 				if (!isSourceReachable(v)) {
 					assert(flow_changed || excess[v] == 0);
 					reach[v] = source_reachable_stamp;
@@ -287,7 +292,7 @@ public:
 		sequentialBFS(source_reachable_nodes, scan);
 	}
 
-	void deriveTargetSideCut() {
+	void deriveTargetSideCut(bool flow_changed = false) {
 		relabel_queue.clear();
 		resetReachability(false);
 		for (const Node t : target_piercing_nodes) { relabel_queue.push_back(t); }
@@ -325,6 +330,24 @@ public:
 	void saturateSourceEdges() {
 		while (!active.empty()) { active.pop(); }
 
+		for (Node u : source_reachable_nodes) {
+			if (excess[u] <= 0 || isSource(u)) {	// all excess nodes are at the beginning
+				break;
+			}
+			assert(level[u] == max_level || isTarget(u));	// can have target piercing nodes in there...
+			if (!isTarget(u)) {
+				active.push(u);
+			}
+		}
+
+		#ifndef NDEBUG
+		size_t num_excesses = 0;
+		for (int i = 0; i < max_level; ++i) {
+			num_excesses += static_cast<size_t>(excess[i] > 0 && !isTarget(Node(i)) && !isSource(Node(i)));
+		}
+		assert(active.size() == num_excesses);
+		#endif
+
 		if (source_piercing_nodes_not_exhausted) {
 			for (const Node source : source_piercing_nodes) {
 				for (InHeIndex inc_iter : hg.incidentHyperedgeIndices(source)) {
@@ -334,9 +357,9 @@ public:
 						Flow d = hg.capacity(e) - flow[inNodeIncidenceIndex(inc_iter)];
 						if (d > 0) {
 							excess[source] -= d;
+							if (excess[e_in] == 0) { active.push(e_in); }
 							excess[e_in] += d;
 							flow[inNodeIncidenceIndex(inc_iter)] += d;
-							active.push(e_in);
 						}
 						assert(flow[inNodeIncidenceIndex(inc_iter)] == hg.capacity(e));
 					}
@@ -344,9 +367,9 @@ public:
 						Flow d = flow[outNodeIncidenceIndex(inc_iter)];
 						if (d > 0) {
 							excess[source] -= d;
+							if (excess[e_out] == 0) { active.push(e_out); }
 							excess[e_out] += d;
 							flow[outNodeIncidenceIndex(inc_iter)] -= d;
-							active.push(e_out);
 						}
 					}
 				}
