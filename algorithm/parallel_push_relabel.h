@@ -52,7 +52,8 @@ public:
 		#ifndef NDEBUG
 		Flow target_excess = 0;
 		size_t num_excess_nodes = 0;
-		for (Node u(0); u < max_level; ++u) {
+		for (int i = 0; i < max_level; ++i) {
+			Node u(i);
 			if (excess[u] > 0 && !isTarget(u) && !isSource(u)) {
 				num_excess_nodes++;
 			}

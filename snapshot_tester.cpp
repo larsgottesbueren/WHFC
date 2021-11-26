@@ -5,6 +5,7 @@
 #include "io/whfc_io.h"
 #include "datastructure/flow_hypergraph_builder.h"
 #include "algorithm/parallel_push_relabel.h"
+#include "algorithm/sequential_push_relabel.h"
 
 #include "util/tbb_thread_pinning.h"
 #include <tbb/task_scheduler_init.h>
@@ -28,9 +29,12 @@ namespace whfc {
 			throw std::runtime_error("s or t not within node id range");
 
 		int seed = 0;
-		using FlowAlgorithm = ParallelPushRelabel;
+		// using FlowAlgorithm = ParallelPushRelabel;
+		using FlowAlgorithm = SequentialPushRelabel;
 		HyperFlowCutter<FlowAlgorithm> hfc(hg, seed);
 		hfc.setFlowBound(info.upperFlowBound);
+		hfc.forceSequential(true);
+		hfc.setBulkPiercing(false);
 		for (int i = 0; i < 2; ++i)
 			hfc.cs.setMaxBlockWeight(i, info.maxBlockWeight[i]);
 

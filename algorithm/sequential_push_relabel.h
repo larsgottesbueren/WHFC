@@ -16,36 +16,35 @@ namespace whfc {
 template<typename T>
 using vec = std::vector<T, tbb::scalable_allocator<T> >;
 
-class SequentialPushRelabel {
+class SequentialPushRelabel : public PushRelabelCommons {
 public:
 	using Type = SequentialPushRelabel;
 	static constexpr bool log = false;
 	static constexpr bool capacitate_incoming_edges_of_in_nodes = true;
 
-	explicit SequentialPushRelabel(FlowHypergraph& hg) : hg(hg) { }
+	explicit SequentialPushRelabel(FlowHypergraph& hg) : PushRelabelCommons(hg) { }
 
-	TimeReporter timer;
 
-	Flow computeFlow(Node s, Node t) {
-		source = s; target = t;
-		clearDatastructures();
-		timer.start("push relabel");
+	bool findMinCuts() {
 		saturateSourceEdges();
-		size_t work = 0;
 		while (!active.empty()) {
-			if (work > global_relabel_work_threshold) {
-				work = 0;
+			if (flow_value > upper_flow_bound || shall_terminate) {
+				return false;
+			}
+			if (distance_labels_broken_from_target_side_piercing || work_since_last_global_relabel > global_relabel_work_threshold) {
 				globalRelabel();
 			}
 			const Node u = active.front();
 			active.pop();
 			if (excess[u] == 0 || level[u] >= max_level) { continue; }
-			if (isHypernode(u)) { work += dischargeHypernode(u); }
-			else if (isOutNode(u)) { work += dischargeOutNode(u); }
-			else { work += dischargeInNode(u); }
+			if (isHypernode(u)) { work_since_last_global_relabel += dischargeHypernode(u); }
+			else if (isOutNode(u)) { work_since_last_global_relabel += dischargeOutNode(u); }
+			else { work_since_last_global_relabel += dischargeInNode(u); }
 		}
-		timer.stop("push relabel");
-		return excess[target];
+
+		deriveTargetSideCut();
+		deriveSourceSideCut(true);
+		return true;
 	}
 
 	size_t dischargeHypernode(Node u) {
@@ -67,9 +66,10 @@ public:
 				}
 				if (my_level == level[e_in] + 1) {
 					if (d > 0) {
-						if (excess[e_in] == 0) { active.push(e_in); }
 						flow[inNodeIncidenceIndex(i)] += d;
 						my_excess -= d;
+						if (isTarget(e_in)) { flow_value += d; }
+						else if (excess[e_in] == 0) { active.push(e_in); }
 						excess[e_in] += d;
 					}
 				} else if (my_level <= level[e_in] && d > 0) {
@@ -89,9 +89,10 @@ public:
 					assert(flow[outNodeIncidenceIndex(i)] <= hg.capacity(e));
 					const Flow d = std::min(my_excess, flow[outNodeIncidenceIndex(i)]);
 					if (d > 0) {
-						if (excess[e_out] == 0) { active.push(e_out); }
 						flow[outNodeIncidenceIndex(i)] -= d;
 						my_excess -= d;
+						if (isTarget(e_out)) { flow_value += d; }
+						else if (excess[e_out] == 0) { active.push(e_out); }
 						excess[e_out] += d;
 					}
 				} else if (my_level <= level[e_out] && flow[outNodeIncidenceIndex(i)] > 0) {
@@ -129,9 +130,10 @@ public:
 			if (my_level == level[e_out] + 1) {
 				Flow d = std::min(hg.capacity(e) - flow[bridgeEdgeIndex(e)], my_excess);
 				if (d > 0) {
-					if (excess[e_out] == 0) { active.push(e_out); }
 					flow[bridgeEdgeIndex(e)] += d;
 					my_excess -= d;
+					if (isTarget(e_out)) { flow_value += d; }
+					else if (excess[e_out] == 0) { active.push(e_out); }
 					excess[e_out] += d;
 				}
 			} else if (my_level <= level[e_out] && flow[bridgeEdgeIndex(e)] < hg.capacity(e)) {
@@ -154,7 +156,8 @@ public:
 						d = std::min(d, my_excess);
 						flow[j] -= d;
 						my_excess -= d;
-						if (v != target && excess[v] == 0) { active.push(v); }
+						if (isTarget(v)) { flow_value += d; }
+						else if (excess[v] == 0) { active.push(v); }
 						excess[v] += d;
 					}
 				} else if (my_level <= level[v] && d > 0) {
@@ -199,7 +202,8 @@ public:
 					assert(d <= hg.capacity(e) - flow[outNodeIncidenceIndex(p.he_inc_iter)]);
 					flow[outNodeIncidenceIndex(p.he_inc_iter)] += d;
 					my_excess -= d;
-					if (v != target && excess[v] == 0) { active.push(v); }
+					if (isTarget(v)) { flow_value += d; }
+					else if (excess[v] == 0) { active.push(v); }
 					excess[v] += d;
 				} else if (my_level <= level[v] && d > 0) {
 					new_level = std::min(new_level, level[v]);
@@ -217,7 +221,8 @@ public:
 				if (d > 0) {
 					flow[bridgeEdgeIndex(e)] -= d;
 					my_excess -= d;
-					if (excess[e_in] == 0) { active.push(e_in); }
+					if (isTarget(e_in)) { flow_value += d; }
+					else if (excess[e_in] == 0) { active.push(e_in); }
 					excess[e_in] += d;
 				}
 			} else if (my_level <= level[e_in] && flow[bridgeEdgeIndex(e)] > 0) {
@@ -239,124 +244,138 @@ public:
 	}
 
 	void globalRelabel() {
-		level.assign(max_level, max_level);
+		for (int i = 0; i < max_level; ++i) { level[i] = isTarget(Node(i)) ? 0 : max_level; }
 		relabel_queue.clear();
-		relabel_queue.push_back(target);
-		level[target] = 0;
-		int dist = 1;
-		size_t first = 0, last = 1;
-		while (first != last) {
-			for (size_t i = first; i < last; ++i) {
-				auto push = [&](const Node v) {
-					if (level[v] == max_level) {
-						level[v] = dist;
-						relabel_queue.push_back(v);
-					}
-				};
-				const Node u = relabel_queue[i];
-				if (isHypernode(u)) {
-					for (InHeIndex incnet_ind : hg.incidentHyperedgeIndices(u)) {
-						const Hyperedge e = hg.getInHe(incnet_ind).e;
-						if (flow[inNodeIncidenceIndex(incnet_ind)] > 0) {								/* scan */
-							push(edgeToInNode(e));
-						}
-						push(edgeToOutNode(e));
-					}
-				} else if (isOutNode(u)) {
-					const Hyperedge e = outNodeToEdge(u);
-					if (flow[bridgeEdgeIndex(e)] < hg.capacity(e)) { // to e_in if flow(e_in, e_out) < capacity(e)
-						push(edgeToInNode(e));
-					}
-					for (const auto& pin : hg.pinsOf(e)) { // to v if flow(e_out, v) > 0
-						if (pin.pin != source && flow[outNodeIncidenceIndex(pin.he_inc_iter)] > 0) {	/* random access */
-							push(pin.pin);
-						}
-					}
-				} else {
-					assert(isInNode(u));
-					const Hyperedge e = inNodeToEdge(u);
-					if (flow[bridgeEdgeIndex(e)] > 0) { // to e_out if flow(e_in, e_out) > 0
-						push(edgeToOutNode(e));
-					}
-					for (const auto& pin : hg.pinsOf(e)) { // to v always
-						if constexpr (capacitate_incoming_edges_of_in_nodes) {
-							if (pin.pin != source && flow[inNodeIncidenceIndex(pin.he_inc_iter)] < hg.capacity(e)) {
-								push(pin.pin);
-							}
-						} else {
-							if (pin.pin != source) {
-								push(pin.pin);
-							}
-						}
-					}
+		for (const Node t : target_piercing_nodes) { relabel_queue.push_back(t); }
+		auto scan = [&](Node u, int dist) {
+			scanBackward(u, [&](const Node v) {
+				if (!isSource(v) && !isTarget(v) && level[v] == max_level) {
+					relabel_queue.push_back(v);
+					level[v] = dist;
+				}
+			});
+		};
+		sequentialBFS(relabel_queue, scan);
+		work_since_last_global_relabel = 0;
+		distance_labels_broken_from_target_side_piercing = false;
+	}
+
+	void deriveSourceSideCut(bool flow_changed) {
+		source_reachable_nodes.clear();
+		if (flow_changed) {
+			resetReachability(true);		// if flow didn't change, we can reuse the old stamp
+			for (int i = 0; i < max_level; ++i) {	// collect excess nodes
+				Node u(i);
+				if (!isSource(u) && !isTarget(u) && excess[u] > 0) {
+					assert(level[u] == max_level);
+					source_reachable_nodes.push_back(u);
+					reach[u] = source_reachable_stamp;
 				}
 			}
-			first = last;
-			last = relabel_queue.size();
+		}
+
+		auto scan = [&](Node u, int ) {
+			scanForward(u, [&](const Node v) {
+				assert(!isTargetReachable(v));
+				if (!isSourceReachable(v)) {
+					assert(flow_changed || excess[v] == 0);
+					reach[v] = source_reachable_stamp;
+					source_reachable_nodes.push_back(v);
+				}
+			});
+		};
+		sequentialBFS(source_reachable_nodes, scan);
+	}
+
+	void deriveTargetSideCut() {
+		relabel_queue.clear();
+		resetReachability(false);
+		for (const Node t : target_piercing_nodes) { relabel_queue.push_back(t); }
+		auto scan = [&](Node u, int ) {
+			scanBackward(u, [&](const Node v) {
+				assert(!isSourceReachable(v));
+				if (!isTargetReachable(v)) {
+					assert(excess[v] == 0);
+					reach[v] = target_reachable_stamp;
+					relabel_queue.push_back(v);
+				}
+			});
+		};
+		sequentialBFS(relabel_queue, scan);
+	}
+
+	template<typename ScanFunc>
+	void sequentialBFS(vec<Node>& queue, ScanFunc&& scan) {
+		size_t first = 0;
+		size_t last = queue.size();
+		int dist = 1;
+		while (first != last) {
+			for ( ; first < last; ++first) {
+				scan(queue[first], dist);
+			}
+			last = queue.size();
 			dist++;
 		}
 	}
 
+	const vec<Node>& sourceReachableNodes() const { return source_reachable_nodes; }
+	const vec<Node>& targetReachableNodes() const { return relabel_queue; }
+
+
 	void saturateSourceEdges() {
-		level[source] = max_level;
-		for (InHeIndex inc_iter : hg.incidentHyperedgeIndices(source)) {
-			const Hyperedge e = hg.getInHe(inc_iter).e;
-			const Flow d = hg.capacity(e);
-			excess[source] -= d;
-			excess[edgeToInNode(e)] += d;
-			flow[inNodeIncidenceIndex(inc_iter)] += d;
-			active.push(edgeToInNode(e));
+		while (!active.empty()) { active.pop(); }
+
+		if (source_piercing_nodes_not_exhausted) {
+			for (const Node source : source_piercing_nodes) {
+				for (InHeIndex inc_iter : hg.incidentHyperedgeIndices(source)) {
+					const Hyperedge e = hg.getInHe(inc_iter).e;
+					Node e_in = edgeToInNode(e), e_out = edgeToOutNode(e);
+					if (!isSource(e_in)) {
+						Flow d = hg.capacity(e) - flow[inNodeIncidenceIndex(inc_iter)];
+						if (d > 0) {
+							excess[source] -= d;
+							excess[e_in] += d;
+							flow[inNodeIncidenceIndex(inc_iter)] += d;
+							active.push(e_in);
+						}
+						assert(flow[inNodeIncidenceIndex(inc_iter)] == hg.capacity(e));
+					}
+					if (!isSource(e_out)) {
+						Flow d = flow[outNodeIncidenceIndex(inc_iter)];
+						if (d > 0) {
+							excess[source] -= d;
+							excess[e_out] += d;
+							flow[outNodeIncidenceIndex(inc_iter)] -= d;
+							active.push(e_out);
+						}
+					}
+				}
+			}
+			source_piercing_nodes_not_exhausted = false;
 		}
+		#ifndef NDEBUG
+		for (Node source : source_piercing_nodes) {
+			for (InHeIndex inc_iter : hg.incidentHyperedgeIndices(source)) {
+				const Hyperedge e = hg.getInHe(inc_iter).e;
+				// should still be saturated because no flow was pushed back to source
+				assert(flow[inNodeIncidenceIndex(inc_iter)] == hg.capacity(e) || isSource(edgeToInNode(e)));
+			}
+		}
+		#endif
 	}
 
-	void clearDatastructures() {
-		out_node_offset = hg.numPins();
-		bridge_node_offset = 2 * hg.numPins();
-
-		max_level = hg.numNodes() + 2 * hg.numHyperedges();
-
+	void reset() {
+		PushRelabelCommons::reset();
 		relabel_queue.reserve(max_level);
 
-		flow.assign(2 * hg.numPins() + hg.numHyperedges(), 0);
-		excess.assign(max_level, 0);
-		level.assign(max_level, 0);
-
-		work_since_last_global_relabel = std::numeric_limits<size_t>::max();
-		global_relabel_work_threshold = (global_relabel_alpha * max_level + 2 * hg.numPins() + hg.numHyperedges()) / global_relabel_frequency;
+		while (!active.empty()) { active.pop(); }
+		relabel_queue.clear();
+		source_reachable_nodes.clear();
 	}
 
 private:
-	int max_level = 0;
-	FlowHypergraph& hg;
-	vec<Flow> flow, excess;
-	vec<int> level;
 	std::queue<Node> active;
-	vec<Node> relabel_queue;
-
-	Node source, target;
-
-	static constexpr size_t global_relabel_alpha = 6;
-	static constexpr size_t global_relabel_frequency = 5;
-	size_t work_since_last_global_relabel = 0, global_relabel_work_threshold = 0;
-
-	size_t out_node_offset = 0, bridge_node_offset = 0;
-
-	// position where flow going from vertex into hyperedge is stored
-	size_t inNodeIncidenceIndex(InHeIndex inc_he_ind) const { return inc_he_ind; }
-	// position where flow going from hyperedge into vertex is stored
-	size_t outNodeIncidenceIndex(InHeIndex inc_he_ind) const { return inc_he_ind + out_node_offset; }
-	// position where flow on hyperedge is stored
-	size_t bridgeEdgeIndex(Hyperedge he) const { return he + bridge_node_offset; }
-
-	// hypernodes | in-nodes | out-nodes
-	// [0..n - 1][n..n+m-1][n+m..n+2m]
-	bool isHypernode(Node u) const { return u < hg.numNodes(); }
-	bool isInNode(Node u) const { return u >= hg.numNodes() && u < hg.numNodes() + hg.numHyperedges(); }
-	bool isOutNode(Node u) const { assert(u < hg.numNodes() + 2 * hg.numHyperedges()); return u >= hg.numNodes() + hg.numHyperedges(); }
-	Hyperedge inNodeToEdge(Node u) const { assert(isInNode(u)); return Hyperedge(u - hg.numNodes()); }
-	Hyperedge outNodeToEdge(Node u) const { assert(isOutNode(u)); return Hyperedge(u - hg.numNodes() - hg.numHyperedges()); }
-	Node edgeToInNode(Hyperedge e) const { assert(e < hg.numHyperedges()); return Node(e + hg.numNodes()); }
-	Node edgeToOutNode(Hyperedge e) const { assert(e < hg.numHyperedges()); return Node(e + hg.numNodes() + hg.numHyperedges()); }
+	vec<Node> relabel_queue, source_reachable_nodes;
 };
 
 }
