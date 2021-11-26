@@ -69,6 +69,7 @@ namespace whfc {
 		template<typename CutReporter>
 		bool enumerateCutsUntilBalancedOrFlowBoundExceeded(const Node s, const Node t, CutReporter&& on_cut) {
 			cs.initialize(s,t);
+			piercer.initialize();
 			bool has_balanced_cut_below_flow_bound = false;
 			while (!has_balanced_cut_below_flow_bound && findNextCut() && on_cut()) {
 				has_balanced_cut_below_flow_bound |= cs.isBalanced();
