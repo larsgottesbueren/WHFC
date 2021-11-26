@@ -59,6 +59,8 @@ namespace whfc {
 		NodeWeight source_weight, target_weight, source_reachable_weight, target_reachable_weight;
 		std::vector<Move> trackedMoves;
 
+		bool force_sequential = true;
+
 		bool augmentingPathAvailableFromPiercing = true;
 		bool hasCut = false;
 		bool mostBalancedCutMode = false;
@@ -165,7 +167,7 @@ namespace whfc {
 		void computeSourceReachableWeight() {
 			auto sr = flow_algo.sourceReachableNodes();
 			source_reachable_weight = source_weight;
-			if (augmentingPathAvailableFromPiercing && sr.size() > 5000) {
+			if (augmentingPathAvailableFromPiercing && sr.size() > 5000 && !force_sequential) {
 				source_reachable_weight += tbb::parallel_reduce(
 						tbb::blocked_range<size_t>(0, sr.size(), 2000), 0, [&](const auto& r, NodeWeight sum) -> NodeWeight {
 					for (size_t i = r.begin(); i < r.end(); ++i) {
@@ -198,7 +200,7 @@ namespace whfc {
 		void computeTargetReachableWeight() {
 			auto tr = flow_algo.targetReachableNodes();
 			target_reachable_weight = target_weight;
-			if (augmentingPathAvailableFromPiercing && tr.size() > 5000) {
+			if (augmentingPathAvailableFromPiercing && tr.size() > 5000 && !force_sequential) {
 				target_reachable_weight += tbb::parallel_reduce(
 						tbb::blocked_range<size_t>(0, tr.size(), 2000), 0, [&](const auto& r, NodeWeight sum) -> NodeWeight {
 					for (size_t i = r.begin(); i < r.end(); ++i) {
@@ -388,34 +390,23 @@ namespace whfc {
 			assert(!partitionWrittenToNodeSet);
 			assert(isBalanced());
 
-			using result_t = std::pair<NodeWeight, NodeWeight>;
-			result_t zero(0,0);
-			result_t extra = tbb::parallel_reduce(
-					tbb::blocked_range<size_t>(0, hg.numNodes()), zero,
-					[&](const auto& range, result_t sum) -> result_t {
-						for (Node u(range.begin()); u < range.end(); ++u) {
-							if (flow_algo.isSourceReachable(u) && !flow_algo.isSource(u)) {
-								flow_algo.makeSource(u);
-								sum.first += hg.nodeWeight(u);
-							} else if (flow_algo.isTargetReachable(u) && !flow_algo.isTarget(u)) {
-								flow_algo.makeTarget(u);
-								sum.second += hg.nodeWeight(u);
-							} else if (!flow_algo.isSourceReachable(u) && !flow_algo.isTargetReachable(u)) {
-								if (assignment.assignUnclaimedToSource) {
-									flow_algo.makeSource(u);
-									sum.first += hg.nodeWeight(u);
-								} else {
-									flow_algo.makeTarget(u);
-									sum.second += hg.nodeWeight(u);
-								}
-							}
-						}
-						return sum;
-					}, [](const auto& l, const auto& r) -> result_t {
-						return {l.first + r.first, l.second + r.second};
-					});
-			source_weight += extra.first;
-			target_weight += extra.second;
+			for (Node u : hg.nodeIDs()) {
+				if (flow_algo.isSourceReachable(u) && !flow_algo.isSource(u)) {
+					flow_algo.makeSource(u);
+					source_weight += hg.nodeWeight(u);
+				} else if (flow_algo.isTargetReachable(u) && !flow_algo.isTarget(u)) {
+					flow_algo.makeTarget(u);
+					target_weight += hg.nodeWeight(u);
+				} else if (!flow_algo.isSourceReachable(u) && !flow_algo.isTargetReachable(u)) {
+					if (assignment.assignUnclaimedToSource) {
+						flow_algo.makeSource(u);
+						source_weight += hg.nodeWeight(u);
+					} else {
+						flow_algo.makeTarget(u);
+						target_weight += hg.nodeWeight(u);
+					}
+				}
+			}
 
 			assert(source_weight + target_weight == hg.totalNodeWeight());
 			source_reachable_weight = source_weight;

@@ -153,6 +153,10 @@ namespace whfc {
 			initializeBulkPiercing();
 		}
 
+		void setBulkPiercing(bool use) {
+			use_bulk_piercing = use;
+		}
+
 	private:
 		bool isCandidate(const Node u) const {
 			return cs.isNonTerminal(u) && settlingDoesNotExceedMaxWeight(u);

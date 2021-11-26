@@ -155,6 +155,14 @@ namespace whfc {
 		void setFlowBound(Flow bound) {
 			cs.flow_algo.upper_flow_bound = bound;
 		}
+
+		void setBulkPiercing(bool use) {
+			piercer.setBulkPiercing(use);
+		}
+
+		void forceSequential(bool force) {
+			cs.force_sequential = force;
+		}
 	};
 
 }
