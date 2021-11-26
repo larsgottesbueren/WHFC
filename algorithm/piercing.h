@@ -15,16 +15,16 @@ namespace whfc {
 			if (cs.notSettledNodeWeight() == 0)
 				return false;
 
-			NodeBorder* border = cs.side_to_pierce == 0 ? &cs.borderNodes.sourceSide : &cs.borderNodes.targetSide;
+			NodeBorder* border = cs.side_to_pierce == 0 ? &cs.border_nodes.source_side : &cs.border_nodes.target_side;
 			cs.clearPiercingNodes();
 			size_t num_piercing_nodes = 0;
-			const bool add_all_unreachables = cs.addingAllUnreachableNodesDoesNotChangeHeavierBlock() && !cs.mostBalancedCutMode;
+			const bool add_all_unreachables = cs.addingAllUnreachableNodesDoesNotChangeHeavierBlock() && !cs.most_balanced_cut_mode;
 
 			for (Index i = 0; i != 2; ++i) {
-				HopDistance& dist = border->maxOccupiedBucket[i];
-				const size_t max_num_piercing_nodes = (i == 0 || cs.mostBalancedCutMode) ? 1 : estimateMaxNumPiercingNodes();
+				HopDistance& dist = border->max_occupied_bucket[i];
+				const size_t max_num_piercing_nodes = (i == 0 || cs.most_balanced_cut_mode) ? 1 : estimateMaxNumPiercingNodes();
 
-				for ( ; dist >= border->minOccupiedBucket[i]; --dist) {
+				for ( ; dist >= border->min_occupied_bucket[i]; --dist) {
 					NodeBorder::Bucket& bucket = border->buckets[dist][i];
 
 					if (i == NodeBorder::not_reachable_bucket_index && add_all_unreachables) {
@@ -48,7 +48,7 @@ namespace whfc {
 							bucket[it] = bucket.back();
 							bucket.pop_back();
 
-							if (cs.mostBalancedCutMode) {
+							if (cs.most_balanced_cut_mode) {
 								// track for reset
 								border->removed_during_most_balanced_cut_mode[i].push_back(candidate);
 							}
@@ -57,14 +57,14 @@ namespace whfc {
 								if (i != NodeBorder::not_reachable_bucket_index || !cs.reachableFromSideNotToPierce(candidate)) {
 									cs.addPiercingNode(candidate);
 									if (++num_piercing_nodes >= max_num_piercing_nodes) {
-										if (use_bulk_piercing && i == 1 && !cs.mostBalancedCutMode) {
+										if (use_bulk_piercing && i == 1 && !cs.most_balanced_cut_mode) {
 											bulk_piercing[cs.side_to_pierce].total_bulk_piercing_nodes += num_piercing_nodes;
 										}
 										LOGGER << V(num_piercing_nodes);
 										return true;
 									}
 									// restrict adding multiple nodes to one distance bucket at a time?
-								} else if (!cs.mostBalancedCutMode) {
+								} else if (!cs.most_balanced_cut_mode) {
 									// node got reachable --> move to other bucket. (no need to move if it can't be pierced in the future)
 									border->insertIntoBucket(candidate, NodeBorder::reachable_bucket_index, dist);
 								}
@@ -76,18 +76,18 @@ namespace whfc {
 				border->clearBuckets(i);
 
 				if (num_piercing_nodes > 0) {
-					if (use_bulk_piercing && i == 1 && !cs.mostBalancedCutMode) {
+					if (use_bulk_piercing && i == 1 && !cs.most_balanced_cut_mode) {
 						bulk_piercing[cs.side_to_pierce].total_bulk_piercing_nodes += num_piercing_nodes;
 					}
 					LOGGER << V(num_piercing_nodes);
 					return true;
-				} else if (i == NodeBorder::not_reachable_bucket_index && !cs.mostBalancedCutMode) {
+				} else if (i == NodeBorder::not_reachable_bucket_index && !cs.most_balanced_cut_mode) {
 					if (cs.unclaimedNodeWeight() > 0) {
 						// nodes may have been mis-classified as reachable when first inserted (this happens with nodes that get isolated)
 						// move those to the first PQ
 						size_t num_moved = 0;
 						size_t r = NodeBorder::reachable_bucket_index;
-						for (HopDistance d = border->maxOccupiedBucket[r]; d >= border->minOccupiedBucket[r]; --d) {
+						for (HopDistance d = border->max_occupied_bucket[r]; d >= border->min_occupied_bucket[r]; --d) {
 							auto& bucket = border->buckets[d][r];
 							auto new_end = std::remove_if(bucket.begin(), bucket.end(), [&](const Node& u) {
 								if (cs.isNonTerminal(u)) {
@@ -118,7 +118,7 @@ namespace whfc {
 			}
 
 			Node p = invalidNode;
-			if (piercingFallbacks[cs.side_to_pierce]++ < piercingFallbackLimitPerSide) {
+			if (piercing_fallbacks[cs.side_to_pierce]++ < piercing_fallback_limit_per_side) {
 				// didn't find one in the bucket PQs, so pick a random unsettled node
 				uint32_t rndScore = 0;
 				HopDistance d = 0;
@@ -146,7 +146,7 @@ namespace whfc {
 		}
 
 		void reset() {
-			piercingFallbacks = { 0, 0 };
+			piercing_fallbacks = { 0, 0 };
 		}
 
 		void initialize() {
@@ -171,8 +171,8 @@ namespace whfc {
 
 		static constexpr uint32_t max_random_score = 1 << 25;
 
-		std::array<int, 2> piercingFallbacks = { 0, 0 };
-		static constexpr int piercingFallbackLimitPerSide = 3;
+		std::array<int, 2> piercing_fallbacks = { 0, 0 };
+		static constexpr int piercing_fallback_limit_per_side = 3;
 
 
 		size_t estimateMaxNumPiercingNodes() {

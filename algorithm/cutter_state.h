@@ -18,20 +18,20 @@ namespace whfc {
 	using vec = std::vector<T, tbb::scalable_allocator<T> >;
 
 	struct SimulatedNodeAssignment {
-		bool assignUnclaimedToSource = true;
-		bool perfectBalance = false;
-		double balanceSourceBlock = std::numeric_limits<double>::max(), balanceTargetBlock = std::numeric_limits<double>::max();
-		size_t numberOfTrackedMoves = 0;
+		bool assign_unclaimed_to_source = true;
+		bool perfect_balance = false;
+		double balance_source_block = std::numeric_limits<double>::max(), balance_target_block = std::numeric_limits<double>::max();
+		size_t number_of_tracked_moves = 0;
 
 		double balance() const {
-			if (perfectBalance) {
+			if (perfect_balance) {
 				return 1.0;
 			}
-			return std::min(balanceSourceBlock, balanceTargetBlock);
+			return std::min(balance_source_block, balance_target_block);
 		}
 
 		bool isPerfectlyBalanced() const {
-			return perfectBalance || std::abs(balanceSourceBlock - balanceTargetBlock) < 1e-9;
+			return perfect_balance || std::abs(balance_source_block - balance_target_block) < 1e-9;
 		}
 	};
 
@@ -42,7 +42,7 @@ namespace whfc {
 	};
 
 	struct NonDynamicCutterState {
-		vec<Node> sourcePiercingNodes, targetPiercingNodes;
+		vec<Node> source_piercing_nodes, target_piercing_nodes;
 	};
 
 	template<typename FlowAlgorithm>
@@ -57,17 +57,17 @@ namespace whfc {
 		FlowHypergraph& hg;
 
 		NodeWeight source_weight, target_weight, source_reachable_weight, target_reachable_weight;
-		std::vector<Move> trackedMoves;
+		std::vector<Move> tracked_moves;
 
 		bool force_sequential = true;
 
-		bool augmentingPathAvailableFromPiercing = true;
-		bool hasCut = false;
-		bool mostBalancedCutMode = false;
+		bool augmenting_path_available_from_piercing = true;
+		bool has_cut = false;
+		bool most_balanced_cut_mode = false;
 		HyperedgeCuts cuts;
-		NodeBorders borderNodes;
-		std::array<NodeWeight, 2> maxBlockWeightPerSide;
-		bool partitionWrittenToNodeSet = false;
+		NodeBorders border_nodes;
+		std::array<NodeWeight, 2> max_block_weight_per_side;
+		bool partition_written_to_node_set = false;
 		TimeReporter& timer;
 		Randomizer rng;
 
@@ -75,8 +75,8 @@ namespace whfc {
 				flow_algo(_hg),
 				hg(_hg),
 				cuts(_hg.numHyperedges()),
-				borderNodes(_hg.numNodes()),
-				maxBlockWeightPerSide({NodeWeight(0), NodeWeight(0)}),
+				border_nodes(_hg.numNodes()),
+				max_block_weight_per_side({ NodeWeight(0), NodeWeight(0)}),
 				timer(timer)
 		{ }
 
@@ -94,33 +94,33 @@ namespace whfc {
 
 		void addToSourceSideCut(const Hyperedge e) {
 			//Note: the current implementation of selecting piercing nodes relies on not inserting target-reachable nodes during most balanced cut mode
-			if (!cuts.sourceSide.wasAdded(e)) {
-				cuts.sourceSide.add(e);
+			if (!cuts.source_side.wasAdded(e)) {
+				cuts.source_side.add(e);
 				for (const Pin& px : hg.pinsOf(e)) {
-					if (isNonTerminal(px.pin) && !borderNodes.sourceSide.wasAdded(px.pin) && (!mostBalancedCutMode || !flow_algo.isTargetReachable(px.pin))) {
-						borderNodes.sourceSide.add(px.pin, flow_algo.isTargetReachable(px.pin));
+					if (isNonTerminal(px.pin) && !border_nodes.source_side.wasAdded(px.pin) && (!most_balanced_cut_mode || !flow_algo.isTargetReachable(px.pin))) {
+						border_nodes.source_side.add(px.pin, flow_algo.isTargetReachable(px.pin));
 					}
 				}
 			}
 		}
 
 		void addToTargetSideCut(const Hyperedge e) {
-			if (!cuts.targetSide.wasAdded(e)) {
-				cuts.targetSide.add(e);
+			if (!cuts.target_side.wasAdded(e)) {
+				cuts.target_side.add(e);
 				for (const Pin& px : hg.pinsOf(e)) {
-					if (isNonTerminal(px.pin) && !borderNodes.targetSide.wasAdded(px.pin) && (!mostBalancedCutMode || !flow_algo.isSourceReachable(px.pin))) {
-						borderNodes.targetSide.add(px.pin, flow_algo.isSourceReachable(px.pin));
+					if (isNonTerminal(px.pin) && !border_nodes.target_side.wasAdded(px.pin) && (!most_balanced_cut_mode || !flow_algo.isSourceReachable(px.pin))) {
+						border_nodes.target_side.add(px.pin, flow_algo.isSourceReachable(px.pin));
 					}
 				}
 			}
 		}
 
 		void setMaxBlockWeight(int side, NodeWeight mw) {
-			maxBlockWeightPerSide[side] = mw;
+			max_block_weight_per_side[side] = mw;
 		}
 
 		NodeWeight maxBlockWeight(int side) const {
-			return maxBlockWeightPerSide[side];
+			return max_block_weight_per_side[side];
 		}
 
 		bool reachableFromSideNotToPierce(const Node u) const {
@@ -128,26 +128,26 @@ namespace whfc {
 		}
 
 		void clearPiercingNodes() {
-			hasCut = false;
+			has_cut = false;
 			flow_algo.clearPiercingNodes(side_to_pierce == 0);
-			augmentingPathAvailableFromPiercing = false;
+			augmenting_path_available_from_piercing = false;
 		}
 
 		void addPiercingNode(const Node piercingNode) {
-			augmentingPathAvailableFromPiercing |= reachableFromSideNotToPierce(piercingNode);
+			augmenting_path_available_from_piercing |= reachableFromSideNotToPierce(piercingNode);
 			if (side_to_pierce == 0) {
 				source_weight += hg.nodeWeight(piercingNode);
 			} else {
 				target_weight += hg.nodeWeight(piercingNode);
 			}
-			if (mostBalancedCutMode) {
-				trackedMoves.emplace_back(piercingNode, side_to_pierce);
+			if (most_balanced_cut_mode) {
+				tracked_moves.emplace_back(piercingNode, side_to_pierce);
 			}
 			flow_algo.pierce(piercingNode, side_to_pierce == 0);
 		}
 
 		void computeReachableWeights() {
-			if (augmentingPathAvailableFromPiercing) {
+			if (augmenting_path_available_from_piercing) {
 				// tbb::parallel_invoke([&] {
 						computeSourceReachableWeight();
 				//	}, [&] {
@@ -167,7 +167,7 @@ namespace whfc {
 		void computeSourceReachableWeight() {
 			auto sr = flow_algo.sourceReachableNodes();
 			source_reachable_weight = source_weight;
-			if (augmentingPathAvailableFromPiercing && sr.size() > 5000 && !force_sequential) {
+			if (augmenting_path_available_from_piercing && sr.size() > 5000 && !force_sequential) {
 				source_reachable_weight += tbb::parallel_reduce(
 						tbb::blocked_range<size_t>(0, sr.size(), 2000), 0, [&](const auto& r, NodeWeight sum) -> NodeWeight {
 					for (size_t i = r.begin(); i < r.end(); ++i) {
@@ -200,7 +200,7 @@ namespace whfc {
 		void computeTargetReachableWeight() {
 			auto tr = flow_algo.targetReachableNodes();
 			target_reachable_weight = target_weight;
-			if (augmentingPathAvailableFromPiercing && tr.size() > 5000 && !force_sequential) {
+			if (augmenting_path_available_from_piercing && tr.size() > 5000 && !force_sequential) {
 				target_reachable_weight += tbb::parallel_reduce(
 						tbb::blocked_range<size_t>(0, tr.size(), 2000), 0, [&](const auto& r, NodeWeight sum) -> NodeWeight {
 					for (size_t i = r.begin(); i < r.end(); ++i) {
@@ -234,8 +234,8 @@ namespace whfc {
 			for (Node u : flow_algo.sourceReachableNodes()) {
 				assert(flow_algo.isSourceReachable(u));
 				if (!flow_algo.isSource(u)) {
-					if (mostBalancedCutMode) {
-						trackedMoves.emplace_back(u, 0);
+					if (most_balanced_cut_mode) {
+						tracked_moves.emplace_back(u, 0);
 					}
 					if (flow_algo.isInNode(u)) {
 						Hyperedge e = flow_algo.inNodeToEdge(u);
@@ -254,8 +254,8 @@ namespace whfc {
 			for (Node u : flow_algo.targetReachableNodes()) {
 				assert(flow_algo.isTargetReachable(u));
 				if (!flow_algo.isTarget(u)) {
-					if (mostBalancedCutMode) {
-						trackedMoves.emplace_back(u, 1);
+					if (most_balanced_cut_mode) {
+						tracked_moves.emplace_back(u, 1);
 					}
 					if (flow_algo.isOutNode(u)) {
 						Hyperedge e = flow_algo.outNodeToEdge(u);
@@ -284,13 +284,13 @@ namespace whfc {
 
 		void reset() {		// TODO could consolidate with initialize
 			flow_algo.reset();
-			trackedMoves.clear();
-			augmentingPathAvailableFromPiercing = true;
-			hasCut = false;
-			mostBalancedCutMode = false;
+			tracked_moves.clear();
+			augmenting_path_available_from_piercing = true;
+			has_cut = false;
+			most_balanced_cut_mode = false;
 			cuts.reset(hg.numHyperedges());			//this requires that FlowHypergraph is reset before resetting the CutterState
-			borderNodes.reset(hg.numNodes());
-			partitionWrittenToNodeSet = false;
+			border_nodes.reset(hg.numNodes());
+			partition_written_to_node_set = false;
 		}
 
 		void initialize(Node s, Node t) {
@@ -313,14 +313,14 @@ namespace whfc {
 		}
 
 		bool isBalanced() {
-			assert(hasCut);
-			assert(!partitionWrittenToNodeSet && "Cannot call isBalanced() once the partition has been written");
+			assert(has_cut);
+			assert(!partition_written_to_node_set && "Cannot call isBalanced() once the partition has been written");
 			return (source_reachable_weight <= maxBlockWeight(0) && hg.totalNodeWeight() - source_reachable_weight <= maxBlockWeight(1))
 				|| (hg.totalNodeWeight() - target_reachable_weight <= maxBlockWeight(0) && target_reachable_weight <= maxBlockWeight(1));
 		}
 
 		bool rejectPiercingIfAugmenting() const {
-			return mostBalancedCutMode || flow_algo.flow_value == flow_algo.upper_flow_bound;
+			return most_balanced_cut_mode || flow_algo.flow_value == flow_algo.upper_flow_bound;
 		}
 
 		bool addingAllUnreachableNodesDoesNotChangeHeavierBlock() const {
@@ -339,20 +339,20 @@ namespace whfc {
 		}
 
 		NonDynamicCutterState enterMostBalancedCutMode() {
-			assert(!mostBalancedCutMode);
-			assert(trackedMoves.empty());
-			assert(hasCut);
-			mostBalancedCutMode = true;	// activates move tracking
-			borderNodes.enterMostBalancedCutMode();
+			assert(!most_balanced_cut_mode);
+			assert(tracked_moves.empty());
+			assert(has_cut);
+			most_balanced_cut_mode = true;	// activates move tracking
+			border_nodes.enterMostBalancedCutMode();
 			cuts.enterMostBalancedCutMode();
 			return { flow_algo.source_piercing_nodes, flow_algo.target_piercing_nodes };
 		}
 
 		void resetToFirstBalancedState(NonDynamicCutterState& nds) {
-			flow_algo.source_piercing_nodes = nds.sourcePiercingNodes;
-			flow_algo.target_piercing_nodes = nds.targetPiercingNodes;
+			flow_algo.source_piercing_nodes = nds.source_piercing_nodes;
+			flow_algo.target_piercing_nodes = nds.target_piercing_nodes;
 			revertMoves(0);
-			borderNodes.resetForMostBalancedCut();
+			border_nodes.resetForMostBalancedCut();
 			cuts.resetForMostBalancedCut();
 			side_to_pierce = sideToGrow();
 		}
@@ -363,31 +363,31 @@ namespace whfc {
 				return (static_cast<double>(a) / static_cast<double>(max_a));
 			};
 			SimulatedNodeAssignment suw;
-			suw.balanceSourceBlock = gap(hg.totalNodeWeight() - target_reachable_weight, maxBlockWeight(0));
-			suw.balanceTargetBlock = gap(target_reachable_weight, maxBlockWeight(1));
-			suw.assignUnclaimedToSource = true;
+			suw.balance_source_block = gap(hg.totalNodeWeight() - target_reachable_weight, maxBlockWeight(0));
+			suw.balance_target_block = gap(target_reachable_weight, maxBlockWeight(1));
+			suw.assign_unclaimed_to_source = true;
 
 			SimulatedNodeAssignment tuw;
-			tuw.balanceSourceBlock = gap(source_reachable_weight, maxBlockWeight(0));
-			tuw.balanceTargetBlock = gap(hg.totalNodeWeight() - source_reachable_weight, maxBlockWeight(1));
-			tuw.assignUnclaimedToSource = false;
+			tuw.balance_source_block = gap(source_reachable_weight, maxBlockWeight(0));
+			tuw.balance_target_block = gap(hg.totalNodeWeight() - source_reachable_weight, maxBlockWeight(1));
+			tuw.assign_unclaimed_to_source = false;
 
 			if (maxBlockWeight(0) == maxBlockWeight(1) && hg.totalNodeWeight() % 2 == 1) {
 				// special case because it's harder to catch
-				suw.perfectBalance = hg.totalNodeWeight() - 2 * target_reachable_weight == 1;
-				tuw.perfectBalance = hg.totalNodeWeight() - 2 * source_reachable_weight == 1;
+				suw.perfect_balance = hg.totalNodeWeight() - 2 * target_reachable_weight == 1;
+				tuw.perfect_balance = hg.totalNodeWeight() - 2 * source_reachable_weight == 1;
 			}
 
 			SimulatedNodeAssignment sol = suw.balance() > tuw.balance() ? suw : tuw;
 
-			sol.numberOfTrackedMoves = trackedMoves.size();
+			sol.number_of_tracked_moves = tracked_moves.size();
 			return sol;
 		}
 
 		// takes the information from mostBalancedIsolatedNodesAssignment()
 		// can be an old run, since the DP solution for trackedIsolatedWeight only contains nodes that were isolated during that run
 		void writePartition(const SimulatedNodeAssignment& assignment) {
-			assert(!partitionWrittenToNodeSet);
+			assert(!partition_written_to_node_set);
 			assert(isBalanced());
 
 			for (Node u : hg.nodeIDs()) {
@@ -398,7 +398,7 @@ namespace whfc {
 					flow_algo.makeTarget(u);
 					target_weight += hg.nodeWeight(u);
 				} else if (!flow_algo.isSourceReachable(u) && !flow_algo.isTargetReachable(u)) {
-					if (assignment.assignUnclaimedToSource) {
+					if (assignment.assign_unclaimed_to_source) {
 						flow_algo.makeSource(u);
 						source_weight += hg.nodeWeight(u);
 					} else {
@@ -411,7 +411,7 @@ namespace whfc {
 			assert(source_weight + target_weight == hg.totalNodeWeight());
 			source_reachable_weight = source_weight;
 			target_reachable_weight = target_weight;
-			partitionWrittenToNodeSet = true;
+			partition_written_to_node_set = true;
 
 			#ifndef NDEBUG
 			NodeWeight sw = 0, tw = 0;
@@ -432,14 +432,14 @@ namespace whfc {
 
 		void revertMoves(const size_t numberOfTrackedMoves) {
 			// only in most balanced cut mode --> no need for parallelism
-			while (trackedMoves.size() > numberOfTrackedMoves) {
-				Move& m = trackedMoves.back();
+			while (tracked_moves.size() > numberOfTrackedMoves) {
+				Move& m = tracked_moves.back();
 				flow_algo.unreach(m.node);
 				if (flow_algo.isHypernode(m.node)) {
 					if (m.direction == 0) source_weight -= hg.nodeWeight(m.node);
 					else target_weight -= hg.nodeWeight(m.node);
 				}
-				trackedMoves.pop_back();
+				tracked_moves.pop_back();
 			}
 			source_reachable_weight = source_weight;
 			target_reachable_weight = target_weight;
@@ -474,20 +474,20 @@ namespace whfc {
 		}
 
 		void verifyCutPostConditions() {
-			assert(hasCut);
+			assert(has_cut);
 
 #ifndef NDEBUG
 			Flow expected_flow = 0;
 			if (side_to_pierce == 0) {
-				cuts.sourceSide.cleanUp([&](const Hyperedge& e) { return flow_algo.isSource(flow_algo.edgeToOutNode(e)); });
-				for (const Hyperedge& e : cuts.sourceSide.entries()) {
+				cuts.source_side.cleanUp([&](const Hyperedge& e) { return flow_algo.isSource(flow_algo.edgeToOutNode(e)); });
+				for (const Hyperedge& e : cuts.source_side.entries()) {
 					assert(flow_algo.isSource(flow_algo.edgeToInNode(e)) && !flow_algo.isSource(flow_algo.edgeToOutNode(e)));
 					assert(flow_algo.flow[flow_algo.bridgeEdgeIndex(e)] == hg.capacity(e));
 					expected_flow += hg.capacity(e);
 				}
 			} else {
-				cuts.targetSide.cleanUp([&](const Hyperedge& e) { return flow_algo.isTarget(flow_algo.edgeToInNode(e)); });
-				for (const Hyperedge& e : cuts.targetSide.entries()) {
+				cuts.target_side.cleanUp([&](const Hyperedge& e) { return flow_algo.isTarget(flow_algo.edgeToInNode(e)); });
+				for (const Hyperedge& e : cuts.target_side.entries()) {
 					assert(!flow_algo.isTarget(flow_algo.edgeToInNode(e)) && flow_algo.isTarget(flow_algo.edgeToOutNode(e)));
 					assert(flow_algo.flow[flow_algo.bridgeEdgeIndex(e)] == hg.capacity(e));
 					expected_flow += hg.capacity(e);
@@ -521,7 +521,7 @@ namespace whfc {
 						assert(flow_algo.isSource(flow_algo.edgeToOutNode(e)));
 					}
 				}
-				auto sorted_cut = cuts.sourceSide.copy();
+				auto sorted_cut = cuts.source_side.copy();
 				std::sort(sorted_cut.begin(), sorted_cut.end());
 				assert(sorted_cut == cut_from_partition);
 			} else {
@@ -542,7 +542,7 @@ namespace whfc {
 						assert(flow_algo.isTarget(flow_algo.edgeToInNode(e)));
 					}
 				}
-				auto sorted_cut = cuts.targetSide.copy();
+				auto sorted_cut = cuts.target_side.copy();
 				std::sort(sorted_cut.begin(), sorted_cut.end());
 				assert(sorted_cut == cut_from_partition);
 			}
@@ -590,9 +590,9 @@ namespace whfc {
 			bool source_side_grown = side_to_pierce == 0;
 
 			if (source_side_grown) {
-				for (Hyperedge e : cuts.sourceSide.entries()) he_seen.set(e);
+				for (Hyperedge e : cuts.source_side.entries()) he_seen.set(e);
 			} else {
-				for (Hyperedge e : cuts.targetSide.entries()) he_seen.set(e);
+				for (Hyperedge e : cuts.target_side.entries()) he_seen.set(e);
 			}
 
 			while (!queue.empty()) {
@@ -633,9 +633,9 @@ namespace whfc {
 			}
 
 			if (side_to_pierce == 0) {
-				for (Hyperedge e : cuts.sourceSide.entries()) he_seen.set(e);
+				for (Hyperedge e : cuts.source_side.entries()) he_seen.set(e);
 			} else {
-				for (Hyperedge e : cuts.targetSide.entries()) he_seen.set(e);
+				for (Hyperedge e : cuts.target_side.entries()) he_seen.set(e);
 			}
 
 			while (!queue.empty()) {

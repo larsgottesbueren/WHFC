@@ -10,10 +10,10 @@ public:
 	NodeBorder(const size_t initialN, const std::vector<HopDistance>& dfc, const int multiplier) :
 			was_added(initialN),
 			buckets(10, {Bucket(), Bucket()}),
-			maxOccupiedBucket({-1,-1}),
-			minOccupiedBucket({0,0}),
-			backupMaxOccupiedBucket({-1,-1}),
-			backupMinOccupiedBucket({0,0}),
+			max_occupied_bucket({ -1, -1}),
+			min_occupied_bucket({ 0, 0}),
+			backup_max_occupied_bucket({ -1, -1}),
+			backup_min_occupied_bucket({ 0, 0}),
 			removed_during_most_balanced_cut_mode({Bucket(), Bucket()}),
 			distance(dfc),
 			multiplier(multiplier)
@@ -26,23 +26,23 @@ public:
 	}
 
 	void add(const Node u, bool is_tr) {
-		assert(!mostBalancedCutMode || !is_tr);
+		assert(!most_balanced_cut_mode || !is_tr);
 		assert(!wasAdded(u));
 		was_added.set(u);
 		const HopDistance d = getDistance(u);
-		is_tr |= mostBalancedCutMode;				//reuse target_reachable_bucket_index buckets for nodes inserted during mbc
+		is_tr |= most_balanced_cut_mode;				//reuse target_reachable_bucket_index buckets for nodes inserted during mbc
 		const auto i = static_cast<Index>(is_tr);
 		insertIntoBucket(u, i, d);
 	}
 
 	void insertIntoBucket(const Node u, const Index i, const HopDistance d) {
 		buckets[d][i].push_back(u);
-		maxOccupiedBucket[i] = std::max(maxOccupiedBucket[i], d);
-		minOccupiedBucket[i] = std::min(minOccupiedBucket[i], d);
+		max_occupied_bucket[i] = std::max(max_occupied_bucket[i], d);
+		min_occupied_bucket[i] = std::min(min_occupied_bucket[i], d);
 	}
 
 	void reset(const size_t newN) {
-		mostBalancedCutMode = false;
+		most_balanced_cut_mode = false;
 		was_added.resize(newN);
 		was_added.reset(0, newN);
 
@@ -63,7 +63,7 @@ public:
 
 	void resetForMostBalancedCut() {
 		// remove everything that was added during most balanced cut and is still in the buckets
-		for (HopDistance d = minOccupiedBucket[most_balanced_cut_bucket_index]; d <= maxOccupiedBucket[most_balanced_cut_bucket_index]; ++d) {
+		for (HopDistance d = min_occupied_bucket[most_balanced_cut_bucket_index]; d <= max_occupied_bucket[most_balanced_cut_bucket_index]; ++d) {
 			for (Node u : buckets[d][most_balanced_cut_bucket_index]) {
 				was_added.reset(u);
 			}
@@ -82,27 +82,27 @@ public:
 		removed_during_most_balanced_cut_mode[not_reachable_bucket_index].clear();
 		removed_during_most_balanced_cut_mode[most_balanced_cut_bucket_index].clear();
 
-		maxOccupiedBucket = backupMaxOccupiedBucket;
-		minOccupiedBucket = backupMinOccupiedBucket;
+		max_occupied_bucket = backup_max_occupied_bucket;
+		min_occupied_bucket = backup_min_occupied_bucket;
 	}
 
 	using Bucket = std::vector<Node>;
 
 
 	void clearBuckets(const Index i) {
-		for (HopDistance d = minOccupiedBucket[i]; d <= maxOccupiedBucket[i]; ++d) {
+		for (HopDistance d = min_occupied_bucket[i]; d <= max_occupied_bucket[i]; ++d) {
 			buckets[d][i].clear();
 		}
-		minOccupiedBucket[i] = 0;
-		maxOccupiedBucket[i] = -1;
+		min_occupied_bucket[i] = 0;
+		max_occupied_bucket[i] = -1;
 	}
 
 	void enterMostBalancedCutMode () {
-		mostBalancedCutMode = true;
+		most_balanced_cut_mode = true;
 		clearBuckets(reachable_bucket_index);
 		// TODO could also filter non_reachable_bucket for already reachable nodes
-		backupMaxOccupiedBucket = maxOccupiedBucket;
-		backupMinOccupiedBucket = minOccupiedBucket;
+		backup_max_occupied_bucket = max_occupied_bucket;
+		backup_min_occupied_bucket = min_occupied_bucket;
 	}
 
 	HopDistance getDistance(const Node u) const {
@@ -114,14 +114,14 @@ public:
 	static constexpr Index not_reachable_bucket_index = 0, reachable_bucket_index = 1, most_balanced_cut_bucket_index = 1;
 	std::vector< std::array<Bucket, 2> > buckets;
 
-	std::array<HopDistance, 2> maxOccupiedBucket, minOccupiedBucket, backupMaxOccupiedBucket, backupMinOccupiedBucket;
+	std::array<HopDistance, 2> max_occupied_bucket, min_occupied_bucket, backup_max_occupied_bucket, backup_min_occupied_bucket;
 
 	std::array<Bucket, 2> removed_during_most_balanced_cut_mode;
 
 	const std::vector<HopDistance>& distance;
 
 	int multiplier;
-	bool mostBalancedCutMode = false;
+	bool most_balanced_cut_mode = false;
 
 private:
 
@@ -140,27 +140,27 @@ private:
 class NodeBorders {
 public:
 	NodeBorders(const size_t initialN) : distance(initialN, 0),
-										 sourceSide(initialN, distance, -1),
-										 targetSide(initialN, distance, 1) { }
+										 source_side(initialN, distance, -1),
+										 target_side(initialN, distance, 1) { }
 
 	void reset(const size_t newN) {
 		distance.resize(newN, 0);		// resize here in case distances are not used. however, users have to resize themselves at construction time
-		sourceSide.reset(newN);
-		targetSide.reset(newN);
+		source_side.reset(newN);
+		target_side.reset(newN);
 	}
 
 	void enterMostBalancedCutMode() {
-		sourceSide.enterMostBalancedCutMode();
-		targetSide.enterMostBalancedCutMode();
+		source_side.enterMostBalancedCutMode();
+		target_side.enterMostBalancedCutMode();
 	}
 
 	void resetForMostBalancedCut() {
-		sourceSide.resetForMostBalancedCut();
-		targetSide.resetForMostBalancedCut();
+		source_side.resetForMostBalancedCut();
+		target_side.resetForMostBalancedCut();
 	}
 
 	std::vector<HopDistance> distance;
-	NodeBorder sourceSide, targetSide;
+	NodeBorder source_side, target_side;
 };
 
 }

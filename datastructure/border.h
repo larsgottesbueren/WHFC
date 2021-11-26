@@ -11,10 +11,10 @@
 
 namespace whfc {
 
-	template<typename T, bool trackElements>
+	template<typename T, bool track_elements>
 	class PersistentSet {
 	private:
-		bool persistentMode = true;
+		bool persistent_mode = true;
 		size_t persistent_begin = 0, persistent_end = 0, non_persistent_begin = 0;
 		BitVector was_added;
 		std::vector<T> elements;
@@ -39,7 +39,7 @@ namespace whfc {
 		void add(const T& x) {
 			assert(!wasAdded(x));
 			was_added.set(x);
-			if (trackElements || !persistentMode)
+			if (track_elements || !persistent_mode)
 				elements.push_back(x);
 		}
 
@@ -55,14 +55,14 @@ namespace whfc {
 		}
 
 		void lockInPersistentEntries() {
-			persistentMode = false;
+			persistent_mode = false;
 			persistent_end = elements.size();
 			non_persistent_begin = persistent_end;
 		}
 
 		template<typename Predicate>
 		void cleanUp(Predicate p) {
-			if (persistentMode) {
+			if (persistent_mode) {
 				util::remove_if_inplace(elements, p);
 			}
 			else {
@@ -78,7 +78,7 @@ namespace whfc {
 			persistent_begin = 0;
 			persistent_end = 0;
 			non_persistent_begin = 0;
-			persistentMode = true;
+			persistent_mode = true;
 		}
 
 		bool empty() const {
@@ -100,23 +100,23 @@ namespace whfc {
 	template<typename T, bool trackElements>
 	class Borders {
 	public:
-		explicit Borders(size_t nT) : sourceSide(nT), targetSide(nT) { }
+		explicit Borders(size_t nT) : source_side(nT), target_side(nT) { }
 
-		PersistentSet<T, trackElements> sourceSide, targetSide;
+		PersistentSet<T, trackElements> source_side, target_side;
 
 		void reset(const size_t newN) {
-			sourceSide.reset(newN);
-			targetSide.reset(newN);
+			source_side.reset(newN);
+			target_side.reset(newN);
 		}
 
 		void enterMostBalancedCutMode() {
-			sourceSide.lockInPersistentEntries();
-			targetSide.lockInPersistentEntries();
+			source_side.lockInPersistentEntries();
+			target_side.lockInPersistentEntries();
 		}
 
 		void resetForMostBalancedCut() {
-			sourceSide.recover();
-			targetSide.recover();
+			source_side.recover();
+			target_side.recover();
 		}
 	};
 

@@ -34,17 +34,17 @@ namespace whfc {
 		}
 
 		bool pierce() {
-			return piercer.findPiercingNode() && (!cs.rejectPiercingIfAugmenting() || !cs.augmentingPathAvailableFromPiercing);
+			return piercer.findPiercingNode() && (!cs.rejectPiercingIfAugmenting() || !cs.augmenting_path_available_from_piercing);
 		}
 
 
 		bool findNextCut() {
-			if (cs.hasCut && !pierce()) {
+			if (cs.has_cut && !pierce()) {
 				return false;
 			}
 
-			if (cs.augmentingPathAvailableFromPiercing) {
-				cs.hasCut = cs.flow_algo.findMinCuts();
+			if (cs.augmenting_path_available_from_piercing) {
+				cs.has_cut = cs.flow_algo.findMinCuts();
 			}
 			else {
 				if (cs.side_to_pierce == 0) {
@@ -52,14 +52,14 @@ namespace whfc {
 				} else {
 					cs.flow_algo.deriveTargetSideCut();
 				}
-				cs.hasCut = true;	// no flow increased
+				cs.has_cut = true;	// no flow increased
 			}
 
-			if (cs.hasCut) {
+			if (cs.has_cut) {
 				cs.assimilate();
 			}
 
-			return cs.hasCut && cs.flow_algo.flow_value <= cs.flow_algo.upper_flow_bound;
+			return cs.has_cut && cs.flow_algo.flow_value <= cs.flow_algo.upper_flow_bound;
 		}
 
 
@@ -124,7 +124,7 @@ namespace whfc {
 						cs.assimilateTargetSide();
 					}
 					cs.side_to_pierce = cs.sideToGrow();
-					cs.hasCut = true;
+					cs.has_cut = true;
 					LOGGER << cs.toString() << V(cs.side_to_pierce);
 					cs.verifyCutPostConditions();
 
@@ -136,8 +136,8 @@ namespace whfc {
 
 				if (sol.balance() > best_sol.balance()) {
 					best_sol = sol;
-					cs.revertMoves(sol.numberOfTrackedMoves);
-					best_moves = cs.trackedMoves;
+					cs.revertMoves(sol.number_of_tracked_moves);
+					best_moves = cs.tracked_moves;
 				}
 				cs.resetToFirstBalancedState(first_balanced_state);
 			}
