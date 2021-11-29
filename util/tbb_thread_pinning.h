@@ -5,33 +5,27 @@
 #include <iostream>
 #include <thread>
 
-//simplified the example from https://software.intel.com/en-us/blogs/2013/10/31/applying-intel-threading-building-blocks-observers-for-thread-affinity-on-intel
-
 namespace whfc {
 
 class pinning_observer : public tbb::task_scheduler_observer {
 	size_t ncpus;
-	std::atomic<size_t> thread_index;
 public:
 	pinning_observer() :
-			ncpus(std::thread::hardware_concurrency()),
-			thread_index(0)
+			ncpus(std::thread::hardware_concurrency())
 	{
 
 	}
 
 	void on_scheduler_entry( bool ) {
 		const size_t size = CPU_ALLOC_SIZE( ncpus );
-		size_t thr_idx = thread_index++;
-		thr_idx %= ncpus; // To limit unique number in [0; num_cpus-1] range
+		int slot = tbb::this_task_arena::current_thread_index();
 		cpu_set_t target_mask;
 		CPU_ZERO(&target_mask);
-		CPU_SET(thr_idx, &target_mask);
+		CPU_SET(slot, &target_mask);
 		const int err = sched_setaffinity(0, size, &target_mask);
-
-		if ( err ) {
-			std::cout << "Failed to set thread affinity!n";
-			exit( EXIT_FAILURE );
+		if (err) {
+			std::cout << "Failed to set thread affinity" << std::endl;
+			std::exit(EXIT_FAILURE);
 		}
 	}
 };
