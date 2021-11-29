@@ -29,8 +29,8 @@ namespace whfc {
 			throw std::runtime_error("s or t not within node id range");
 
 		int seed = 0;
-		// using FlowAlgorithm = ParallelPushRelabel;
-		using FlowAlgorithm = SequentialPushRelabel;
+		using FlowAlgorithm = ParallelPushRelabel;
+		// using FlowAlgorithm = SequentialPushRelabel;
 		HyperFlowCutter<FlowAlgorithm> hfc(hg, seed);
 		hfc.setFlowBound(info.upperFlowBound);
 		hfc.forceSequential(true);
