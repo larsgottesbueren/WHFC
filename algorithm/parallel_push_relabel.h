@@ -429,7 +429,7 @@ public:
 			next_active.push_back_atomic(t);
 		}
 
-		auto scan = [&](Node u, int dist) {
+		auto scan = [&](Node u, int ) {
 			auto next_layer = next_active.local_buffer();
 			scanBackward(u, [&](const Node v) {
 				assert(!isSourceReachable(v));

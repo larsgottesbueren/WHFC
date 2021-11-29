@@ -46,7 +46,7 @@ public:
 		LOGGER << V(flow_value);
 
 		deriveSourceSideCut(true);
-		deriveTargetSideCut(true);
+		deriveTargetSideCut();
 		return true;
 	}
 
@@ -293,7 +293,7 @@ public:
 		sequentialBFS(source_reachable_nodes, scan);
 	}
 
-	void deriveTargetSideCut(bool flow_changed = false) {
+	void deriveTargetSideCut() {
 		relabel_queue.clear();
 		resetReachability(false);
 		for (const Node t : target_piercing_nodes) { relabel_queue.push_back(t); }
