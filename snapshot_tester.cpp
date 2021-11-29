@@ -11,8 +11,7 @@
 #include <tbb/task_scheduler_init.h>
 
 namespace whfc {
-	void runSnapshotTester(const std::string& filename) {
-		int threads = 1;
+	void runSnapshotTester(const std::string& filename, int threads) {
 		tbb::task_scheduler_init tsi(threads);
 		whfc::pinning_observer thread_pinner;
 		thread_pinner.observe(true);
@@ -33,8 +32,8 @@ namespace whfc {
 		// using FlowAlgorithm = SequentialPushRelabel;
 		HyperFlowCutter<FlowAlgorithm> hfc(hg, seed);
 		hfc.setFlowBound(info.upperFlowBound);
-		hfc.forceSequential(true);
-		hfc.setBulkPiercing(false);
+		hfc.forceSequential(false);
+		hfc.setBulkPiercing(true);
 		for (int i = 0; i < 2; ++i)
 			hfc.cs.setMaxBlockWeight(i, info.maxBlockWeight[i]);
 
@@ -90,9 +89,13 @@ namespace whfc {
 }
 
 int main(int argc, const char* argv[]) {
-	if (argc < 2 || argc > 3)
-		throw std::runtime_error("Usage: ./WHFC hypergraphfile");
+	if (argc < 2 || argc > 4)
+		throw std::runtime_error("Usage: ./WHFC hypergraphfile [#threads optional]");
 	std::string hgfile = argv[1];
-	whfc::runSnapshotTester(hgfile);
+	int threads = 1;
+	if (argc == 3) {
+		threads = std::stoi(argv[2]);
+	}
+	whfc::runSnapshotTester(hgfile, threads);
 	return 0;
 }
