@@ -1,3 +1,5 @@
+#pragma once
+
 #include "../datastructure/flow_hypergraph.h"
 #include "../datastructure/queue.h"
 
