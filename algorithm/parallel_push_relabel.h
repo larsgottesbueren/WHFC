@@ -25,6 +25,10 @@ public:
 		size_t num_tries = 0;
 
 		size_t num_global_relabels = 0, num_iterations = 0, num_discharged_nodes = 0;
+
+		size_t num_iterations_with_same_flow = 0;
+		bool termination_check_triggered = false;
+
 		whfc::TimeReporter timer("Parallel Push Relabel");
 		timer.start();
 		do {
@@ -33,19 +37,35 @@ public:
 					return false;
 				}
 				num_active = next_active.size();
-				num_iterations++;
-				num_discharged_nodes += num_active;
 				next_active.swap_container(active);
+
 				if (distance_labels_broken_from_target_side_piercing || work_since_last_global_relabel > global_relabel_work_threshold) {
 					num_global_relabels++;
 					timer.start("Global Relabel");
 					globalRelabel<false>();
 					timer.stop("Global Relabel");
 				}
+
+				Flow old_flow_value = flow_value;
+
 				timer.start("Discharge");
 				dischargeActiveNodes();
 				applyUpdates();
 				timer.stop("Discharge");
+
+				if (old_flow_value == flow_value && num_active < 1500 && next_active.size() < 1500) {
+					num_iterations_with_same_flow++;
+					if (num_iterations_with_same_flow > 200 && !termination_check_triggered) {
+						LOGGER << "flow didnt change --> check if done" << V(flow_value) << V(num_iterations);
+						resetRound();	// delete active nodes and their markers --> trigger termination check global relabel
+						termination_check_triggered = true;		// do this only once! if it didn't work the first time, terminate regularly
+					}
+				} else {
+					num_iterations_with_same_flow = 0;
+				}
+
+				num_iterations++;
+				num_discharged_nodes += num_active;
 			}
 
 			// no more nodes with level < n and excess > 0 left.
