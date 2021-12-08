@@ -33,8 +33,11 @@ public:
 					return false;
 				}
 				num_active = next_active.size();
+				num_iterations++;
+				num_discharged_nodes += num_active;
 				next_active.swap_container(active);
 				if (distance_labels_broken_from_target_side_piercing || work_since_last_global_relabel > global_relabel_work_threshold) {
+					num_global_relabels++;
 					timer.start("Global Relabel");
 					globalRelabel<false>();
 					timer.stop("Global Relabel");
@@ -78,6 +81,12 @@ public:
 		timer.stop("Derive Source-Side Cut");
 
 		timer.stop();
+
+		LOGGER << V(num_global_relabels) << V(num_iterations) << V(num_discharged_nodes) << V(num_tries);
+		if (log) {
+			timer.report(std::cout);
+		}
+
 		return true;
 	}
 
