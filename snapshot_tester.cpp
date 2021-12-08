@@ -13,7 +13,25 @@
 namespace whfc {
 	void runSnapshotTester(const std::string& filename, int max_threads) {
 		FlowHypergraphBuilder hg;
-		HMetisIO::readFlowHypergraphWithBuilder(hg, filename);
+		{
+			int slot = 0;
+			cpu_set_t target_mask;
+			CPU_ZERO(&target_mask);
+			CPU_SET(slot, &target_mask);
+			size_t size = CPU_ALLOC_SIZE(std::thread::hardware_concurrency());
+			int err = sched_setaffinity(0, size, &target_mask);
+			if (err) { std::cout << "couldnt set thread affinity" << std::endl; std::exit(1); }
+
+			HMetisIO::readFlowHypergraphWithBuilder(hg, filename);
+
+			CPU_ZERO(&target_mask);
+			for (size_t core = 0; core < std::thread::hardware_concurrency(); ++core) {
+				CPU_SET(core, &target_mask);
+			}
+			err = sched_setaffinity(0, size, &target_mask);
+			if (err) { std::cout << "couldnt reset thread affinity" << std::endl; std::exit(1); }
+
+		}
 		WHFC_IO::WHFCInformation info = WHFC_IO::readAdditionalInformation(filename);
 		Node s = info.s;
 		Node t = info.t;
