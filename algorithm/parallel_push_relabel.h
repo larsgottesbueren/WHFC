@@ -24,6 +24,9 @@ public:
 		saturateSourceEdges();
 		size_t num_tries = 0;
 
+		size_t num_global_relabels = 0, num_iterations = 0, num_discharged_nodes = 0;
+		whfc::TimeReporter timer("Parallel Push Relabel");
+		timer.start();
 		do {
 			while (!next_active.empty()) {
 				if (flow_value > upper_flow_bound || shall_terminate) {
@@ -32,17 +35,23 @@ public:
 				num_active = next_active.size();
 				next_active.swap_container(active);
 				if (distance_labels_broken_from_target_side_piercing || work_since_last_global_relabel > global_relabel_work_threshold) {
+					timer.start("Global Relabel");
 					globalRelabel<false>();
+					timer.stop("Global Relabel");
 				}
+				timer.start("Discharge");
 				dischargeActiveNodes();
 				applyUpdates();
+				timer.stop("Discharge");
 			}
 
 			// no more nodes with level < n and excess > 0 left.
 			// however labels might be broken from parallelism
 			// --> run global relabeling to check if done.
 			num_active = 0;
+			timer.start("Derive Target-Side Cut");
 			globalRelabel<true>();	// setting the template parameter to true means the function sets reachability info, since we expect to be finished
+			timer.stop("Derive Target-Side Cut");
 			// plug queue back in (regular loop picks it out again)
 			next_active.swap_container(active);
 			next_active.set_size(num_active);
@@ -64,7 +73,11 @@ public:
 		assert(target_excess == flow_value);
 		#endif
 
+		timer.start("Derive Source-Side Cut");
 		deriveSourceSideCut(true);
+		timer.stop("Derive Source-Side Cut");
+
+		timer.stop();
 		return true;
 	}
 
@@ -390,7 +403,7 @@ public:
 			next_active.push_back_atomic(s);
 		}
 
-		if (flow_changed || true) {
+		if (flow_changed) {
 			auto scan = [&](Node u, int ) {
 				auto next_layer = next_active.local_buffer();
 				scanForward(u, [&](const Node v) {
@@ -429,6 +442,7 @@ public:
 			next_active.push_back_atomic(t);
 		}
 
+		/*
 		auto scan = [&](Node u, int ) {
 			auto next_layer = next_active.local_buffer();
 			scanBackward(u, [&](const Node v) {
@@ -440,8 +454,8 @@ public:
 			});
 		};
 		parallelBFS(0, scan);
+		*/
 
-		/*
 		auto scan = [&](Node u, int ) {
 			scanBackward(u, [&](const Node v) {
 				if (!isTargetReachable(v)) {
@@ -451,7 +465,7 @@ public:
 			});
 		};
 		sequentialBFS(0, scan);
-		*/
+
 
 		last_target_side_queue_entry = next_active.size();
 		next_active.swap_container(active); 	// go back
