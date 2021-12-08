@@ -18,7 +18,6 @@ namespace whfc {
 		static constexpr bool log = false;
 
 		FlowHypergraph& hg;
-		TimeReporter timer;
 		Flow upper_flow_bound = std::numeric_limits<Flow>::max();
 		bool shall_terminate = false;
 

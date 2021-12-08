@@ -15,7 +15,7 @@ namespace whfc {
 class ParallelPushRelabel : public PushRelabelCommons {
 public:
 	using Type = ParallelPushRelabel;
-	static constexpr bool log = true;
+	static constexpr bool log = false;
 	static constexpr bool capacitate_incoming_edges_of_in_nodes = true;
 
 	ParallelPushRelabel(FlowHypergraph& hg) : PushRelabelCommons(hg), next_active(0) { }
@@ -29,8 +29,8 @@ public:
 		size_t num_iterations_with_same_flow = 0;
 		bool termination_check_triggered = false;
 
-		whfc::TimeReporter timer("Parallel Push Relabel");
-		timer.start();
+		// whfc::TimeReporter timer("Parallel Push Relabel");
+		// timer.start();
 		do {
 			while (!next_active.empty()) {
 				if (flow_value > upper_flow_bound || shall_terminate) {
@@ -41,22 +41,21 @@ public:
 
 				if (distance_labels_broken_from_target_side_piercing || work_since_last_global_relabel > global_relabel_work_threshold) {
 					num_global_relabels++;
-					timer.start("Global Relabel");
+				//	timer.start("Global Relabel");
 					globalRelabel<false>();
-					timer.stop("Global Relabel");
+				//	timer.stop("Global Relabel");
 				}
 
 				Flow old_flow_value = flow_value;
 
-				timer.start("Discharge");
+				// timer.start("Discharge");
 				dischargeActiveNodes();
 				applyUpdates();
-				timer.stop("Discharge");
+				// timer.stop("Discharge");
 
 				if (old_flow_value == flow_value && num_active < 1500 && next_active.size() < 1500) {
 					num_iterations_with_same_flow++;
-					if (num_iterations_with_same_flow > 200 && !termination_check_triggered) {
-						LOGGER << "flow didnt change --> check if done" << V(flow_value) << V(num_iterations);
+					if (num_iterations_with_same_flow > 500 && !termination_check_triggered) {
 						resetRound();	// delete active nodes and their markers --> trigger termination check global relabel
 						termination_check_triggered = true;		// do this only once! if it didn't work the first time, terminate regularly
 					}
@@ -68,17 +67,17 @@ public:
 				num_discharged_nodes += num_active;
 			}
 
+			// timer.start("Derive Target-Side Cut");
 			// no more nodes with level < n and excess > 0 left.
 			// however labels might be broken from parallelism
 			// --> run global relabeling to check if done.
 			num_active = 0;
-			timer.start("Derive Target-Side Cut");
 			globalRelabel<true>();	// setting the template parameter to true means the function sets reachability info, since we expect to be finished
-			timer.stop("Derive Target-Side Cut");
 			// plug queue back in (regular loop picks it out again)
 			next_active.swap_container(active);
 			next_active.set_size(num_active);
 			num_tries++;
+			// timer.stop("Derive Target-Side Cut");
 		} while (!next_active.empty());
 
 		#ifndef NDEBUG
@@ -96,16 +95,14 @@ public:
 		assert(target_excess == flow_value);
 		#endif
 
-		timer.start("Derive Source-Side Cut");
+		// timer.start("Derive Source-Side Cut");
 		deriveSourceSideCut(true);
-		timer.stop("Derive Source-Side Cut");
+		// timer.stop("Derive Source-Side Cut");
 
-		timer.stop();
+		// timer.stop();
 
 		LOGGER << V(num_global_relabels) << V(num_iterations) << V(num_discharged_nodes) << V(num_tries);
-		if (log) {
-			timer.report(std::cout);
-		}
+		// if constexpr (log) { timer.report(std::cout); }
 
 		return true;
 	}
