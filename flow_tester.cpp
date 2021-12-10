@@ -6,10 +6,11 @@
 #include <tbb/task_scheduler_init.h>
 
 #include "algorithm/parallel_push_relabel.h"
+#include "algorithm/parallel_push_relabel_block.h"
 #include "algorithm/sequential_push_relabel.h"
 
 namespace whfc {
-	void runSnapshotTester(const std::string& filename) {
+	void runSnapshotTester(const std::string& filename, int max_num_threads) {
 		static constexpr bool log = false;
 		WHFC_IO::WHFCInformation info = WHFC_IO::readAdditionalInformation(filename);
 		Node s = info.s; Node t = info.t;
@@ -22,25 +23,28 @@ namespace whfc {
 			throw std::runtime_error("s or t not within node id range");
 
 		std::string base_filename = filename.substr(filename.find_last_of("/\\") + 1);
-		int expected;
 
-		{
-			SequentialPushRelabel spr(hg);
-			expected = spr.computeFlow(s, t);
-		}
-
-		int max_num_threads = 1;
 		for (int threads = 1; threads <= max_num_threads; threads *= 2) {
 			tbb::task_scheduler_init tsi(threads);
 			whfc::pinning_observer thread_pinner;
 			thread_pinner.observe(true);
 			for (int i = 0; i < 1; ++i) {
+				TimeReporter timer;
 				ParallelPushRelabel pr(hg);
-				pr.reset();
-				pr.initialize(s, t);
-				pr.findMinCuts();
-				std::cout << "f=" << pr.flow_value << " expected=" << expected << std::endl;
-				// std::cout << base_filename << "," << i << "," << "ParPR-RL" << "," << threads << "," << pr.timer.get("push relabel").count() << std::endl;
+				timer.start("ParPR-RL");
+				Flow f_pr = pr.computeMaxFlow(s, t);
+				timer.stop("ParPR-RL");
+				std::cout << base_filename << "," << i << ",ParPR-RL," << threads << "," << timer.get("ParPR-RL").count() << std::endl;
+
+				ParallelPushRelabelBlock prb(hg);
+				timer.start("ParPR-Block");
+				Flow f_pr_block = pr.computeMaxFlow(s, t);
+				timer.stop("ParPR-Block");
+				std::cout << base_filename << "," << i << ",ParPR-Block," << threads << "," << timer.get("ParPR-Block").count() << std::endl;
+
+				if (f_pr != f_pr_block) {
+					std::cout << "flow not equal " << base_filename << " " << V(f_pr) << " " << V(f_pr_block) << std::endl;
+				}
 			}
 		}
 
@@ -61,6 +65,6 @@ int main(int argc, const char* argv[]) {
 	if (argc == 3)
 		thread_pinner.observe(true);
 	*/
-	whfc::runSnapshotTester(hgfile);
+	whfc::runSnapshotTester(hgfile, threads);
 	return 0;
 }

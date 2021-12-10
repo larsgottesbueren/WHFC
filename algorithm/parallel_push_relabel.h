@@ -14,23 +14,30 @@ namespace whfc {
 
 class ParallelPushRelabel : public PushRelabelCommons {
 public:
-	using Type = ParallelPushRelabel;
 	static constexpr bool log = false;
 	static constexpr bool capacitate_incoming_edges_of_in_nodes = true;
 
 	ParallelPushRelabel(FlowHypergraph& hg) : PushRelabelCommons(hg), next_active(0) { }
 
 	bool findMinCuts() {
+		if (!augmentFlow()) {
+			return false;
+		}
+		deriveSourceSideCut(true);
+		return true;
+	}
+
+	Flow computeMaxFlow(Node s, Node t) {
+		reset();
+		initialize(s, t);
+		augmentFlow();
+		return flow_value;
+	}
+
+	bool augmentFlow() {
 		saturateSourceEdges();
-		size_t num_tries = 0;
-
-		size_t num_global_relabels = 0, num_iterations = 0, num_discharged_nodes = 0;
-
-		size_t num_iterations_with_same_flow = 0;
+		size_t num_tries = 0, num_iterations_with_same_flow = 0;
 		bool termination_check_triggered = false;
-
-		// whfc::TimeReporter timer("Parallel Push Relabel");
-		// timer.start();
 		do {
 			while (!next_active.empty()) {
 				if (flow_value > upper_flow_bound || shall_terminate) {
@@ -40,18 +47,13 @@ public:
 				next_active.swap_container(active);
 
 				if (distance_labels_broken_from_target_side_piercing || work_since_last_global_relabel > global_relabel_work_threshold) {
-					num_global_relabels++;
-				//	timer.start("Global Relabel");
 					globalRelabel<false>();
-				//	timer.stop("Global Relabel");
 				}
 
 				Flow old_flow_value = flow_value;
 
-				// timer.start("Discharge");
 				dischargeActiveNodes();
 				applyUpdates();
-				// timer.stop("Discharge");
 
 				if (old_flow_value == flow_value && num_active < 1500 && next_active.size() < 1500) {
 					num_iterations_with_same_flow++;
@@ -62,12 +64,8 @@ public:
 				} else {
 					num_iterations_with_same_flow = 0;
 				}
-
-				num_iterations++;
-				num_discharged_nodes += num_active;
 			}
 
-			// timer.start("Derive Target-Side Cut");
 			// no more nodes with level < n and excess > 0 left.
 			// however labels might be broken from parallelism
 			// --> run global relabeling to check if done.
@@ -77,33 +75,7 @@ public:
 			next_active.swap_container(active);
 			next_active.set_size(num_active);
 			num_tries++;
-			// timer.stop("Derive Target-Side Cut");
 		} while (!next_active.empty());
-
-		#ifndef NDEBUG
-		Flow target_excess = 0;
-		size_t num_excess_nodes = 0;
-		for (int i = 0; i < max_level; ++i) {
-			Node u(i);
-			if (excess[u] > 0 && !isTarget(u) && !isSource(u)) {
-				num_excess_nodes++;
-			}
-			if (isTarget(u)) {
-				target_excess += excess[u];
-			}
-		}
-		assert(target_excess == flow_value);
-		#endif
-
-		// timer.start("Derive Source-Side Cut");
-		deriveSourceSideCut(true);
-		// timer.stop("Derive Source-Side Cut");
-
-		// timer.stop();
-
-		LOGGER << V(num_global_relabels) << V(num_iterations) << V(num_discharged_nodes) << V(num_tries);
-		// if constexpr (log) { timer.report(std::cout); }
-
 		return true;
 	}
 
@@ -296,9 +268,7 @@ public:
 		Node e_in = edgeToInNode(e);
 		assert(my_excess <= hg.capacity(e));
 
-		size_t iteration = 0;
 		while (my_excess > 0 && my_level < max_level) {
-			++iteration;
 			int new_level = max_level;
 			bool skipped = false;
 
