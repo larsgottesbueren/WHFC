@@ -113,7 +113,7 @@ namespace whfc {
 			for (size_t i = 0; i < mbc_iterations && !best_sol.isPerfectlyBalanced(); ++i) {
 				LOGGER << "MBC it" << i;
 				SimulatedNodeAssignment sol = best_sol;
-				while (!sol.isPerfectlyBalanced() && pierce()) {
+				while (!sol.isPerfectlyBalanced() && pierce()) {        // piercer says no cut
 					if (cs.side_to_pierce == 0) {
 						cs.flow_algo.deriveSourceSideCut(false);
 						cs.computeSourceReachableWeight();
@@ -124,7 +124,7 @@ namespace whfc {
 						cs.assimilateTargetSide();
 					}
 					cs.side_to_pierce = cs.sideToGrow();
-					cs.has_cut = true;
+					cs.has_cut = true;  // piercer reset the flag, but we didn't change flow
 					LOGGER << cs.toString() << V(cs.side_to_pierce);
 					cs.verifyCutPostConditions();
 
@@ -140,6 +140,7 @@ namespace whfc {
 					best_moves = cs.tracked_moves;
 				}
 				cs.resetToFirstBalancedState(first_balanced_state);
+                cs.has_cut = true;
 			}
 
 			cs.applyMoves(best_moves);
