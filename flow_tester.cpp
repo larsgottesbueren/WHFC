@@ -10,8 +10,31 @@
 #include "algorithm/sequential_push_relabel.h"
 
 namespace whfc {
-	void runSnapshotTester(const std::string& filename, int max_num_threads) {
+    void pin() {
+        int slot = 0;
+        cpu_set_t target_mask;
+        CPU_ZERO(&target_mask);
+        CPU_SET(slot, &target_mask);
+        size_t size = CPU_ALLOC_SIZE(std::thread::hardware_concurrency());
+        int err = sched_setaffinity(0, size, &target_mask);
+        if (err) { std::cout << "couldnt set thread affinity" << std::endl; std::exit(1); }
+    }
+
+    void unpin() {
+        cpu_set_t target_mask;
+        CPU_ZERO(&target_mask);
+        for (size_t core = 0; core < std::thread::hardware_concurrency(); ++core) {
+            CPU_SET(core, &target_mask);
+        }
+        size_t size = CPU_ALLOC_SIZE(std::thread::hardware_concurrency());
+        int err = sched_setaffinity(0, size, &target_mask);
+        if (err) { std::cout << "couldnt reset thread affinity" << std::endl; std::exit(1); }
+    }
+
+
+    void runSnapshotTester(const std::string& filename, int max_num_threads) {
 		static constexpr bool log = false;
+		pin();
 		WHFC_IO::WHFCInformation info = WHFC_IO::readAdditionalInformation(filename);
 		Node s = info.s; Node t = info.t;
 		LOGGER << "(s,t,max f) =" << s << t << info.upperFlowBound;
@@ -23,6 +46,7 @@ namespace whfc {
 			throw std::runtime_error("s or t not within node id range");
 
 		std::string base_filename = filename.substr(filename.find_last_of("/\\") + 1);
+		unpin();
 
 		for (int threads = 32; threads <= 32; threads *= 2) {
 			tbb::task_scheduler_init tsi(threads);
@@ -43,7 +67,7 @@ namespace whfc {
                 std::cout << base_filename << ",ParPR-RL,";
                 std::cout << i << ",";
                 std::cout << threads << ",";
-                std::cout << timer.get("ParPR-RL").count() << ",";
+                std::cout << timer.get("ParPR-RL").count();
                 std::cout << "," <<  pr.discharge_time << "," << pr.global_relabel_time << "," << pr.update_time << "," << pr.saturate_time;
                 std::cout << std::endl;
 
