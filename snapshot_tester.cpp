@@ -108,7 +108,7 @@ namespace whfc {
 				std::cout << num_cuts;
 
 				auto& f = hfc.cs.flow_algo;
-				std::cout << f.discharge_time << "," << f.global_relabel_time << "," << f.update_time << "," << f.source_cut_time << "," << f.saturate_time;
+				std::cout << "," << f.discharge_time << "," << f.global_relabel_time << "," << f.update_time << "," << f.source_cut_time << "," << f.saturate_time;
 				std::cout << "," << hfc.assimilate_time << "," << hfc.pierce_time;
 
 				std::cout << std::endl;
