@@ -24,7 +24,7 @@ namespace whfc {
 
 		std::string base_filename = filename.substr(filename.find_last_of("/\\") + 1);
 
-		for (int threads = 1; threads <= max_num_threads; threads *= 2) {
+		for (int threads = 32; threads <= 32; threads *= 2) {
 			tbb::task_scheduler_init tsi(threads);
 			whfc::pinning_observer thread_pinner;
 			thread_pinner.observe(true);
@@ -34,17 +34,30 @@ namespace whfc {
 				timer.start("ParPR-RL");
 				Flow f_pr = pr.computeMaxFlow(s, t);
 				timer.stop("ParPR-RL");
-				std::cout << base_filename << "," << i << ",ParPR-RL," << threads << "," << timer.get("ParPR-RL").count() << std::endl;
+				//std::cout << base_filename << "," << i << ",ParPR-RL," << threads << "," << timer.get("ParPR-RL").count() << std::endl;
 
-				ParallelPushRelabelBlock prb(hg);
-				timer.start("ParPR-Block");
-				Flow f_pr_block = pr.computeMaxFlow(s, t);
-				timer.stop("ParPR-Block");
-				std::cout << base_filename << "," << i << ",ParPR-Block," << threads << "," << timer.get("ParPR-Block").count() << std::endl;
+				/*
+				 * header
+				 * graph,algorithm,seed,threads,time,discharge,global relabel,update,saturate
+				 */
+                std::cout << base_filename << ",ParPR-RL,";
+                std::cout << i << ",";
+                std::cout << threads << ",";
+                std::cout << timer.get("ParPR-RL").count() << ",";
+                std::cout << "," <<  pr.discharge_time << "," << pr.global_relabel_time << "," << pr.update_time << "," << pr.saturate_time;
+                std::cout << std::endl;
 
-				if (f_pr != f_pr_block) {
-					std::cout << "flow not equal " << base_filename << " " << V(f_pr) << " " << V(f_pr_block) << std::endl;
-				}
+                /*
+                ParallelPushRelabelBlock prb(hg);
+                timer.start("ParPR-Block");
+                Flow f_pr_block = pr.computeMaxFlow(s, t);
+                timer.stop("ParPR-Block");
+                std::cout << base_filename << "," << i << ",ParPR-Block," << threads << "," << timer.get("ParPR-Block").count() << std::endl;
+
+                if (f_pr != f_pr_block) {
+                    std::cout << "flow not equal " << base_filename << " " << V(f_pr) << " " << V(f_pr_block) << std::endl;
+                }
+                 */
 			}
 		}
 
