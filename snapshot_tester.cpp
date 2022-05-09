@@ -46,12 +46,12 @@ namespace whfc {
 
 		unpin();
 
-		for (int threads = 1; threads <= max_threads; threads *= 2) {
+		for (int threads = 32; threads <= 32; threads *= 2) {
 			tbb::task_scheduler_init tsi(threads);
 			whfc::pinning_observer thread_pinner;
 			thread_pinner.observe(true);
 
-			for (int rep = 0; rep < 5; ++rep) {
+			for (int rep = 0; rep < 1; ++rep) {
 
 				int seed = 0;
 				using FlowAlgorithm = ParallelPushRelabel;
@@ -95,9 +95,9 @@ namespace whfc {
 				hfc.timer.stop();
 				/*
 				 * header
-				 * graph,algorithm,seed,threads,improved,flow,flowbound,time,mbc_time,time_limit_exceeded,num_cuts
+				 * graph,algorithm,seed,threads,improved,flow,flowbound,time,mbc_time,time_limit_exceeded,num_cuts,discharge,global relabel,update,source cut,saturate,assimilate,pierce
 				 */
-				std::cout << base_filename << ",FlowCutter-ParPR,";
+				std::cout << base_filename << ",FlowCutter,";
 				// std::cout << seed << ",";
 				std::cout << rep << ",";
 				std::cout << threads << ",";
@@ -106,6 +106,10 @@ namespace whfc {
 				std::cout << hfc.timer.get("HyperFlowCutter").count() << "," << hfc.timer.get("MBMC").count() << ",";
 				std::cout << (time_limit_exceeded ? "yes" : "no") << ",";
 				std::cout << num_cuts;
+
+				auto& f = hfc.cs.flow_algo;
+				std::cout << f.discharge_time << "," << f.global_relabel_time << "," << f.update_time << "," << f.source_cut_time << "," << f.saturate_time;
+				std::cout << "," << hfc.assimilate_time << "," << hfc.pierce_time;
 
 				std::cout << std::endl;
 			}

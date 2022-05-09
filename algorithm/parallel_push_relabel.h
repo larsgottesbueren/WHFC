@@ -23,7 +23,10 @@ public:
 		if (!augmentFlow()) {
 			return false;
 		}
+		auto t = tbb::tick_count::now();
 		deriveSourceSideCut(true);
+        auto t2 = tbb::tick_count::now();
+        source_cut_time += (t2-t).seconds();
 		return true;
 	}
 
@@ -35,7 +38,10 @@ public:
 	}
 
 	bool augmentFlow() {
+	    auto t = tbb::tick_count::now();
 		saturateSourceEdges();
+		auto t2 = tbb::tick_count::now();
+		saturate_time += (t2 - t).seconds();
 		size_t num_tries = 0, num_iterations_with_same_flow = 0;
 		bool termination_check_triggered = false;
 		do {
@@ -52,8 +58,14 @@ public:
 
 				Flow old_flow_value = flow_value;
 
+				auto t3 = tbb::tick_count::now();
 				dischargeActiveNodes();
+                auto t4 = tbb::tick_count::now();
+                discharge_time += (t4-t3).seconds();
 				applyUpdates();
+                auto t5 = tbb::tick_count::now();
+                update_time += (t5-t4).seconds();
+
 
 				if (old_flow_value == flow_value && num_active < 1500 && next_active.size() < 1500) {
 					num_iterations_with_same_flow++;
@@ -335,6 +347,7 @@ public:
 
 	template<bool set_reachability>
 	void globalRelabel() {
+	    auto t = tbb::tick_count::now();
 		tbb::parallel_for(0, max_level, [&](size_t i) { level[i] = isTarget(Node(i)) ? 0 : max_level; }, tbb::static_partitioner());
 		next_active.clear();
 		for (const Node t : target_piercing_nodes) {
@@ -373,6 +386,8 @@ public:
 		}
 		work_since_last_global_relabel = 0;
 		distance_labels_broken_from_target_side_piercing = false;
+		auto t2 = tbb::tick_count::now();
+		global_relabel_time += (t2-t).seconds();
 	}
 
 	void deriveSourceSideCut(bool flow_changed) {

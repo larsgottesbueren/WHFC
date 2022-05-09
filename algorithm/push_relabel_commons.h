@@ -21,6 +21,8 @@ namespace whfc {
 		Flow upper_flow_bound = std::numeric_limits<Flow>::max();
 		bool shall_terminate = false;
 
+        double global_relabel_time = 0.0, update_time = 0.0, discharge_time = 0.0, saturate_time = 0.0, source_cut_time = 0.0;
+
 		/** mapping between ID types */
 		// hypernodes | in-nodes | out-nodes
 		// [0..n - 1][n..n+m-1][n+m..n+2m]

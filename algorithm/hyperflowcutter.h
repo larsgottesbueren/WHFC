@@ -1,5 +1,6 @@
 #pragma once
 
+#include <tbb/tick_count.h>
 #include "../datastructure/flow_hypergraph.h"
 #include "cutter_state.h"
 #include "piercing.h"
@@ -14,6 +15,7 @@ namespace whfc {
 		CutterState<FlowAlgorithm> cs;
 		Piercer<FlowAlgorithm> piercer;
 		bool find_most_balanced = true;
+		double pierce_time = 0.0, assimilate_time = 0.0;
 
 		static constexpr bool log = false;
 
@@ -34,7 +36,10 @@ namespace whfc {
 		}
 
 		bool pierce() {
-			return piercer.findPiercingNode() && (!cs.rejectPiercingIfAugmenting() || !cs.augmenting_path_available_from_piercing);
+		    auto t = tbb::tick_count::now();
+			bool res = piercer.findPiercingNode() && (!cs.rejectPiercingIfAugmenting() || !cs.augmenting_path_available_from_piercing);
+            pierce_time += (tbb::tick_count::now() - t).seconds();
+			return res;
 		}
 
 
@@ -47,16 +52,20 @@ namespace whfc {
 				cs.has_cut = cs.flow_algo.findMinCuts();
 			}
 			else {
+			    auto t = tbb::tick_count::now();
 				if (cs.side_to_pierce == 0) {
 					cs.flow_algo.deriveSourceSideCut(false);  // no flow changed --> no new excesses created
 				} else {
 					cs.flow_algo.deriveTargetSideCut();
 				}
+				cs.flow_algo.source_cut_time += (tbb::tick_count::now() - t).seconds();
 				cs.has_cut = true;	// no flow increased
 			}
 
 			if (cs.has_cut) {
+			    auto t = tbb::tick_count::now();
 				cs.assimilate();
+				assimilate_time += (tbb::tick_count::now() - t).seconds();
 			}
 
 			return cs.has_cut && cs.flow_algo.flow_value <= cs.flow_algo.upper_flow_bound;
