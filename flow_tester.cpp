@@ -3,7 +3,7 @@
 #include "io/whfc_io.h"
 
 #include "util/tbb_thread_pinning.h"
-#include <tbb/task_scheduler_init.h>
+#include <tbb/global_control.h>
 
 #include "algorithm/parallel_push_relabel.h"
 #include "algorithm/parallel_push_relabel_block.h"
@@ -49,7 +49,7 @@ namespace whfc {
 		unpin();
 
 		for (int threads = 32; threads <= 32; threads *= 2) {
-			tbb::task_scheduler_init tsi(threads);
+			auto gc = tbb::global_control{tbb::global_control::max_allowed_parallelism, threads};
 			whfc::pinning_observer thread_pinner;
 			thread_pinner.observe(true);
 			for (int i = 0; i < 1; ++i) {

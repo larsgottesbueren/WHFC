@@ -102,13 +102,13 @@ public:
 			else if (isOutNode(u)) { work.local() += dischargeOutNode(u); }
 			else { work.local() += dischargeInNode(u); }
 		};
-		tbb::parallel_for(0UL, num_active, task);
+		tbb::parallel_for<size_t>(0UL, num_active, task);
 		next_active.finalize();
 		work_since_last_global_relabel += work.combine(std::plus<>());
 	}
 
 	void applyUpdates() {
-		tbb::parallel_for(0UL, num_active, [&](size_t i) {
+		tbb::parallel_for<size_t>(0UL, num_active, [&](size_t i) {
 			const Node u = active[i];
 			if (level[u] >= max_level) { return; }
 			if (!isTarget(u)) {
@@ -119,7 +119,7 @@ public:
 			excess[u] += excess_diff[u];
 			excess_diff[u] = 0;
 		});
-		tbb::parallel_for(0UL, next_active.size(), [&](size_t i) {
+		tbb::parallel_for<size_t>(0UL, next_active.size(), [&](size_t i) {
 			const Node u = next_active[i];
 			excess[u] += excess_diff[u];
 			if (isTarget(u) && excess_diff[u] > 0) {
@@ -348,7 +348,7 @@ public:
 	template<bool set_reachability>
 	void globalRelabel() {
 	    auto t = tbb::tick_count::now();
-		tbb::parallel_for(0, max_level, [&](size_t i) { level[i] = isTarget(Node(i)) ? 0 : max_level; }, tbb::static_partitioner());
+		tbb::parallel_for<size_t>(0, max_level, [&](size_t i) { level[i] = isTarget(Node(i)) ? 0 : max_level; }, tbb::static_partitioner());
 		next_active.clear();
 		for (const Node t : target_piercing_nodes) {
 			next_active.push_back_atomic(t);
@@ -399,7 +399,7 @@ public:
 			resetReachability(true);
 
 			// calculate new excess nodes
-			tbb::parallel_for(0, max_level, [&](int i) {
+			tbb::parallel_for<size_t>(0, max_level, [&](int i) {
 				Node u(i);
 				if (!isSource(u) && !isTarget(u) && excess[u] > 0) {
 					assert(level[u] == max_level);
@@ -487,7 +487,7 @@ public:
 		size_t last = next_active.size();
 		int dist = 1;
 		while (first != last) {
-			tbb::parallel_for(first, last, [&](size_t i) { scan(next_active[i], dist); });
+			tbb::parallel_for<size_t>(first, last, [&](size_t i) { scan(next_active[i], dist); });
 			next_active.finalize();
 			first = last;
 			last = next_active.size();

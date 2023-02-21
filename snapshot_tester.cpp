@@ -8,7 +8,7 @@
 #include "algorithm/sequential_push_relabel.h"
 
 #include "util/tbb_thread_pinning.h"
-#include <tbb/task_scheduler_init.h>
+#include <tbb/global_control.h>
 
 namespace whfc {
 	void pin() {
@@ -47,7 +47,7 @@ namespace whfc {
 		unpin();
 
 		for (int threads = 32; threads <= 32; threads *= 2) {
-			tbb::task_scheduler_init tsi(threads);
+			auto gc = tbb::global_control{tbb::global_control::max_allowed_parallelism, threads};
 			whfc::pinning_observer thread_pinner;
 			thread_pinner.observe(true);
 

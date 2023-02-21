@@ -79,13 +79,13 @@ public:
 			else if (isOutNode(u)) { work.local() += dischargeOutNode(u); }
 			else { work.local() += dischargeInNode(u); }
 		};
-		tbb::parallel_for(0UL, num_active, task);
+		tbb::parallel_for<size_t>(0UL, num_active, task);
 		next_active.finalize();
 		work_since_last_global_relabel += work.combine(std::plus<>());
 	}
 
 	void applyUpdates() {
-		tbb::parallel_for(0UL, num_active, [&](size_t i) {
+		tbb::parallel_for<size_t>(0UL, num_active, [&](size_t i) {
 			const Node u = active[i];
 			node_state[u] = LevelState::NOT_MODIFIED;
 			if (level[u] >= max_level) { return; }
@@ -97,7 +97,7 @@ public:
 			excess[u] += excess_diff[u];
 			excess_diff[u] = 0;
 		});
-		tbb::parallel_for(0UL, next_active.size(), [&](size_t i) {
+		tbb::parallel_for<size_t>(0UL, next_active.size(), [&](size_t i) {
 			const Node u = next_active[i];
 			assert(node_state[u] == LevelState::NOT_MODIFIED);
 			excess[u] += excess_diff[u];
@@ -332,7 +332,7 @@ public:
 	}
 
 	void globalRelabel() {
-		tbb::parallel_for(0, max_level, [&](size_t i) { level[i] = isTarget(Node(i)) ? 0 : max_level; }, tbb::static_partitioner());
+		tbb::parallel_for<size_t>(0, max_level, [&](size_t i) { level[i] = isTarget(Node(i)) ? 0 : max_level; }, tbb::static_partitioner());
 		next_active.clear();
 		for (const Node t : target_piercing_nodes) {
 			next_active.push_back_atomic(t);
@@ -358,7 +358,7 @@ public:
 		size_t last = next_active.size();
 		int dist = 1;
 		while (first != last) {
-			tbb::parallel_for(first, last, [&](size_t i) { scan(next_active[i], dist); });
+			tbb::parallel_for<size_t>(first, last, [&](size_t i) { scan(next_active[i], dist); });
 			next_active.finalize();
 			first = last;
 			last = next_active.size();
