@@ -43,7 +43,7 @@ namespace whfc {
 		std::vector<SummableRange> nextSumRanges;
 		bool newSumAvailable = true;
 		std::vector<Node> nodesNotInTheDPTable;
-		
+
 		// This variant assumes that DPTable[sumRanges[i].from] == DPTable[sumRanges[i].to] == i
 		// Pointers in between are considered stale.
 		// Updating DP Table entries requires computing all sums available with node u.
@@ -69,7 +69,7 @@ namespace whfc {
 
 							if (hasLeft && hasRight) {
 								SummableRange& leftRange = nextSumRanges[leftIndex], rightRange = nextSumRanges[rightIndex];
-								
+
 								//merge ranges. keep left range, and extend it to cover the right range
 								assert(leftRange.to == left && "hasLeft && hasRight: left range does not extend to new_sum-1");
 								assert(rightRange.from == right && "hasLeft && hasRight: right range does not start at new_sum+1");
@@ -133,7 +133,7 @@ namespace whfc {
 			sumRanges.emplace_back(NodeWeight(0), NodeWeight(0));
 			DPTable[0].sumsIndex = 0;
 		}
-		
+
 		void reset() {
 			if (useIsolatedNodes) {
 				mixedIncidentHyperedges.assign(hg.numNodes(), InHeIndex(0));
@@ -152,14 +152,14 @@ namespace whfc {
 				DPTable[0].sumsIndex = 0;
 			}
 		}
-		
+
 		void adaptMaxBlockWeight(const NodeWeight mw) {
 			if (useIsolatedNodes && mw > maxSubsetSumWeight) {
 				maxSubsetSumWeight = mw;
 				DPTable.resize(maxSubsetSumWeight + 2, TableEntry());
 			}
 		}
-		
+
 		void flipViewDirection() {
 			std::swap(hasSettledSourcePins, hasSettledTargetPins);
 		}
@@ -174,8 +174,6 @@ namespace whfc {
 		}
 
 		void add(const Node u) {
-			// TODO handle nodes with weight 1 explicitly
-			
 			nodes.push_back(u);
 			nodesNotInTheDPTable.push_back(u);
 			weight += hg.nodeWeight(u);
@@ -193,7 +191,7 @@ namespace whfc {
 
 		std::vector<Node> extractSubset(NodeWeight sum) const {
 			assert(isSummable(sum));
-			
+
 			std::vector<Node> result;
 			while (sum > 0) {
 				const Node u = DPTable[sum].node;

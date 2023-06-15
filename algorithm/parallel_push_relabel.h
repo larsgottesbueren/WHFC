@@ -5,6 +5,7 @@
 #include <tbb/parallel_for.h>
 #include <tbb/parallel_reduce.h>
 #include <tbb/parallel_invoke.h>
+#include <tbb/tick_count.h>
 
 #include "../util/sub_range.h"
 
@@ -23,10 +24,7 @@ public:
 		if (!augmentFlow()) {
 			return false;
 		}
-		auto t = tbb::tick_count::now();
 		deriveSourceSideCut(true);
-        auto t2 = tbb::tick_count::now();
-        source_cut_time += (t2-t).seconds();
 		return true;
 	}
 
@@ -38,10 +36,7 @@ public:
 	}
 
 	bool augmentFlow() {
-	    auto t = tbb::tick_count::now();
 		saturateSourceEdges();
-		auto t2 = tbb::tick_count::now();
-		saturate_time += (t2 - t).seconds();
 		size_t num_tries = 0, num_iterations_with_same_flow = 0;
 		bool termination_check_triggered = false;
 		do {
@@ -58,13 +53,9 @@ public:
 
 				Flow old_flow_value = flow_value;
 
-				auto t3 = tbb::tick_count::now();
 				dischargeActiveNodes();
-                auto t4 = tbb::tick_count::now();
-                discharge_time += (t4-t3).seconds();
+
 				applyUpdates();
-                auto t5 = tbb::tick_count::now();
-                update_time += (t5-t4).seconds();
 
 
 				if (old_flow_value == flow_value && num_active < 1500 && next_active.size() < 1500) {
@@ -139,6 +130,26 @@ public:
 		while (my_excess > 0 && my_level < max_level) {
 			int new_level = max_level;
 			bool skipped = false;
+
+			auto edge_id = hg.beginIndexGraphEdges(u);
+            for ( ; my_excess > 0 && edge_id != hg.endIndexGraphEdges(u); ++edge_id) {
+                const auto& e = hg.getEdge(edge_id);
+                if (my_level == level[e.target] + 1) {
+                    if (excess[e.target] > 0 && !winEdge(u, e.target)) {
+                        skipped = true;
+                    } else if (Flow d = e.capacity - graph_edges_flow[edge_id] > 0) {
+                        d = std::min(my_excess, d);
+                        my_excess -= d;
+                        __atomic_fetch_add(&excess_diff[e.target], d, __ATOMIC_RELAXED);
+                        graph_edges_flow[edge_id] += d;
+                        graph_edges_flow[e.reverse] -= d;
+                        push(e.target);
+                    }
+                } else if (e.capacity - graph_edges_flow[edge_id] > 0 && my_level <= level[e.target]) {
+                    new_level = std::min(new_level, level[e.target]);
+                }
+            }
+            work += edge_id - hg.beginIndexGraphEdges(u);
 
 			// push to in-nodes of incident nets
 			auto i = hg.beginIndexHyperedges(u);
@@ -347,7 +358,6 @@ public:
 
 	template<bool set_reachability>
 	void globalRelabel() {
-	    auto t = tbb::tick_count::now();
 		tbb::parallel_for<size_t>(0, max_level, [&](size_t i) { level[i] = isTarget(Node(i)) ? 0 : max_level; }, tbb::static_partitioner());
 		next_active.clear();
 		for (const Node t : target_piercing_nodes) {
@@ -386,8 +396,6 @@ public:
 		}
 		work_since_last_global_relabel = 0;
 		distance_labels_broken_from_target_side_piercing = false;
-		auto t2 = tbb::tick_count::now();
-		global_relabel_time += (t2-t).seconds();
 	}
 
 	void deriveSourceSideCut(bool flow_changed) {
@@ -453,7 +461,7 @@ public:
 			next_active.push_back_atomic(t);
 		}
 
-		/*
+        #if false
 		auto scan = [&](Node u, int ) {
 			auto next_layer = next_active.local_buffer();
 			scanBackward(u, [&](const Node v) {
@@ -465,7 +473,7 @@ public:
 			});
 		};
 		parallelBFS(0, scan);
-		*/
+        #endif
 
 		auto scan = [&](Node u, int ) {
 			scanBackward(u, [&](const Node v) {
@@ -551,6 +559,22 @@ public:
 						}
 					}
 				}
+
+                for (auto edge_id = hg.beginIndexGraphEdges(source); edge_id != hg.endIndexGraphEdges(source); ++edge_id) {
+                    const auto& e = hg.getEdge(edge_id);
+                    if (!isSource(e.target)) {
+                        Flow d = e.capacity - graph_edges_flow[edge_id];
+                        if (d > 0) {
+                            excess[source] -= d;
+                            excess[e.target] += d;
+                            graph_edges_flow[edge_id] += d;
+                            graph_edges_flow[e.reverse] -= d;
+                            if (activate(e.target)) {
+                                next_active.push_back_atomic(e.target);
+                            }
+                        }
+                    }
+                }
 			}
 			source_piercing_nodes_not_exhausted = false;
 		}

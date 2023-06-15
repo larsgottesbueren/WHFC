@@ -100,7 +100,6 @@ public:
 	void enterMostBalancedCutMode () {
 		most_balanced_cut_mode = true;
 		clearBuckets(reachable_bucket_index);
-		// TODO could also filter non_reachable_bucket for already reachable nodes
 		backup_max_occupied_bucket = max_occupied_bucket;
 		backup_min_occupied_bucket = min_occupied_bucket;
 	}

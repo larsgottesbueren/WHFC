@@ -21,8 +21,6 @@ namespace whfc {
 		Flow upper_flow_bound = std::numeric_limits<Flow>::max();
 		bool shall_terminate = false;
 
-        double global_relabel_time = 0.0, update_time = 0.0, discharge_time = 0.0, saturate_time = 0.0, source_cut_time = 0.0;
-
 		/** mapping between ID types */
 		// hypernodes | in-nodes | out-nodes
 		// [0..n - 1][n..n+m-1][n+m..n+2m]
@@ -36,7 +34,7 @@ namespace whfc {
 
 		/** flow assignment */
 		Flow flow_value = 0;
-		vec<Flow> flow;
+		vec<Flow> flow, graph_edges_flow;
 		vec<Flow> excess;
 		size_t out_node_offset = 0, bridge_node_offset = 0;
 
@@ -146,6 +144,15 @@ namespace whfc {
 		template<typename PushFunc>
 		void scanBackward(Node u, PushFunc&& push) {
 			if (isHypernode(u)) {
+                for (auto edge_id = hg.beginIndexGraphEdges(u); edge_id != hg.endIndexGraphEdges(u); ++edge_id) {
+                    const auto reverse_id = hg.getEdge(edge_id).reverse;
+                    // TODO optimize this so it does a scan.  this is the main work loop for graphs. somehow the hypergraph version is fast too...so there should be a way.
+                    // keep the reverse capacity and flow as well? could lead to a race condition since multiple values must be updated?
+                    if (graph_edges_flow[reverse_id] < hg.getEdge(reverse_id).capacity) {
+                        push(hg.getEdge(edge_id).target);
+                    }
+                }
+
 				for (InHeIndex incnet_ind : hg.incidentHyperedgeIndices(u)) {
 					const Hyperedge e = hg.getInHe(incnet_ind).e;
 					if (flow[inNodeIncidenceIndex(incnet_ind)] > 0) {
@@ -180,6 +187,12 @@ namespace whfc {
 		template<typename PushFunc>
 		void scanForward(Node u, PushFunc&& push) {
 			if (isHypernode(u)) {
+                for (auto edge_id = hg.beginIndexGraphEdges(u); edge_id != hg.endIndexGraphEdges(u); ++edge_id) {
+                    if (graph_edges_flow[edge_id] < hg.getEdge(edge_id).capacity) {
+                        push(hg.getEdge(edge_id).target);
+                    }
+                }
+
 				for (InHeIndex incnet_ind : hg.incidentHyperedgeIndices(u)) {
 					const Hyperedge e = hg.getInHe(incnet_ind).e;
 					// no restriction for forward search so that we can visit in-nodes and detect their cuts

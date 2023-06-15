@@ -46,7 +46,7 @@ namespace whfc {
 
 		unpin();
 
-		for (int threads = 32; threads <= 32; threads *= 2) {
+		for (size_t threads = 32; threads <= 32; threads *= 2) {
 			auto gc = tbb::global_control{tbb::global_control::max_allowed_parallelism, threads};
 			whfc::pinning_observer thread_pinner;
 			thread_pinner.observe(true);
@@ -107,8 +107,6 @@ namespace whfc {
 				std::cout << (time_limit_exceeded ? "yes" : "no") << ",";
 				std::cout << num_cuts;
 
-				auto& f = hfc.cs.flow_algo;
-				std::cout << "," <<  f.discharge_time << "," << f.global_relabel_time << "," << f.update_time << "," << f.source_cut_time << "," << f.saturate_time;
 				std::cout << "," << hfc.assimilate_time << "," << hfc.pierce_time;
 
 				std::cout << std::endl;

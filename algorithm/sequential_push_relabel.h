@@ -58,6 +58,28 @@ public:
 		while (my_excess > 0 && my_level < max_level) {
 			int new_level = max_level;
 
+            auto edge_id = hg.beginIndexGraphEdges(u);
+            for ( ; my_excess > 0 && edge_id != hg.endIndexGraphEdges(u); ++edge_id) {
+                const auto& e = hg.getEdge(edge_id);
+                if (graph_edges_flow[edge_id] < e.capacity) {
+                    if (my_level == level[e.target] + 1) {
+                        // push
+                        const Flow d = std::min(e.capacity - graph_edges_flow[edge_id], my_excess);
+                        graph_edges_flow[edge_id] += d;
+                        graph_edges_flow[e.reverse] -= d;
+                        my_excess -= d;
+                        if (isTarget(e.target)) { flow_value += d; }
+                        else if (excess[e.target] == 0) { active.push(e.target); }
+                        excess[e.target] += d;
+                    } else {
+                        // TODO why did we check if my_level <= level[e.target] elsewhere? it's supposed to be true. I think this may be from the parallel code where my_level > level[e.target] may happen due to the race condition
+                        assert(my_level <= level[e.target]);
+                        new_level = std::min(new_level, level[e.target]);
+                    }
+                }
+            }
+            work += edge_id - hg.beginIndexGraphEdges(u);
+
 			auto i = hg.beginIndexHyperedges(u);
 			// push to in-nodes of incident nets
 			for ( ; my_excess > 0 && i < hg.endIndexHyperedges(u); ++i) {
@@ -374,6 +396,20 @@ public:
 						}
 					}
 				}
+
+                for (auto edge_id = hg.beginIndexGraphEdges(source); edge_id != hg.endIndexGraphEdges(source); ++edge_id) {
+                    const auto& e = hg.getEdge(edge_id);
+                    if (!isSource(e.target)) {
+                        Flow d = e.capacity - graph_edges_flow[edge_id];
+                        if (d > 0) {
+                            if (excess[e.target] == 0) { active.push(e.target); }
+                            excess[source] -= d;
+                            excess[e.target] += d;
+                            graph_edges_flow[edge_id] += d;
+                            graph_edges_flow[e.reverse] -= d;
+                        }
+                    }
+                }
 			}
 			source_piercing_nodes_not_exhausted = false;
 		}

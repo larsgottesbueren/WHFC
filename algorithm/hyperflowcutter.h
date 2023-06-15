@@ -52,13 +52,11 @@ namespace whfc {
 				cs.has_cut = cs.flow_algo.findMinCuts();
 			}
 			else {
-			    auto t = tbb::tick_count::now();
 				if (cs.side_to_pierce == 0) {
 					cs.flow_algo.deriveSourceSideCut(false);  // no flow changed --> no new excesses created
 				} else {
 					cs.flow_algo.deriveTargetSideCut();
 				}
-				cs.flow_algo.source_cut_time += (tbb::tick_count::now() - t).seconds();
 				cs.has_cut = true;	// no flow increased
 			}
 

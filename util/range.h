@@ -58,24 +58,23 @@ struct mutable_index_range {
 	Index_t __begin;
 	Index_t __end;
 
-	inline Index_t begin() const { return __begin; }
-	inline Index_t end() const { return __end; }
+    inline Index_t begin() const { return __begin; }
+    inline Index_t end() const { return __end; }
 	inline bool empty() const { return begin() == end(); }
 	inline bool contains(const Index_t i) { return i < __end && i >= __begin; }
 	inline std::size_t size() const { return static_cast<size_t>(__end - __begin); }
-	
+
 	inline bool isInvalid() const { return __end < __begin; }
 	static Type Invalid() { return Type(Index_t(1), Index_t(0)); }
 	void invalidate() { __begin = __end + Index_t(1); }
 	void makeEmpty() { __begin = __end; }
 	static Type createEmpty() { return Type(); }
-	
+
 	inline void advance_begin() { __begin++; }
 	inline void retreat_begin() { __begin--; }
 	inline void advance_end() { __end++; }
 	inline void retreat_end() { __end--; }
-	
+
 	mutable_index_range() : __begin(Index_t(0)), __end(Index_t(0)) { }
 	mutable_index_range(const Index_t _beg, const Index_t _end) : __begin(_beg), __end(_end) { }
 };
-

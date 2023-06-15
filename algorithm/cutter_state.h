@@ -92,25 +92,33 @@ namespace whfc {
 			return hg.totalNodeWeight() - source_weight - target_weight;
 		}
 
+		void tryAddNodeToSourceSideBorder(const Node v) {
+            if (isNonTerminal(v) && !border_nodes.source_side.wasAdded(v) && (!most_balanced_cut_mode || !flow_algo.isTargetReachable(v))) {
+                border_nodes.source_side.add(v, flow_algo.isTargetReachable(v));
+            }
+		}
+
 		void addToSourceSideCut(const Hyperedge e) {
 			//Note: the current implementation of selecting piercing nodes relies on not inserting target-reachable nodes during most balanced cut mode
 			if (!cuts.source_side.wasAdded(e)) {
 				cuts.source_side.add(e);
 				for (const Pin& px : hg.pinsOf(e)) {
-					if (isNonTerminal(px.pin) && !border_nodes.source_side.wasAdded(px.pin) && (!most_balanced_cut_mode || !flow_algo.isTargetReachable(px.pin))) {
-						border_nodes.source_side.add(px.pin, flow_algo.isTargetReachable(px.pin));
-					}
+					tryAddNodeToSourceSideBorder(px.pin);
 				}
 			}
+		}
+
+		void tryAddNodeToTargetSideBorder(const Node v) {
+            if (isNonTerminal(v) && !border_nodes.target_side.wasAdded(v) && (!most_balanced_cut_mode || !flow_algo.isSourceReachable(v))) {
+                border_nodes.target_side.add(v, flow_algo.isSourceReachable(v));
+            }
 		}
 
 		void addToTargetSideCut(const Hyperedge e) {
 			if (!cuts.target_side.wasAdded(e)) {
 				cuts.target_side.add(e);
 				for (const Pin& px : hg.pinsOf(e)) {
-					if (isNonTerminal(px.pin) && !border_nodes.target_side.wasAdded(px.pin) && (!most_balanced_cut_mode || !flow_algo.isSourceReachable(px.pin))) {
-						border_nodes.target_side.add(px.pin, flow_algo.isSourceReachable(px.pin));
-					}
+					tryAddNodeToTargetSideBorder(px.pin);
 				}
 			}
 		}
@@ -244,6 +252,13 @@ namespace whfc {
 							addToSourceSideCut(e);
 						}
 					}
+					if (flow_algo.isHypernode(u)) {
+					    for (const auto& e : hg.edgesOf(u)) {
+					        if (!flow_algo.isSourceReachable(e.target)) {
+                                tryAddNodeToSourceSideBorder(e.target);
+					        }
+					    }
+					}
 					flow_algo.makeSource(u);
 				}
 			}
@@ -264,6 +279,13 @@ namespace whfc {
 							addToTargetSideCut(e);
 						}
 					}
+                    if (flow_algo.isHypernode(u)) {
+                        for (const auto& e : hg.edgesOf(u)) {
+                            if (!flow_algo.isTargetReachable(e.target)) {
+                                tryAddNodeToTargetSideBorder(e.target);
+                            }
+                        }
+                    }
 					flow_algo.makeTarget(u);
 				}
 			}
@@ -282,7 +304,7 @@ namespace whfc {
 		}
 
 
-		void reset() {		// TODO could consolidate with initialize
+		void reset() {
 			flow_algo.reset();
 			tracked_moves.clear();
 			augmenting_path_available_from_piercing = true;

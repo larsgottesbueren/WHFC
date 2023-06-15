@@ -6,8 +6,6 @@
 #include <tbb/global_control.h>
 
 #include "algorithm/parallel_push_relabel.h"
-#include "algorithm/parallel_push_relabel_block.h"
-#include "algorithm/sequential_push_relabel.h"
 
 namespace whfc {
     void pin() {
@@ -48,7 +46,7 @@ namespace whfc {
 		std::string base_filename = filename.substr(filename.find_last_of("/\\") + 1);
 		unpin();
 
-		for (int threads = 32; threads <= 32; threads *= 2) {
+		for (size_t threads = 32; threads <= 32; threads *= 2) {
 			auto gc = tbb::global_control{tbb::global_control::max_allowed_parallelism, threads};
 			whfc::pinning_observer thread_pinner;
 			thread_pinner.observe(true);
@@ -68,7 +66,6 @@ namespace whfc {
                 std::cout << i << ",";
                 std::cout << threads << ",";
                 std::cout << timer.get("ParPR-RL").count();
-                std::cout << "," <<  pr.discharge_time << "," << pr.global_relabel_time << "," << pr.update_time << "," << pr.saturate_time;
                 std::cout << std::endl;
 
                 /*

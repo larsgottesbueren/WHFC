@@ -118,6 +118,11 @@ namespace whfc {
 				removeLastPin();
 			}
 
+			if (currentHyperedgeSize() == 2) {
+                // TODO implement
+			    //			    convertCurrentHyperedgeToGraphEdge();
+			}
+
 			if (currentHyperedgeSize() > 0) {
 				hyperedges.push_back({PinIndex::fromOtherValueType(numPins()), Flow(0)}); //sentinel
 				return true;

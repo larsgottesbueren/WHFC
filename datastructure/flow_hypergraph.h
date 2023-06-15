@@ -28,12 +28,19 @@ namespace whfc {
 			NodeWeight weight = NodeWeight(0);
 		};
 
-		using PinRange = mutable_range<std::vector<Pin>>;
+        struct GraphEdge {
+            Node target;
+            Flow capacity;
+            uint32_t reverse;
+        };
+
+        using PinRange = mutable_range<std::vector<Pin>>;
 		using PinIterator = PinRange::iterator;
 		using PinIndexRange = mutable_index_range<PinIndex>;
 		using InHeRange = mutable_range<std::vector<InHe>>;
 		using InHeIterator = InHeRange::iterator;
 		using InHeIndexRange = mutable_index_range<InHeIndex>;
+		using GraphEdgeRange = mutable_range<std::vector<GraphEdge>>;
 
 		inline auto nodeIDs() const { return mutable_index_range<Node>(Node(0), Node::fromOtherValueType(numNodes())); }
 		inline auto hyperedgeIDs() const { return mutable_index_range<Hyperedge>(Hyperedge(0), Hyperedge::fromOtherValueType(numHyperedges())); }
@@ -151,11 +158,22 @@ namespace whfc {
 
 		Flow maxHyperedgeCapacity = maxFlow;
 
-	protected:
+        inline Index beginIndexGraphEdges(Node u) const { return graph_first_out[u]; }
+        inline Index endIndexGraphEdges(Node u) const { return graph_first_out[u+1]; }
+        const GraphEdge& getEdge(uint32_t index) const { return graph_edges[index]; }
+        GraphEdge& getEdge(uint32_t index) { return graph_edges[index]; }
+        GraphEdgeRange edgesOf(Node u) { return GraphEdgeRange(graph_edges, beginIndexGraphEdges(u), endIndexGraphEdges(u)); }
+        using GraphEdgeIndexRange = mutable_index_range<Index>;
+        inline GraphEdgeIndexRange edgeIDsOf(Node u) const { return GraphEdgeIndexRange(beginIndexGraphEdges(u), endIndexGraphEdges(u)); }
+
+    protected:
 		std::vector<NodeData> nodes;
 		std::vector<HyperedgeData> hyperedges;
 		std::vector<Pin> pins;
 		std::vector<InHe> incident_hyperedges;
+
+		std::vector<uint32_t> graph_first_out;
+		std::vector<GraphEdge> graph_edges;
 
 		NodeWeight total_node_weight = NodeWeight(0);
 
