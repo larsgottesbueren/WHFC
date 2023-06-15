@@ -100,6 +100,22 @@ namespace whfc {
 				nodes[u].first_out = nodes[u-1].first_out;	//reset temporarily destroyed first_out
 			nodes[0].first_out = InHeIndex(0);
 
+			graph_edges.resize(graph_edges_during_construction.size() * 2);
+			for (Node u : nodeIDs()) {
+			    graph_first_out[u+1] += graph_first_out[u];
+			}
+            for (const auto& e : graph_edges_during_construction) {
+                graph_edges[graph_first_out[e.u]] = { e.v, e.capacity, graph_first_out[e.v] };
+                graph_edges[graph_first_out[e.v]] = { e.u, e.capacity, graph_first_out[e.u] };
+                graph_first_out[e.u]++;
+                graph_first_out[e.v]++;
+            }
+			graph_edges_during_construction.clear();
+            for (Node u(numNodes() - 1); u > 0; u--) {
+                graph_first_out[u] = graph_first_out[u-1];
+            }
+            graph_first_out[0] = 0;
+
 			finalized = true;
 		}
 
@@ -123,8 +139,17 @@ namespace whfc {
 			}
 
 			if (currentHyperedgeSize() == 2) {
-                // TODO implement
-			    //			    convertCurrentHyperedgeToGraphEdge();
+			    Node u = pins.back().pin;
+			    Node v = pins[pins.size() - 2].pin;
+                graph_edges_during_construction.push_back({
+                    u, v,
+                    /* .capacity = */ hyperedges.back().capacity
+                });
+                graph_first_out[u + 1]++;
+                graph_first_out[v + 1]++;
+                removeLastPin();
+                removeLastPin();
+                assert(currentHyperedgeSize() == 0);
 			}
 
 			if (currentHyperedgeSize() > 0) {
@@ -136,5 +161,12 @@ namespace whfc {
 
 		bool finalized = false;
 		size_t numPinsAtHyperedgeStart = 0;
+
+
+		struct UndirectedGraphEdge {
+            Node u, v;
+            Flow capacity;
+		};
+		std::vector<UndirectedGraphEdge> graph_edges_during_construction;
 	};
 }

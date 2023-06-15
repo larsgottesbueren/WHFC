@@ -48,7 +48,7 @@ namespace whfc {
 	template<typename FlowAlgorithm>
 	class CutterState {
 	public:
-		static constexpr bool log = false;
+		static constexpr bool log = true;
 
 		using Pin = FlowHypergraph::Pin;
 
@@ -507,6 +507,16 @@ namespace whfc {
 					assert(flow_algo.flow[flow_algo.bridgeEdgeIndex(e)] == hg.capacity(e));
 					expected_flow += hg.capacity(e);
 				}
+				for (Node u : hg.nodeIDs()) {
+				    if (!flow_algo.isSource(u)) continue;
+				    for (auto edge_id = hg.beginIndexGraphEdges(u); edge_id != hg.endIndexGraphEdges(u); ++edge_id) {
+				        const auto& e = hg.getEdge(edge_id);
+				        if (!flow_algo.isSource(e.target)) {
+				            assert(flow_algo.graph_edges_flow[edge_id] == e.capacity);
+                            expected_flow += e.capacity;
+				        }
+				    }
+				}
 			} else {
 				cuts.target_side.cleanUp([&](const Hyperedge& e) { return flow_algo.isTarget(flow_algo.edgeToInNode(e)); });
 				for (const Hyperedge& e : cuts.target_side.entries()) {
@@ -514,6 +524,16 @@ namespace whfc {
 					assert(flow_algo.flow[flow_algo.bridgeEdgeIndex(e)] == hg.capacity(e));
 					expected_flow += hg.capacity(e);
 				}
+                for (Node u : hg.nodeIDs()) {
+                    if (!flow_algo.isTarget(u)) continue;
+                    for (auto edge_id = hg.beginIndexGraphEdges(u); edge_id != hg.endIndexGraphEdges(u); ++edge_id) {
+                        const auto& e = hg.getEdge(edge_id);
+                        if (!flow_algo.isTarget(e.target)) {
+                            assert(flow_algo.graph_edges_flow[edge_id] == e.capacity);
+                            expected_flow += e.capacity;
+                        }
+                    }
+                }
 			}
 			verifyCutInducedByPartitionMatchesExtractedCutHyperedges();
 			verifyExtractedCutHyperedgesActuallySplitHypergraph();
@@ -592,6 +612,16 @@ namespace whfc {
 					cut_weight += hg.capacity(e);
 				}
 			}
+			for (Node u : hg.nodeIDs()) {
+			    for (const auto& e : hg.edgesOf(u)) {
+			        if (flow_algo.isSource(u) && !flow_algo.isSource(e.target)) {
+			            cut_weight += e.capacity;
+			        }
+			        if (flow_algo.isTarget(u) && !flow_algo.isTarget(e.target)) {
+			            t_cut_weight += e.capacity;
+			        }
+			    }
+			}
 			assert(flow_algo.flow_value == t_cut_weight);
 			assert(flow_algo.flow_value == cut_weight);
 #endif
@@ -635,6 +665,14 @@ namespace whfc {
 						}
 					}
 				}
+
+                for (auto edge_id = hg.beginIndexGraphEdges(u); edge_id != hg.endIndexGraphEdges(u); ++edge_id) {
+                    const auto& e = hg.getEdge(edge_id);
+                    if (flow_algo.graph_edges_flow[edge_id] < e.capacity && !node_seen[e.target]) {
+                        node_seen.set(e.target);
+                        queue.push(e.target);
+                    }
+                }
 			}
 
 			for (Node u : hg.nodeIDs()) {
@@ -677,6 +715,14 @@ namespace whfc {
 						}
 					}
 				}
+
+                for (auto edge_id = hg.beginIndexGraphEdges(u); edge_id != hg.endIndexGraphEdges(u); ++edge_id) {
+                    const auto& e = hg.getEdge(edge_id);
+                    if (flow_algo.graph_edges_flow[e.reverse] < e.capacity && !node_seen[e.target]) {
+                        node_seen.set(e.target);
+                        queue.push(e.target);
+                    }
+                }
 			}
 
 			for (Node u : hg.nodeIDs()) {

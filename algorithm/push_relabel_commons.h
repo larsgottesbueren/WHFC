@@ -122,6 +122,7 @@ namespace whfc {
 
 			flow_value = 0;
 			flow.assign(2 * hg.numPins() + hg.numHyperedges(), 0);
+			graph_edges_flow.assign(hg.numGraphEdges(), 0);
 			excess.assign(max_level, 0);
 			level.assign(max_level, 0);
 

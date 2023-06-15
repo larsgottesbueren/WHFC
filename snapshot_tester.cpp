@@ -44,6 +44,19 @@ namespace whfc {
 		if (s >= hg.numNodes() || t >= hg.numNodes())
 			throw std::runtime_error("s or t not within node id range");
 
+
+		std::vector<size_t> histogram(hg.numNodes(), 0);
+		for (Hyperedge e : hg.hyperedgeIDs()) {
+		    histogram[hg.pinCount(e)]++;
+		}
+		std::cout << "edge size distribution : ";
+		for (size_t i = 0; i < histogram.size(); ++i) {
+		    if (histogram[i] != 0) {
+		        std::cout << i << " " << histogram[i] << " || ";
+		    }
+		}
+		std::cout << std::endl;
+
 		unpin();
 
 		for (size_t threads = 4; threads <= 4; threads *= 2) {

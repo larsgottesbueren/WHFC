@@ -166,6 +166,7 @@ namespace whfc {
         GraphEdgeRange edgesOf(Node u) { return GraphEdgeRange(graph_edges, beginIndexGraphEdges(u), endIndexGraphEdges(u)); }
         using GraphEdgeIndexRange = mutable_index_range<Index>;
         inline GraphEdgeIndexRange edgeIDsOf(Node u) const { return GraphEdgeIndexRange(beginIndexGraphEdges(u), endIndexGraphEdges(u)); }
+        size_t numGraphEdges() const { return graph_edges.size(); }
 
     protected:
 		std::vector<NodeData> nodes;
