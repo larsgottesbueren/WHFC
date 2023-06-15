@@ -29,9 +29,9 @@ namespace whfc {
 		};
 
         struct GraphEdge {
-            Node target;
-            Flow capacity;
-            uint32_t reverse;
+            Node target = invalidNode;
+            Flow capacity = 0;
+            Index reverse = 0;
         };
 
         using PinRange = mutable_range<std::vector<Pin>>;
@@ -46,12 +46,12 @@ namespace whfc {
 		inline auto hyperedgeIDs() const { return mutable_index_range<Hyperedge>(Hyperedge(0), Hyperedge::fromOtherValueType(numHyperedges())); }
 		inline auto pinIndices() const { return PinIndexRange(PinIndex(0), PinIndex::fromOtherValueType(numPins())); }
 
-		FlowHypergraph() : nodes(1), hyperedges(1) { }
+		FlowHypergraph() : nodes(1), hyperedges(1), graph_first_out(1, 0) { }
 
 		//use in FlowHypergraphBuilder to get rid of any allocations
 		FlowHypergraph(size_t maxNumNodes, size_t maxNumHyperedges, size_t maxNumPins) :
 				nodes(maxNumNodes + 1), hyperedges(maxNumHyperedges + 1), pins(maxNumPins),
-				incident_hyperedges(maxNumPins) { }
+				incident_hyperedges(maxNumPins), graph_first_out(maxNumNodes + 1, 0) { }
 
 		FlowHypergraph(std::vector<NodeWeight>& node_weights, std::vector<HyperedgeWeight>& hyperedge_weights, std::vector<PinIndex>& hyperedge_sizes, std::vector<Node>& _pins) :
 				maxHyperedgeCapacity(0),
@@ -59,7 +59,8 @@ namespace whfc {
 				hyperedges(hyperedge_weights.size() + 1),
 				pins(_pins.size()),
 				incident_hyperedges(_pins.size()),
-				total_node_weight(boost::accumulate(node_weights, NodeWeight(0)))
+                graph_first_out(node_weights.size() + 1, 0),
+                total_node_weight(boost::accumulate(node_weights, NodeWeight(0)))
 		{
 			size_t i = 0;
 			for (const Node p : _pins) {
@@ -160,8 +161,8 @@ namespace whfc {
 
         inline Index beginIndexGraphEdges(Node u) const { return graph_first_out[u]; }
         inline Index endIndexGraphEdges(Node u) const { return graph_first_out[u+1]; }
-        const GraphEdge& getEdge(uint32_t index) const { return graph_edges[index]; }
-        GraphEdge& getEdge(uint32_t index) { return graph_edges[index]; }
+        const GraphEdge& getEdge(Index index) const { return graph_edges[index]; }
+        GraphEdge& getEdge(Index index) { return graph_edges[index]; }
         GraphEdgeRange edgesOf(Node u) { return GraphEdgeRange(graph_edges, beginIndexGraphEdges(u), endIndexGraphEdges(u)); }
         using GraphEdgeIndexRange = mutable_index_range<Index>;
         inline GraphEdgeIndexRange edgeIDsOf(Node u) const { return GraphEdgeIndexRange(beginIndexGraphEdges(u), endIndexGraphEdges(u)); }
@@ -172,7 +173,7 @@ namespace whfc {
 		std::vector<Pin> pins;
 		std::vector<InHe> incident_hyperedges;
 
-		std::vector<uint32_t> graph_first_out;
+		std::vector<Index> graph_first_out;
 		std::vector<GraphEdge> graph_edges;
 
 		NodeWeight total_node_weight = NodeWeight(0);

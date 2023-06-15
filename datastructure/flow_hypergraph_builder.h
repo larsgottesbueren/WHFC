@@ -38,11 +38,15 @@ namespace whfc {
 			//sentinels
 			nodes.push_back({InHeIndex(0), NodeWeight(0)});
 			hyperedges.push_back({PinIndex(0), Flow(0)});
+
+            graph_first_out.clear();
+            graph_first_out.push_back(0);
 		}
 
 		void reinitialize(size_t numNodes) {
 			clear();
 			nodes.resize(numNodes + 1);
+			graph_first_out.resize(numNodes + 1);
 		}
 
 		void addNode(const NodeWeight w) {
