@@ -5,769 +5,648 @@
 #include "../datastructure/border.h"
 #include "../datastructure/node_border.h"
 #include "../datastructure/flow_hypergraph.h"
-#include "../datastructure/isolated_nodes.h"
 #include "../util/math.h"
 #include "../util/random.h"
 
-
-// TODO factor out verification code, maybe even balance checking?
+#include <tbb/parallel_reduce.h>
+#include <tbb/parallel_invoke.h>
+#include <tbb/blocked_range.h>
+#include <tbb/scalable_allocator.h>
 
 namespace whfc {
-	
+	template<typename T>
+	using vec = std::vector<T, tbb::scalable_allocator<T> >;
+
 	struct SimulatedNodeAssignment {
-		bool assignUnclaimedToSource = true;
-		bool assignTrackedIsolatedWeightToSource = true;
-		NodeWeight trackedIsolatedWeight = invalidWeight;
-		double imbalanceSourceBlock = std::numeric_limits<double>::max(), imbalanceTargetBlock = std::numeric_limits<double>::max();
-		size_t numberOfTrackedMoves = 0;
-		int direction = 0;
-		
-		double imbalance() const {
-			return std::max(imbalanceSourceBlock, imbalanceTargetBlock);
+		bool assign_unclaimed_to_source = true;
+		bool perfect_balance = false;
+		double balance_source_block = std::numeric_limits<double>::max(), balance_target_block = std::numeric_limits<double>::max();
+		size_t number_of_tracked_moves = 0;
+
+		double balance() const {
+			if (perfect_balance) {
+				return 1.0;
+			}
+			return std::min(balance_source_block, balance_target_block);
 		}
-		
+
 		bool isPerfectlyBalanced() const {
-			return std::abs(imbalanceSourceBlock - imbalanceTargetBlock) < 1e-9;
+			return perfect_balance || std::abs(balance_source_block - balance_target_block) < 1e-9;
 		}
 	};
-	
+
 	struct Move {
-		enum class Type : uint8_t { SettleNode, SettleAllPins, SettleFlowSendingPins };
 		Node node;
-		Hyperedge hyperedge;
 		int direction;
-		Type t;
-		Move(Node node, int dir, Type t) : node(node), hyperedge(invalidHyperedge), direction(dir), t(t) {
-			assert(t == Type::SettleNode);
-		}
-		Move(Hyperedge hyperedge, int dir, Type t) : node(invalidNode), hyperedge(hyperedge), direction(dir), t(t) {
-			assert(t == Type::SettleAllPins || t == Type::SettleFlowSendingPins);
-		}
+		Move(Node node, int dir) : node(node), direction(dir) { }
 	};
-	
-	struct PiercingNode {
-		Node node;
-		bool isReachableFromOppositeSide;
-		PiercingNode(const Node node, bool isReachableFromOppositeSide) : node(node), isReachableFromOppositeSide(isReachableFromOppositeSide) { }
-	};
-	
+
 	struct NonDynamicCutterState {
-		std::vector<PiercingNode> sourcePiercingNodes, targetPiercingNodes;
-		int direction;
+		vec<Node> source_piercing_nodes, target_piercing_nodes;
 	};
-	
+
 	template<typename FlowAlgorithm>
 	class CutterState {
 	public:
-		static constexpr bool log = false;
-		
-		static constexpr bool useIsolatedNodes = false;
-		
-		using Pin = FlowHypergraph::Pin;
-		
-		int viewDirection = 0;
-		FlowHypergraph& hg;
-		Flow flowValue = 0;
+		static constexpr bool log = true;
 
-		using ReachableNodes = typename FlowAlgorithm::ReachableNodes;
-		using ReachableHyperedges = typename FlowAlgorithm::ReachableHyperedges;
-		ReachableNodes n;
-		ReachableHyperedges h;
-		std::vector<PiercingNode> sourcePiercingNodes, targetPiercingNodes;
-		std::vector<Move> trackedMoves;
-		
-		bool augmentingPathAvailableFromPiercing = true;
-		bool hasCut = false;
-		bool mostBalancedCutMode = false;
+		using Pin = FlowHypergraph::Pin;
+
+		FlowAlgorithm flow_algo;
+		int side_to_pierce = 0;
+		FlowHypergraph& hg;
+
+		NodeWeight source_weight, target_weight, source_reachable_weight, target_reachable_weight;
+		std::vector<Move> tracked_moves;
+
+		bool force_sequential = true;
+
+		bool augmenting_path_available_from_piercing = true;
+		bool has_cut = false;
+		bool most_balanced_cut_mode = false;
 		HyperedgeCuts cuts;
-		NodeBorders borderNodes;
-		std::array<NodeWeight, 2> maxBlockWeightPerSide;
-		IsolatedNodes isolatedNodes;
-		bool partitionWrittenToNodeSet = false;
+		NodeBorders border_nodes;
+		std::array<NodeWeight, 2> max_block_weight_per_side;
+		bool partition_written_to_node_set = false;
 		TimeReporter& timer;
 		Randomizer rng;
 
 		CutterState(FlowHypergraph& _hg, TimeReporter& timer) :
+				flow_algo(_hg),
 				hg(_hg),
-				n(_hg),
-				h(_hg),
 				cuts(_hg.numHyperedges()),
-				borderNodes(_hg.numNodes()),
-				maxBlockWeightPerSide({NodeWeight(0), NodeWeight(0)}),
-				isolatedNodes(hg, useIsolatedNodes),
+				border_nodes(_hg.numNodes()),
+				max_block_weight_per_side({ NodeWeight(0), NodeWeight(0)}),
 				timer(timer)
-		{
-			timer.registerCategory("Balance Check");
-		}
-		
-		inline bool isIsolated(const Node u) const {
-			return useIsolatedNodes && !n.isSource(u) && !n.isTarget(u) && isolatedNodes.isCandidate(u);
-		}
-		
-		inline bool canBeSettled(const Node u) const {
-			return !n.isSource(u) && !n.isTarget(u) && !isIsolated(u);
+		{ }
+
+		bool isNonTerminal(const Node u) const {
+			return !flow_algo.isSource(u) && !flow_algo.isTarget(u);
 		}
 
-		inline NodeWeight unclaimedNodeWeight() const {
-			return hg.totalNodeWeight() - n.sourceReachableWeight - n.targetReachableWeight - isolatedNodes.weight;
-		}
-		
-		inline NodeWeight notSettledNodeWeight() const {
-			return hg.totalNodeWeight() - n.sourceWeight - n.targetWeight - isolatedNodes.weight;
-		}
-		
-		inline bool shouldBeAddedToCut(const Hyperedge e) const {
-			return !h.areAllPinsSourceReachable(e) && !cuts.sourceSide.wasAdded(e) && hg.isSaturated(e); // the first condition is just an optimization, not really necessary
+		NodeWeight unclaimedNodeWeight() const {
+			return hg.totalNodeWeight() - source_reachable_weight - target_reachable_weight;
 		}
 
-		inline void addToCut(const Hyperedge e) {
+		NodeWeight notSettledNodeWeight() const {
+			return hg.totalNodeWeight() - source_weight - target_weight;
+		}
+
+		void tryAddNodeToSourceSideBorder(const Node v) {
+            if (isNonTerminal(v) && !border_nodes.source_side.wasAdded(v) && (!most_balanced_cut_mode || !flow_algo.isTargetReachable(v))) {
+                border_nodes.source_side.add(v, flow_algo.isTargetReachable(v));
+            }
+		}
+
+		void addToSourceSideCut(const Hyperedge e) {
 			//Note: the current implementation of selecting piercing nodes relies on not inserting target-reachable nodes during most balanced cut mode
-			assert(shouldBeAddedToCut(e));
-			for (const Pin& px : hg.pinsOf(e)) {
-				if (canBeSettled(px.pin) && !borderNodes.sourceSide->wasAdded(px.pin) && (!mostBalancedCutMode || !n.isTargetReachable(px.pin))) {
-					borderNodes.sourceSide->add(px.pin, n.isTargetReachable(px.pin));
+			if (!cuts.source_side.wasAdded(e)) {
+				cuts.source_side.add(e);
+				for (const Pin& px : hg.pinsOf(e)) {
+					tryAddNodeToSourceSideBorder(px.pin);
 				}
 			}
-			cuts.sourceSide.add(e);
 		}
-		
-		void setMaxBlockWeight(int side, NodeWeight mw) {
-			maxBlockWeightPerSide[side] = mw;
-			isolatedNodes.adaptMaxBlockWeight(mw);
-		}
-		
-		NodeWeight maxBlockWeight(int side) const {
-			return maxBlockWeightPerSide[side];
-		}
-		
-		NodeWeight maxBlockWeight() const {
-			return maxBlockWeight(currentViewDirection());
-		}
-		
-		void settleNode(const Node u, bool check = true) {
-			assert(!n.isSource(u) && !n.isTarget(u) && (!check || !isIsolated(u)));
-			unused(check);
-			
-			if (!n.isSourceReachable(u))
-				n.reach(u);
-			n.settle(u);
 
-			if (mostBalancedCutMode) {
-				trackedMoves.emplace_back(u, currentViewDirection(), Move::Type::SettleNode);
-				return;
+		void tryAddNodeToTargetSideBorder(const Node v) {
+            if (isNonTerminal(v) && !border_nodes.target_side.wasAdded(v) && (!most_balanced_cut_mode || !flow_algo.isSourceReachable(v))) {
+                border_nodes.target_side.add(v, flow_algo.isSourceReachable(v));
+            }
+		}
+
+		void addToTargetSideCut(const Hyperedge e) {
+			if (!cuts.target_side.wasAdded(e)) {
+				cuts.target_side.add(e);
+				for (const Pin& px : hg.pinsOf(e)) {
+					tryAddNodeToTargetSideBorder(px.pin);
+				}
 			}
-			
-			if constexpr (useIsolatedNodes) {
-				for (const auto& he_inc : hg.hyperedgesOf(u)) {
-					const Hyperedge e = he_inc.e;
-					if (!isolatedNodes.hasSettledSourcePins[e]) {
-						isolatedNodes.hasSettledSourcePins.set(e);
-						if (isolatedNodes.hasSettledTargetPins[e]) {	//e just became mixed
-							for (const auto& px : hg.pinsOf(e)) {
-								const Node p = px.pin;
-								isolatedNodes.mixedIncidentHyperedges[p]++;
-								if (isIsolated(p)) {
-									isolatedNodes.add(p);
-									if (n.isSourceReachable(p))
-										n.unreachSource(p);
-									if (n.isTargetReachable(p))
-										n.unreachTarget(p);
-								}
-							}
+		}
+
+		void setMaxBlockWeight(int side, NodeWeight mw) {
+			max_block_weight_per_side[side] = mw;
+		}
+
+		NodeWeight maxBlockWeight(int side) const {
+			return max_block_weight_per_side[side];
+		}
+
+		bool reachableFromSideNotToPierce(const Node u) const {
+			return side_to_pierce == 0 ? flow_algo.isTargetReachable(u) : flow_algo.isSourceReachable(u);
+		}
+
+		void clearPiercingNodes() {
+			has_cut = false;
+			flow_algo.clearPiercingNodes(side_to_pierce == 0);
+			augmenting_path_available_from_piercing = false;
+		}
+
+		void addPiercingNode(const Node piercingNode) {
+			augmenting_path_available_from_piercing |= reachableFromSideNotToPierce(piercingNode);
+			if (side_to_pierce == 0) {
+				source_weight += hg.nodeWeight(piercingNode);
+			} else {
+				target_weight += hg.nodeWeight(piercingNode);
+			}
+			if (most_balanced_cut_mode) {
+				tracked_moves.emplace_back(piercingNode, side_to_pierce);
+			}
+			flow_algo.pierce(piercingNode, side_to_pierce == 0);
+		}
+
+		void computeReachableWeights() {
+			if (augmenting_path_available_from_piercing) {
+				// tbb::parallel_invoke([&] {
+						computeSourceReachableWeight();
+				//	}, [&] {
+						computeTargetReachableWeight();
+				// });
+			} else {
+				// no flow increased --> one side didn't change
+				if (side_to_pierce == 0) {
+					computeSourceReachableWeight();
+				} else {
+					computeTargetReachableWeight();
+				}
+			}
+			assert(source_reachable_weight + target_reachable_weight <= hg.totalNodeWeight());
+		}
+
+		void computeSourceReachableWeight() {
+			auto sr = flow_algo.sourceReachableNodes();
+			source_reachable_weight = source_weight;
+			if (augmenting_path_available_from_piercing && sr.size() > 5000 && !force_sequential) {
+				source_reachable_weight += tbb::parallel_reduce(
+						tbb::blocked_range<size_t>(0, sr.size(), 2000), 0, [&](const auto& r, NodeWeight sum) -> NodeWeight {
+					for (size_t i = r.begin(); i < r.end(); ++i) {
+						Node u = sr[i];
+						assert(flow_algo.isSourceReachable(u));
+						if (flow_algo.isHypernode(u) && !flow_algo.isSource(u)) {
+							sum += hg.nodeWeight(u);
 						}
+					}
+					return sum;
+				}, std::plus<>());
+			} else {
+				// expect less work
+				for (Node u : sr) {
+					assert(flow_algo.isSourceReachable(u));
+					if (flow_algo.isHypernode(u) && !flow_algo.isSource(u)) {
+						source_reachable_weight += hg.nodeWeight(u);
 					}
 				}
 			}
+
+
+			assert([&] {
+				NodeWeight w = 0;
+				for (Node u : hg.nodeIDs()) { if (flow_algo.isSourceReachable(u)) w += hg.nodeWeight(u); }
+				return w == source_reachable_weight;
+			}());
 		}
-		
-		void settleFlowSendingPins(const Hyperedge e) {
-			if (mostBalancedCutMode) {
-				trackedMoves.emplace_back(e, currentViewDirection(), Move::Type::SettleFlowSendingPins);
+
+		void computeTargetReachableWeight() {
+			auto tr = flow_algo.targetReachableNodes();
+			target_reachable_weight = target_weight;
+			if (augmenting_path_available_from_piercing && tr.size() > 5000 && !force_sequential) {
+				target_reachable_weight += tbb::parallel_reduce(
+						tbb::blocked_range<size_t>(0, tr.size(), 2000), 0, [&](const auto& r, NodeWeight sum) -> NodeWeight {
+					for (size_t i = r.begin(); i < r.end(); ++i) {
+						Node u = tr[i];
+						assert(flow_algo.isTargetReachable(u));
+						if (flow_algo.isHypernode(u) && !flow_algo.isTarget(u)) {
+							sum += hg.nodeWeight(u);
+						}
+					}
+					return sum;
+				}, std::plus<>());
+			} else {
+				// expect less work
+				for (Node u : tr) {
+					assert(flow_algo.isTargetReachable(u));
+					if (flow_algo.isHypernode(u) && !flow_algo.isTarget(u)) {
+						target_reachable_weight += hg.nodeWeight(u);
+					}
+				}
 			}
-			h.settleFlowSendingPins(e);
+
+			assert([&] {
+				NodeWeight w = 0;
+				for (Node u : hg.nodeIDs()) { if (flow_algo.isTargetReachable(u)) w += hg.nodeWeight(u); }
+				return w == target_reachable_weight;
+			}());
 		}
-		
-		void settleAllPins(const Hyperedge e) {
-			if (mostBalancedCutMode) {
-				trackedMoves.emplace_back(e, currentViewDirection(), Move::Type::SettleAllPins);
+
+		void assimilateSourceSide() {
+			source_weight = source_reachable_weight;
+			for (Node u : flow_algo.sourceReachableNodes()) {
+				assert(flow_algo.isSourceReachable(u));
+				if (!flow_algo.isSource(u)) {
+					if (most_balanced_cut_mode) {
+						tracked_moves.emplace_back(u, 0);
+					}
+					if (flow_algo.isInNode(u)) {
+						Hyperedge e = flow_algo.inNodeToEdge(u);
+						Node out_node = flow_algo.edgeToOutNode(e);
+						if (!flow_algo.isSourceReachable(out_node)) {		// in node visited but not out node --> cut hyperedge
+							addToSourceSideCut(e);
+						}
+					}
+					if (flow_algo.isHypernode(u)) {
+					    for (const auto& e : hg.edgesOf(u)) {
+					        if (!flow_algo.isSourceReachable(e.target)) {
+                                tryAddNodeToSourceSideBorder(e.target);
+					        }
+					    }
+					}
+					flow_algo.makeSource(u);
+				}
 			}
-			h.settleAllPins(e);
 		}
 
-		void flipViewDirection() {
-			viewDirection = 1 - viewDirection;
-			hg.flipViewDirection();
-			n.flipViewDirection();
-			h.flipViewDirection();
-			sourcePiercingNodes.swap(targetPiercingNodes);
-			cuts.flipViewDirection();
-			borderNodes.flipViewDirection();
-			isolatedNodes.flipViewDirection();
+		void assimilateTargetSide() {
+			target_weight = target_reachable_weight;
+			for (Node u : flow_algo.targetReachableNodes()) {
+				assert(flow_algo.isTargetReachable(u));
+				if (!flow_algo.isTarget(u)) {
+					if (most_balanced_cut_mode) {
+						tracked_moves.emplace_back(u, 1);
+					}
+					if (flow_algo.isOutNode(u)) {
+						Hyperedge e = flow_algo.outNodeToEdge(u);
+						Node in_node = flow_algo.edgeToInNode(e);
+						if (!flow_algo.isTargetReachable(in_node)) {		// out node visited but not in node --> cut hyperedge
+							addToTargetSideCut(e);
+						}
+					}
+                    if (flow_algo.isHypernode(u)) {
+                        for (const auto& e : hg.edgesOf(u)) {
+                            if (!flow_algo.isTargetReachable(e.target)) {
+                                tryAddNodeToTargetSideBorder(e.target);
+                            }
+                        }
+                    }
+					flow_algo.makeTarget(u);
+				}
+			}
 		}
 
-		int currentViewDirection() const {
-			return viewDirection;
+		void assimilate() {
+			computeReachableWeights();
+			side_to_pierce = sideToGrow();
+			if (side_to_pierce == 0 /* source side */) {
+				assimilateSourceSide();
+			} else {
+				assimilateTargetSide();
+			}
+			LOGGER << toString();
+			verifyCutPostConditions();
 		}
 
-		int oppositeViewDirection() const {
-			return 1 - viewDirection;
-		}
 
-		void clearForSearch() {
-			n.resetSourceReachableToSource(augmentingPathAvailableFromPiercing);
-			h.resetSourceReachableToSource(augmentingPathAvailableFromPiercing);
-		}
-		
-		void reset() {		// TODO could consolidate with initialize
-			viewDirection = 0;
-			flowValue = 0;
-			n.fullReset();
-			h.fullReset();
-			sourcePiercingNodes.clear(); targetPiercingNodes.clear();
-			trackedMoves.clear();
-			augmentingPathAvailableFromPiercing = true;
-			hasCut = false;
-			mostBalancedCutMode = false;
+		void reset() {
+			flow_algo.reset();
+			tracked_moves.clear();
+			augmenting_path_available_from_piercing = true;
+			has_cut = false;
+			most_balanced_cut_mode = false;
 			cuts.reset(hg.numHyperedges());			//this requires that FlowHypergraph is reset before resetting the CutterState
-			borderNodes.reset(hg.numNodes());
-			if constexpr (useIsolatedNodes) {
-				isolatedNodes.reset();
-			}
-			partitionWrittenToNodeSet = false;
+			border_nodes.reset(hg.numNodes());
+			partition_written_to_node_set = false;
 		}
-		
-		void initialize(const Node s, const Node t) {
+
+		void initialize(Node s, Node t) {
 			if (hg.nodeWeight(s) > maxBlockWeight(0) || hg.nodeWeight(t) > maxBlockWeight(1)) {
 				throw std::runtime_error("Terminal weight already exceeds max block weight at initialization. Consider setting max block weights per side via hfc.cs.setMaxBlockWeight(  side  )");
 			}
-			assert(sourcePiercingNodes.empty() && targetPiercingNodes.empty());
-			sourcePiercingNodes.emplace_back(s,false);
-			settleNode(s, false);
-			targetPiercingNodes.emplace_back(t,false);
-			flipViewDirection();
-			settleNode(t, false);
-			flipViewDirection();
-			if constexpr (useIsolatedNodes) {
-				for (Node u : hg.nodeIDs()) {
-					if (hg.degree(u) == 0 && u != s && u != t) {
-						isolatedNodes.add(u);
-					}
-				}
-			}
+
+			flow_algo.initialize(s, t);
+
+			source_weight = hg.nodeWeight(s);
+			source_reachable_weight = source_weight;
+			target_weight = hg.nodeWeight(t);
+			target_reachable_weight = target_weight;
 		}
-		
+
 		int sideToGrow() const {
-			const double imb_s = static_cast<double>(n.sourceReachableWeight) / static_cast<double>(maxBlockWeight(currentViewDirection()));
-			const double imb_t = static_cast<double>(n.targetReachableWeight) / static_cast<double>(maxBlockWeight(oppositeViewDirection()));
-			return imb_s <= imb_t ? currentViewDirection() : oppositeViewDirection();
+			const double imb_s = static_cast<double>(source_reachable_weight) / static_cast<double>(maxBlockWeight(0));
+			const double imb_t = static_cast<double>(target_reachable_weight) / static_cast<double>(maxBlockWeight(1));
+			return imb_s <= imb_t ? 0 : 1;
 		}
-		
+
 		bool isBalanced() {
-			assert(hasCut);
-			assert(!partitionWrittenToNodeSet && "Cannot call isBalanced() once the partition has been written");
-			
-			const NodeWeight
-					sw = n.sourceReachableWeight,		//cannot be split
-					tw = n.targetReachableWeight,		//cannot be split
-					uw = unclaimedNodeWeight(),			//cannot be split (in current stages. if we integrate proper PCKP heuristics for MBMC this would change)
-					iso = isolatedNodes.weight;			//can be split
-			
-			const NodeWeight
-					s_mbw = maxBlockWeight(currentViewDirection()),
-					t_mbw = maxBlockWeight(oppositeViewDirection());
+			assert(has_cut);
+			assert(!partition_written_to_node_set && "Cannot call isBalanced() once the partition has been written");
+			return (source_reachable_weight <= maxBlockWeight(0) && hg.totalNodeWeight() - source_reachable_weight <= maxBlockWeight(1))
+				|| (hg.totalNodeWeight() - target_reachable_weight <= maxBlockWeight(0) && target_reachable_weight <= maxBlockWeight(1));
+		}
 
-			if (sw > s_mbw || tw > t_mbw)					//this is good at late and early stages
-				return false;
-			if (sw + uw > s_mbw && tw + uw > t_mbw)			//this is good at early stages
-				return false;
+		bool rejectPiercingIfAugmenting() const {
+			return most_balanced_cut_mode || flow_algo.flow_value == flow_algo.upper_flow_bound;
+		}
 
-			{	//quick checks to determine whether balance is possible without invoking SubsetSum, i.e. don't split the isolated nodes.
-				bool balanced = false;
-				balanced |= sw + uw + iso <= s_mbw;
-				balanced |= tw + uw + iso <= t_mbw;
-				balanced |= sw + uw <= s_mbw && tw + iso <= t_mbw;
-				balanced |= tw + uw <= t_mbw && sw + iso <= s_mbw;
-				if (balanced)
-					return true;
-			}
-			
-			if constexpr (useIsolatedNodes) {
-				timer.start("Balance Check");
-				isolatedNodes.updateDPTable();
-				
-				const NodeWeight
-						sRem = s_mbw - sw,
-						tRem = t_mbw - tw,
-						suw = sw + uw,
-						tuw = tw + uw,
-						suwRem = suw <= s_mbw ? s_mbw - suw : invalidWeight,
-						tuwRem = tuw <= t_mbw ? t_mbw - tuw : invalidWeight;
-				
-				bool balanced = false;
-				
-				//sides: (S + U, T) + <ISO> and (S, T + U) + <ISO>
-				for (const IsolatedNodes::SummableRange& sr : isolatedNodes.getSumRanges()) {
-					if (suwRem != invalidWeight) {
-						//S+U not overloaded. Therefore, try (S + U, T) + <ISO>
-						
-						//allocate as much as possible to S+U, i.e. x = min(suwRem, sr.to), the rest, i.e. iso - x has to go to T
-						balanced |= suwRem >= sr.from && tw + (iso - std::min(suwRem, sr.to)) <= t_mbw;
-						//analogously, allocate as much as possible to T
-						balanced |= tRem >= sr.from && suw + (iso - std::min(tRem, sr.to)) <= s_mbw;
-					}
-					
-					if (tuwRem != invalidWeight) {
-						//T+U not overloaded. Therefore, try (S, T + U) + <ISO>
-						balanced |= tuwRem >= sr.from && sw + (iso - std::min(tuwRem, sr.to)) <= s_mbw;
-						balanced |= sRem >= sr.from && tuw + (iso - std::min(sRem, sr.to)) <= t_mbw;
-					}
-					
-					if (balanced)
-						break;
-				}
-				
-				timer.stop("Balance Check");
-				return balanced;
-			}
-			else {
+		bool addingAllUnreachableNodesDoesNotChangeHeavierBlock() const {
+			if (unclaimedNodeWeight() == 0) {
 				return false;
+			}
+			if (sideToGrow() == 0) {
+				const double imb_S_U = static_cast<double>(hg.totalNodeWeight() - target_reachable_weight) / static_cast<double>(maxBlockWeight(0));
+				const double imb_T = static_cast<double>(target_reachable_weight) / static_cast<double>(maxBlockWeight(1));
+				return imb_S_U <= imb_T;
+			} else {
+				const double imb_S = static_cast<double>(source_reachable_weight) / static_cast<double>(maxBlockWeight(0));
+				const double imb_T_U = static_cast<double>(hg.totalNodeWeight() - source_reachable_weight) / static_cast<double>(maxBlockWeight(1));
+				return imb_T_U <= imb_S;
 			}
 		}
-		
+
 		NonDynamicCutterState enterMostBalancedCutMode() {
-			assert(!mostBalancedCutMode);
-			assert(trackedMoves.empty());
-			assert(hasCut);
-			mostBalancedCutMode = true;	// activates move tracking
-			borderNodes.enterMostBalancedCutMode();
+			assert(!most_balanced_cut_mode);
+			assert(tracked_moves.empty());
+			assert(has_cut);
+			most_balanced_cut_mode = true;	// activates move tracking
+			border_nodes.enterMostBalancedCutMode();
 			cuts.enterMostBalancedCutMode();
-			return { sourcePiercingNodes, targetPiercingNodes, currentViewDirection() };
+			return { flow_algo.source_piercing_nodes, flow_algo.target_piercing_nodes };
 		}
-		
+
 		void resetToFirstBalancedState(NonDynamicCutterState& nds) {
-			if (currentViewDirection() != nds.direction) {
-				flipViewDirection();
-			}
-			sourcePiercingNodes = nds.sourcePiercingNodes;
-			targetPiercingNodes = nds.targetPiercingNodes;
+			flow_algo.source_piercing_nodes = nds.source_piercing_nodes;
+			flow_algo.target_piercing_nodes = nds.target_piercing_nodes;
 			revertMoves(0);
-			borderNodes.resetForMostBalancedCut();
+			border_nodes.resetForMostBalancedCut();
 			cuts.resetForMostBalancedCut();
+			side_to_pierce = sideToGrow();
 		}
-		
-		
-		/*
-		 * balance criterion with individual part weights is minimize ( w_i / max_w_i ) - 1
-		 *
-		 * here we minimize alpha under the constraints
-		 * 1) a + x <= alpha * max_a
-		 * 2) b - x <= alpha * max_b
-		 * 3) x in [sr.from, sr.to]
-		 *
-		 * Finds the optimal assignment weight of isolated nodes to reassign from b to a, assuming b has received all isolated nodes so far.
-		 * Optimal under the imbalance definition (part_weight[i] / max_part_weight[i]) - 1
-		 */
-		static void isolatedWeightAssignmentToFirstMinimizingImbalance(NodeWeight a, NodeWeight max_a,
-																	   NodeWeight b, NodeWeight max_b,
-																	   const IsolatedNodes::SummableRange& sr,
-																	   SimulatedNodeAssignment& assignment) {
-			
-			auto ddiv = [](const NodeWeight num, const NodeWeight den) -> double {
-				return static_cast<double>(num) / static_cast<double>(den);
-			};
-			auto imb_a = [&](const NodeWeight x) -> double {
-				return ddiv(a+x, max_a) - 1.0;
-			};
-			auto imb_b = [&](const NodeWeight x) -> double {
-				return ddiv(b-x, max_b) - 1.0;
-			};
-			
-			const double continuous_x = ddiv(max_a * b - max_b * a, max_a + max_b);
-			
-			if (continuous_x < sr.from) {
-				assignment.trackedIsolatedWeight = sr.from;
-			}
-			else if (continuous_x > sr.to) {
-				assignment.trackedIsolatedWeight = sr.to;
-			}
-			else {
-				// can determine an alpha so that both inequalities are tight
-				const NodeWeight x_low = std::floor(continuous_x);
-				const NodeWeight x_high = std::ceil(continuous_x);
-				const double imb_low = std::max(imb_a(x_low), imb_b(x_low));
-				const double imb_high = std::max(imb_a(x_high), imb_b(x_high));
-				assignment.trackedIsolatedWeight = imb_low < imb_high ? x_low : x_high;
-			}
-			
-			assignment.imbalanceSourceBlock = imb_a(assignment.trackedIsolatedWeight);
-			assignment.imbalanceTargetBlock = imb_b(assignment.trackedIsolatedWeight);
-			
-			if (!assignment.assignTrackedIsolatedWeightToSource) {
-				// in this case a corresponds to the target block --> swap them.
-				std::swap(assignment.imbalanceSourceBlock, assignment.imbalanceTargetBlock);
-			}
-			
-		}
-		
 
-		// TODO this code isn't very clean unfortunately. let's clean it up.
-		
-		/*
-		 * Simulates settling all isolated and unclaimed nodes to achieve the most balanced partition possible with the current sides
-		 * Write that assignment to ReachableNodes if write_partition = true
-		 * returns the smallest possible block weight difference and the necessary assignment information
-		 */
-		SimulatedNodeAssignment mostBalancedIsolatedNodesAssignment() {
-			const NodeWeight
-					sw = n.sourceReachableWeight,
-					tw = n.targetReachableWeight,
-					uw = unclaimedNodeWeight(),
-					suw = sw + uw,
-					tuw = tw + uw,
-					s_mbw = maxBlockWeight(currentViewDirection()),
-					t_mbw = maxBlockWeight(oppositeViewDirection()),
-					t_iso = isolatedNodes.weight;
-
-			SimulatedNodeAssignment sol, sim;
-			
-			// extracted as lambda to allow using it manually for unweighted nodes or in case the iso DP table is not used
-			auto check_combinations = [&](const IsolatedNodes::SummableRange& sr) {
-				
-				sim.assignUnclaimedToSource = true;
-				sim.assignTrackedIsolatedWeightToSource = true;
-				isolatedWeightAssignmentToFirstMinimizingImbalance(suw, s_mbw, tw + t_iso, t_mbw, sr, sim);
-				if (sim.imbalance() < sol.imbalance()) {
-					sol = sim;
-				}
-			
-				sim.assignUnclaimedToSource = false;
-				sim.assignTrackedIsolatedWeightToSource = true;
-				isolatedWeightAssignmentToFirstMinimizingImbalance(sw, s_mbw, tuw + t_iso, t_mbw, sr, sim);
-				if (sim.imbalance() < sol.imbalance()) {
-					sol = sim;
-				}
-			
-				if constexpr (useIsolatedNodes) {
-					sim.assignUnclaimedToSource = true;
-					sim.assignTrackedIsolatedWeightToSource = false;
-					isolatedWeightAssignmentToFirstMinimizingImbalance(tw, t_mbw, suw + t_iso, s_mbw, sr, sim);
-					if (sim.imbalance() < sol.imbalance()) {
-						sol = sim;
-					}
-				
-					sim.assignUnclaimedToSource = false;
-					sim.assignTrackedIsolatedWeightToSource = false;
-					isolatedWeightAssignmentToFirstMinimizingImbalance(tuw, t_mbw, sw + t_iso, s_mbw, sr, sim);
-					if (sim.imbalance() < sol.imbalance()) {
-						sol = sim;
-					}
-				}
+		SimulatedNodeAssignment mostBalancedAssignment() {
+			assert(isBalanced());
+			auto gap = [&](NodeWeight a, NodeWeight max_a) {
+				return (static_cast<double>(a) / static_cast<double>(max_a));
 			};
-			
-			if constexpr (useIsolatedNodes) {
-				timer.start("Assign Isolated Nodes");
-				isolatedNodes.updateDPTable();
-				for (const IsolatedNodes::SummableRange& sr : isolatedNodes.getSumRanges()) {
-					check_combinations(sr);
-				}
-				timer.stop("Assign Isolated Nodes");
+			SimulatedNodeAssignment suw;
+			suw.balance_source_block = gap(hg.totalNodeWeight() - target_reachable_weight, maxBlockWeight(0));
+			suw.balance_target_block = gap(target_reachable_weight, maxBlockWeight(1));
+			suw.assign_unclaimed_to_source = true;
+
+			SimulatedNodeAssignment tuw;
+			tuw.balance_source_block = gap(source_reachable_weight, maxBlockWeight(0));
+			tuw.balance_target_block = gap(hg.totalNodeWeight() - source_reachable_weight, maxBlockWeight(1));
+			tuw.assign_unclaimed_to_source = false;
+
+			if (maxBlockWeight(0) == maxBlockWeight(1) && hg.totalNodeWeight() % 2 == 1) {
+				// special case because it's harder to catch
+				suw.perfect_balance = hg.totalNodeWeight() - 2 * target_reachable_weight == 1;
+				tuw.perfect_balance = hg.totalNodeWeight() - 2 * source_reachable_weight == 1;
 			}
-			else {
-				check_combinations(IsolatedNodes::SummableRange(NodeWeight(0), NodeWeight(0)));
-			}
-			
-			sol.numberOfTrackedMoves = trackedMoves.size();
-			sol.direction = currentViewDirection();
-			
-#ifndef NDEBUG
-			NodeWeight s = (sol.assignUnclaimedToSource ? suw : sw)
-						   + (sol.assignTrackedIsolatedWeightToSource ? sol.trackedIsolatedWeight : t_iso - sol.trackedIsolatedWeight);
-			NodeWeight t = (sol.assignUnclaimedToSource ? tw : tuw)
-						   + (sol.assignTrackedIsolatedWeightToSource ? t_iso - sol.trackedIsolatedWeight : sol.trackedIsolatedWeight);
-			assert(s <= maxBlockWeight(currentViewDirection()));
-			assert(t <= maxBlockWeight(oppositeViewDirection()));
-			assert(isolatedNodes.isSummable(sol.trackedIsolatedWeight));
-#endif
-			
+
+			SimulatedNodeAssignment sol = suw.balance() > tuw.balance() ? suw : tuw;
+
+			sol.number_of_tracked_moves = tracked_moves.size();
 			return sol;
 		}
-		
+
 		// takes the information from mostBalancedIsolatedNodesAssignment()
 		// can be an old run, since the DP solution for trackedIsolatedWeight only contains nodes that were isolated during that run
-		void writePartition(const SimulatedNodeAssignment& r) {
-			assert(!partitionWrittenToNodeSet);
+		void writePartition(const SimulatedNodeAssignment& assignment) {
+			assert(!partition_written_to_node_set);
 			assert(isBalanced());
-			if (currentViewDirection() != r.direction)
-				flipViewDirection();
 
-			if constexpr (useIsolatedNodes) {
-				auto isoSubset = isolatedNodes.extractSubset(r.trackedIsolatedWeight);
-				for (const Node u : isoSubset) {
-					assert(!n.isSourceReachable(u) && !n.isTargetReachable(u) && isIsolated(u));
-					if (r.assignTrackedIsolatedWeightToSource) {
-						n.reach(u); n.settle(u);
-					}
-					else {
-						n.reachTarget(u); n.settleTarget(u);
+			for (Node u : hg.nodeIDs()) {
+				if (flow_algo.isSourceReachable(u) && !flow_algo.isSource(u)) {
+					flow_algo.makeSource(u);
+					source_weight += hg.nodeWeight(u);
+				} else if (flow_algo.isTargetReachable(u) && !flow_algo.isTarget(u)) {
+					flow_algo.makeTarget(u);
+					target_weight += hg.nodeWeight(u);
+				} else if (!flow_algo.isSourceReachable(u) && !flow_algo.isTargetReachable(u)) {
+					if (assignment.assign_unclaimed_to_source) {
+						flow_algo.makeSource(u);
+						source_weight += hg.nodeWeight(u);
+					} else {
+						flow_algo.makeTarget(u);
+						target_weight += hg.nodeWeight(u);
 					}
 				}
 			}
 
-			for (const Node u : hg.nodeIDs()) {
-				if (n.isSourceReachable(u) && !n.isSource(u))
-					n.settle(u);
-				
-				if (n.isTargetReachable(u) && !n.isTarget(u))
-					n.settleTarget(u);
-				
-				if (!n.isSourceReachable(u) && !n.isTargetReachable(u) && !isIsolated(u)) {
-					if (r.assignUnclaimedToSource) {
-						n.reach(u); n.settle(u);
-					}
-					else {
-						n.reachTarget(u); n.settleTarget(u);
-					}
-				}
-				
-				if (isIsolated(u)) {
-					assert(isolatedNodes.weight > r.trackedIsolatedWeight);
-					if (r.assignTrackedIsolatedWeightToSource) {	// these are untracked isolated nodes
-						n.reachTarget(u); n.settleTarget(u);
-					}
-					else {
-						n.reach(u); n.settle(u);
-					}
-				}
+			assert(source_weight + target_weight == hg.totalNodeWeight());
+			source_reachable_weight = source_weight;
+			target_reachable_weight = target_weight;
+			partition_written_to_node_set = true;
+
+			#ifndef NDEBUG
+			NodeWeight sw = 0, tw = 0;
+			for (Node u : hg.nodeIDs()) {
+				assert(flow_algo.isSource(u) || flow_algo.isTarget(u));
+				if (flow_algo.isSource(u)) sw += hg.nodeWeight(u);
+				else tw += hg.nodeWeight(u);
 			}
-			
-			if (currentViewDirection() != 0)
-				flipViewDirection();
-			
-			assert(n.sourceWeight + n.targetWeight == hg.totalNodeWeight());
-			partitionWrittenToNodeSet = true;
+			assert(source_weight == sw);
+			assert(target_weight == tw);
+			#endif
+			verifyCutInducedByPartitionMatchesFlowValue();
 		}
-		
+
 		void writePartition() {
-			writePartition(mostBalancedIsolatedNodesAssignment());
+			writePartition(mostBalancedAssignment());
 		}
-		
+
 		void revertMoves(const size_t numberOfTrackedMoves) {
-			while (trackedMoves.size() > numberOfTrackedMoves) {
-				Move& m = trackedMoves.back();
-				if (m.node != invalidNode) {
-					assert(m.hyperedge == invalidHyperedge);
-					if (m.direction == currentViewDirection())
-						n.unsettleSource(m.node);
-					else
-						n.unsettleTarget(m.node);
+			// only in most balanced cut mode --> no need for parallelism
+			while (tracked_moves.size() > numberOfTrackedMoves) {
+				Move& m = tracked_moves.back();
+				flow_algo.unreach(m.node);
+				if (flow_algo.isHypernode(m.node)) {
+					if (m.direction == 0) source_weight -= hg.nodeWeight(m.node);
+					else target_weight -= hg.nodeWeight(m.node);
 				}
-				else {
-					assert(m.node == invalidNode);
-					//for timestamp and distance reachable sets, we would only need unsettleAllPins and unsettleFlowSendingPins, since S and T are disjoint by nature.
-					if (currentViewDirection() == m.direction) {
-						if (m.t == Move::Type::SettleAllPins)
-							h.unsettleAllPins(m.hyperedge);
-						else
-							h.unsettleFlowSendingPins(m.hyperedge);
-					}
-					else {
-						if (m.t == Move::Type::SettleAllPins)
-							h.unsettleAllPinsTarget(m.hyperedge);
-						else
-							h.unsettleFlowSendingPinsTarget(m.hyperedge);
-					}
-				}
-				trackedMoves.pop_back();
+				tracked_moves.pop_back();
 			}
+			source_reachable_weight = source_weight;
+			target_reachable_weight = target_weight;
 		}
-		
+
 		void applyMoves(const std::vector<Move>& moves) {
 			for (const Move& m : moves) {
-				if (m.node != invalidNode) {
-					assert(!n.isSourceReachable(m.node) && !n.isTargetReachable(m.node));
-					if (m.direction == currentViewDirection()) {
-						n.reach(m.node); n.settle(m.node);
-					}
-					else {
-						n.reachTarget(m.node); n.settleTarget(m.node);
-					}
+				if (m.direction == 0) {
+					flow_algo.makeSource(m.node);
+					if (flow_algo.isHypernode(m.node)) source_weight += hg.nodeWeight(m.node);
 				}
 				else {
-					assert(m.hyperedge != invalidHyperedge);
-					if (currentViewDirection() == m.direction) {
-						if (m.t == Move::Type::SettleAllPins)
-							h.settleAllPins(m.hyperedge);
-						else
-							h.settleFlowSendingPins(m.hyperedge);
-					}
-					else {
-						if (m.t == Move::Type::SettleAllPins)
-							h.settleAllPinsTarget(m.hyperedge);
-						else
-							h.settleFlowSendingPinsTarget(m.hyperedge);
-					}
+					flow_algo.makeTarget(m.node);
+					if (flow_algo.isHypernode(m.node)) target_weight += hg.nodeWeight(m.node);
 				}
 			}
+			source_reachable_weight = source_weight;
+			target_reachable_weight = target_weight;
 		}
-		
+
 		std::string toString(bool skip_iso_and_unclaimed = false) {
 			std::stringstream os;
-			bool flipIt = currentViewDirection() != 0;
-			if (flipIt)
-				flipViewDirection();
-			os << " cut= " << flowValue
-			   << " s=" << n.sourceWeight << "|" << n.sourceReachableWeight
-			   << " t=" << n.targetWeight << "|" << n.targetReachableWeight;
-			if (!skip_iso_and_unclaimed)
-			   os << " iso=" << isolatedNodes.weight << " u=" << unclaimedNodeWeight();
-			os << " mbw=[" << maxBlockWeight(currentViewDirection()) << " " << maxBlockWeight(oppositeViewDirection()) << "]"
-			   << " total=" << hg.totalNodeWeight()
-			   << " dir=" << (flipIt ? 1 : 0);
-			if (flipIt)
-				flipViewDirection();
+			os << " cut= " << flow_algo.flow_value
+				<< " s=" << source_weight << "|" << source_reachable_weight
+				<< " t=" << target_weight << "|" << target_reachable_weight;
+			if (!skip_iso_and_unclaimed) {
+				os << " u=" << unclaimedNodeWeight();
+			}
+			os << " mbw=[" << maxBlockWeight(0) << " " << maxBlockWeight(1) << "]"
+				<< " total=" << hg.totalNodeWeight();
 			return os.str();
 		}
 
-		
-		void verifyFlowConstraints() {
-#ifndef NDEBUG
-			Flow sourceExcess = 0, targetExcess = 0;
-			for (Node u : hg.nodeIDs()) {
-				Flow excess = 0;
-				for (auto& he_inc : hg.hyperedgesOf(u))
-					excess += hg.flowSent(he_inc);
-				if (n.isSource(u))
-					sourceExcess += excess;
-				else if (n.isTarget(u))
-					targetExcess += excess;
-				else
-					assert(excess == 0);
-			}
-			assert(sourceExcess >= 0 && targetExcess <= 0);
-			assert(hg.flowSent(sourceExcess) == hg.flowReceived(targetExcess));
-			assert(sourceExcess == flowValue);
-			
-			for (Hyperedge e : hg.hyperedgeIDs()) {
-				Flow flow_in = 0, flow_out = 0;
-				for (Pin& p : hg.pinsOf(e)) {
-					assert(std::abs(hg.flowSent(p)) <= hg.capacity(e));
-					flow_in += hg.absoluteFlowSent(p);
-					flow_out += hg.absoluteFlowReceived(hg.getInHe(p));
-				}
-				assert(flow_in >= 0);
-				assert(flow_in == flow_out);
-				assert(flow_in == std::abs(hg.flow(e)));
-				assert(flow_in <= hg.capacity(e));
-				
-				for (Pin& p : hg.pinsSendingFlowInto(e))
-					assert(hg.flowSent(p) > 0);
-				for (Pin& p : hg.pinsReceivingFlowFrom(e))
-					assert(hg.flowReceived(p) > 0);
-				for (Pin& p : hg.pinsWithoutFlow(e))
-					assert(hg.flowSent(p) == 0);
-			}
-#endif
-		}
-		
 		void verifyCutPostConditions() {
-			assert(hasCut);
-			
-#ifndef NDEBUG
-			
-			cuts.sourceSide.cleanUp([&](const Hyperedge& e) { return h.areAllPinsSources(e); });
-			Flow expected_flow = 0;
-			for (const Hyperedge& e : cuts.sourceSide.entries()) {
-				assert(hg.isSaturated(e));
-				expected_flow += hg.capacity(e);
-			}
-			assert(flowValue == expected_flow);
+			assert(has_cut);
 
-			
-#endif
-			verifySetInvariants();
-			verifyFlowConstraints();
-			verifyExtractedCutHyperedgesActuallySplitHypergraph();
-			verifyCutInducedByPartitionMatchesExtractedCutHyperedges();
-		}
-		
-		void verifySetInvariants() {
 #ifndef NDEBUG
-			n.verifyDisjoint();
-			n.verifySettledIsSubsetOfReachable();
-			h.verifyDisjoint();
-			h.verifySettledIsSubsetOfReachable();
-			for (Hyperedge e : hg.hyperedgeIDs()) {
-				for (const Pin& p : hg.pinsOf(e)) {
-					assert(!h.areAllPinsSources(e) || n.isSource(p.pin) || isIsolated(p.pin));
-					assert(!h.areAllPinsSourceReachable(e) || n.isSourceReachable(p.pin));
+			Flow expected_flow = 0;
+			if (side_to_pierce == 0) {
+				cuts.source_side.cleanUp([&](const Hyperedge& e) { return flow_algo.isSource(flow_algo.edgeToOutNode(e)); });
+				for (const Hyperedge& e : cuts.source_side.entries()) {
+					assert(flow_algo.isSource(flow_algo.edgeToInNode(e)) && !flow_algo.isSource(flow_algo.edgeToOutNode(e)));
+					assert(flow_algo.flow[flow_algo.bridgeEdgeIndex(e)] == hg.capacity(e));
+					expected_flow += hg.capacity(e);
 				}
-				for (const Pin& p : hg.pinsSendingFlowInto(e)) {
-					assert(!h.areFlowSendingPinsSources(e) || n.isSource(p.pin) || isIsolated(p.pin));
-					assert(!h.areFlowSendingPinsSourceReachable(e) || n.isSourceReachable(p.pin));
+				for (Node u : hg.nodeIDs()) {
+				    if (!flow_algo.isSource(u)) continue;
+				    for (auto edge_id = hg.beginIndexGraphEdges(u); edge_id != hg.endIndexGraphEdges(u); ++edge_id) {
+				        const auto& e = hg.getEdge(edge_id);
+				        if (!flow_algo.isSource(e.target)) {
+				            assert(flow_algo.graph_edges_flow[edge_id] == e.capacity);
+                            expected_flow += e.capacity;
+				        }
+				    }
 				}
+			} else {
+				cuts.target_side.cleanUp([&](const Hyperedge& e) { return flow_algo.isTarget(flow_algo.edgeToInNode(e)); });
+				for (const Hyperedge& e : cuts.target_side.entries()) {
+					assert(!flow_algo.isTarget(flow_algo.edgeToInNode(e)) && flow_algo.isTarget(flow_algo.edgeToOutNode(e)));
+					assert(flow_algo.flow[flow_algo.bridgeEdgeIndex(e)] == hg.capacity(e));
+					expected_flow += hg.capacity(e);
+				}
+                for (Node u : hg.nodeIDs()) {
+                    if (!flow_algo.isTarget(u)) continue;
+                    for (auto edge_id = hg.beginIndexGraphEdges(u); edge_id != hg.endIndexGraphEdges(u); ++edge_id) {
+                        const auto& e = hg.getEdge(edge_id);
+                        if (!flow_algo.isTarget(e.target)) {
+                            assert(flow_algo.graph_edges_flow[edge_id] == e.capacity);
+                            expected_flow += e.capacity;
+                        }
+                    }
+                }
 			}
+			verifyCutInducedByPartitionMatchesExtractedCutHyperedges();
+			verifyExtractedCutHyperedgesActuallySplitHypergraph();
+			assert(flow_algo.flow_value == expected_flow);
 #endif
 		}
-		
-		
+
 		void verifyCutInducedByPartitionMatchesExtractedCutHyperedges() {
 #ifndef NDEBUG
 			std::vector<Hyperedge> cut_from_partition;
-			for (Hyperedge e : hg.hyperedgeIDs()) {
-				bool hasSource = false;
-				bool hasOther = false;
-				for (Pin& p : hg.pinsOf(e)) {
-					Node v = p.pin;
-					hasSource |= n.isSource(v);
-					hasOther |= !n.isSource(v);
+			if (side_to_pierce == 0) {
+				for (Hyperedge e : hg.hyperedgeIDs()) {
+					bool hasSource = false;
+					bool hasOther = false;
+					for (Pin& p : hg.pinsOf(e)) {
+						Node v = p.pin;
+						hasSource |= flow_algo.isSource(v);
+						hasOther |= !flow_algo.isSource(v);
+					}
+
+					if (hasSource && hasOther) {
+						cut_from_partition.push_back(e);
+						assert(flow_algo.isSource(flow_algo.edgeToInNode(e)));
+					}
+
+					if (hasSource && !hasOther) {
+						assert(flow_algo.isSource(flow_algo.edgeToOutNode(e)));
+					}
 				}
-				if (hasSource && hasOther) {
-					cut_from_partition.push_back(e);
-					assert(h.areFlowSendingPinsSources(e));
+				auto sorted_cut = cuts.source_side.copy();
+				std::sort(sorted_cut.begin(), sorted_cut.end());
+				assert(sorted_cut == cut_from_partition);
+			} else {
+				for (Hyperedge e : hg.hyperedgeIDs()) {
+					bool hasTarget = false;
+					bool hasOther = false;
+					for (Pin& p : hg.pinsOf(e)) {
+						Node v = p.pin;
+						hasTarget |= flow_algo.isTarget(v);
+						hasOther |= !flow_algo.isTarget(v);
+					}
+					if (hasTarget && hasOther) {
+						cut_from_partition.push_back(e);
+						assert(flow_algo.isTarget(flow_algo.edgeToOutNode(e)));
+					}
+
+					if (hasTarget && !hasOther) {
+						assert(flow_algo.isTarget(flow_algo.edgeToInNode(e)));
+					}
 				}
-				
-				if (hasSource && !hasOther)
-					assert(h.areAllPinsSources(e));
+				auto sorted_cut = cuts.target_side.copy();
+				std::sort(sorted_cut.begin(), sorted_cut.end());
+				assert(sorted_cut == cut_from_partition);
 			}
-			std::vector<Hyperedge> sorted_cut = cuts.sourceSide.copy();
-			std::sort(sorted_cut.begin(), sorted_cut.end());
-			assert(sorted_cut == cut_from_partition);
 #endif
 		}
-		
+
 		void verifyCutInducedByPartitionMatchesFlowValue() {
 #ifndef NDEBUG
-			Flow cut_weight = 0;
+			Flow cut_weight = 0, t_cut_weight = 0;
 			for (Hyperedge e : hg.hyperedgeIDs()) {
-				bool hasSource = false;
-				bool hasOther = false;
+				bool hasSource = false, hasOther = false, hasTarget = false, hasTargetOther = false;
 				for (Pin& p : hg.pinsOf(e)) {
-					hasSource |= n.isSource(p.pin);
-					hasOther |= !n.isSource(p.pin);
+					hasSource |= flow_algo.isSource(p.pin);
+					hasOther |= !flow_algo.isSource(p.pin);
+					hasTarget |= flow_algo.isTarget(p.pin);
+					hasTargetOther |= !flow_algo.isTarget(p.pin);
 				}
+				if (hasTarget && hasTargetOther) {
+					assert(flow_algo.flow[flow_algo.bridgeEdgeIndex(e)] == hg.capacity(e));
+					t_cut_weight += hg.capacity(e);
+				}
+
 				if (hasSource && hasOther) {
+					assert(flow_algo.flow[flow_algo.bridgeEdgeIndex(e)] == hg.capacity(e));
 					cut_weight += hg.capacity(e);
 				}
 			}
-			assert(flowValue == cut_weight);
+			for (Node u : hg.nodeIDs()) {
+			    for (const auto& e : hg.edgesOf(u)) {
+			        if (flow_algo.isSource(u) && !flow_algo.isSource(e.target)) {
+			            cut_weight += e.capacity;
+			        }
+			        if (flow_algo.isTarget(u) && !flow_algo.isTarget(e.target)) {
+			            t_cut_weight += e.capacity;
+			        }
+			    }
+			}
+			assert(flow_algo.flow_value == t_cut_weight);
+			assert(flow_algo.flow_value == cut_weight);
 #endif
 		}
-		
-		
+
+
 		void verifyExtractedCutHyperedgesActuallySplitHypergraph() {
 #ifndef NDEBUG
 			BitVector he_seen(hg.numHyperedges()), node_seen(hg.numNodes());
 			LayeredQueue<Node> queue(hg.numNodes());
 			for (Node u : hg.nodeIDs()) {
-				if (n.isSource(u)) {
+				if (flow_algo.isSource(u)) {
 					queue.push(u);
 					node_seen.set(u);
 				}
 			}
-			
-			for (Hyperedge e : cuts.sourceSide.entries())
-				he_seen.set(e);
-			
+
+			bool source_side_grown = side_to_pierce == 0;
+
+			if (source_side_grown) {
+				for (Hyperedge e : cuts.source_side.entries()) he_seen.set(e);
+			} else {
+				for (Hyperedge e : cuts.target_side.entries()) he_seen.set(e);
+			}
+
 			while (!queue.empty()) {
 				Node u = queue.pop();
 				for (auto& he_inc : hg.hyperedgesOf(u)) {
@@ -776,8 +655,9 @@ namespace whfc {
 						he_seen.set(e);
 						for (auto& pin : hg.pinsOf(e)) {
 							Node v = pin.pin;
-							assert(!n.isTargetReachable(v));
-							assert(n.isSourceReachable(v));
+							assert(!flow_algo.isTargetReachable(v));
+							// if target-side cut hyperedges are blocked but not source-side cut, we can still visit unreachable nodes
+							assert(!source_side_grown || flow_algo.isSourceReachable(v));
 							if (!node_seen[v]) {
 								node_seen.set(v);
 								queue.push(v);
@@ -785,28 +665,39 @@ namespace whfc {
 						}
 					}
 				}
+
+                for (auto edge_id = hg.beginIndexGraphEdges(u); edge_id != hg.endIndexGraphEdges(u); ++edge_id) {
+                    const auto& e = hg.getEdge(edge_id);
+                    if (flow_algo.graph_edges_flow[edge_id] < e.capacity && !node_seen[e.target]) {
+                        node_seen.set(e.target);
+                        queue.push(e.target);
+                    }
+                }
 			}
-			
+
 			for (Node u : hg.nodeIDs()) {
-				if (n.isTargetReachable(u))
+				if (flow_algo.isTargetReachable(u))
 					assert(!node_seen[u]);
-				if (n.isSourceReachable(u))
+				if (flow_algo.isSourceReachable(u))
 					assert(node_seen[u]);
 			}
-			
+
 			queue.clear();
 			he_seen.reset();
 			node_seen.reset();
 			for (Node u : hg.nodeIDs()) {
-				if (n.isTarget(u)) {
+				if (flow_algo.isTarget(u)) {
 					queue.push(u);
 					node_seen.set(u);
 				}
 			}
-			
-			for (Hyperedge e : cuts.sourceSide.entries())
-				he_seen.set(e);
-			
+
+			if (side_to_pierce == 0) {
+				for (Hyperedge e : cuts.source_side.entries()) he_seen.set(e);
+			} else {
+				for (Hyperedge e : cuts.target_side.entries()) he_seen.set(e);
+			}
+
 			while (!queue.empty()) {
 				Node u = queue.pop();
 				for (auto& he_inc : hg.hyperedgesOf(u)) {
@@ -815,8 +706,8 @@ namespace whfc {
 						he_seen.set(e);
 						for (auto& pin : hg.pinsOf(e)) {
 							Node v = pin.pin;
-							assert(!n.isSourceReachable(v));
-							//no assert(n.isTargetReachable(v)) since we removed the source-side cut
+							assert(!flow_algo.isSourceReachable(v));
+							assert(source_side_grown || flow_algo.isTargetReachable(v)); // since we removed the source-side cut
 							if (!node_seen[v]) {
 								node_seen.set(v);
 								queue.push(v);
@@ -824,17 +715,25 @@ namespace whfc {
 						}
 					}
 				}
+
+                for (auto edge_id = hg.beginIndexGraphEdges(u); edge_id != hg.endIndexGraphEdges(u); ++edge_id) {
+                    const auto& e = hg.getEdge(edge_id);
+                    if (flow_algo.graph_edges_flow[e.reverse] < e.capacity && !node_seen[e.target]) {
+                        node_seen.set(e.target);
+                        queue.push(e.target);
+                    }
+                }
 			}
-			
+
 			for (Node u : hg.nodeIDs()) {
-				if (n.isTargetReachable(u))
+				if (flow_algo.isTargetReachable(u))
 					assert(node_seen[u]);
-				if (n.isSourceReachable(u))
+				if (flow_algo.isSourceReachable(u))
 					assert(!node_seen[u]);
 			}
 #endif
 		}
-		
+
 	};
 
 }
