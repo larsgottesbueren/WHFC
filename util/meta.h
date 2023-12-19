@@ -5,7 +5,6 @@
 #include <type_traits>
 #include <iostream>
 #include <typeinfo>
-#include <emmintrin.h>
 
 #include <cstdlib>
 #include <memory>
