@@ -42,7 +42,7 @@ public:
 		saturateSourceEdges();
 		auto t2 = tbb::tick_count::now();
 		saturate_time += (t2 - t).seconds();
-		size_t num_tries = 0, num_iterations_with_same_flow = 0;
+		size_t num_iterations_with_same_flow = 0;
 		bool termination_check_triggered = false;
 		do {
 			while (!next_active.empty()) {
@@ -86,7 +86,6 @@ public:
 			// plug queue back in (regular loop picks it out again)
 			next_active.swap_container(active);
 			next_active.set_size(num_active);
-			num_tries++;
 		} while (!next_active.empty());
 		return true;
 	}
