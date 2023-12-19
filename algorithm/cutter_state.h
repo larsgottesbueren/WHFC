@@ -1,5 +1,7 @@
 #pragma once
 
+#include <array>
+
 #include "../datastructure/queue.h"
 #include "../definitions.h"
 #include "../datastructure/border.h"
