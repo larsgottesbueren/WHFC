@@ -159,6 +159,8 @@ namespace whfc {
         void setBulkPiercing(bool use) { piercer.setBulkPiercing(use); }
 
         void forceSequential(bool force) { cs.force_sequential = force; }
+
+        void setSeed(int seed) { cs.rng.setSeed(seed); }
     };
 
 } // namespace whfc
