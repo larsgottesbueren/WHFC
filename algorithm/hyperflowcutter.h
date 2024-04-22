@@ -19,7 +19,8 @@ namespace whfc {
 
         static constexpr bool log = false;
 
-        HyperFlowCutter(FlowHypergraph& hg, int seed) : timer("HyperFlowCutter"), hg(hg), cs(hg, timer), piercer(hg, cs) {
+        HyperFlowCutter(FlowHypergraph& hg, int seed, bool deterministic = false) : timer("HyperFlowCutter"), hg(hg), cs(hg, timer), piercer(hg, cs) {
+            piercer.deterministic = deterministic;
             cs.rng.setSeed(seed);
             reset();
         }
