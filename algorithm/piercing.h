@@ -40,11 +40,13 @@ namespace whfc {
                         }
                         bucket.clear();
                     } else {
+                        // TODO this is where you want to be sorting things to make it deterministic
+
                         // the old random, lazy-clear method. except we might do more than one node
                         while (!bucket.empty()) {
-                            size_t it = cs.rng.randomIndex(0, bucket.size() - 1);
-                            Node candidate = bucket[it];
-                            bucket[it] = bucket.back();
+                            size_t pos = cs.rng.randomIndex(0, bucket.size() - 1);
+                            Node candidate = bucket[pos];
+                            bucket[pos] = bucket.back();
                             bucket.pop_back();
 
                             if (cs.most_balanced_cut_mode) {
@@ -82,6 +84,7 @@ namespace whfc {
                     return true;
                 } else if (i == NodeBorder::not_reachable_bucket_index && !cs.most_balanced_cut_mode) {
                     if (cs.unclaimedNodeWeight() > 0) {
+
                         // nodes may have been mis-classified as reachable when first inserted (this happens with nodes that get isolated)
                         // move those to the first PQ
                         size_t num_moved = 0;
