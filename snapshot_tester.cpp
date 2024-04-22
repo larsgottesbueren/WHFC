@@ -52,7 +52,7 @@ namespace whfc {
 
         unpin();
 
-        for (int threads = 32; threads <= 32; threads *= 2) {
+        for (size_t threads = 32; threads <= 32; threads *= 2) {
             auto gc = tbb::global_control{ tbb::global_control::max_allowed_parallelism, threads };
             whfc::pinning_observer thread_pinner;
             thread_pinner.observe(true);
