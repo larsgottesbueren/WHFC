@@ -1,7 +1,7 @@
 #pragma once
 
-#include <sstream>
 #include <iostream>
+#include <sstream>
 #include "meta.h"
 
 template<int TAG, typename VALUE_TYPE, VALUE_TYPE INVALID, VALUE_TYPE DEFAULT = INVALID, typename... ADDITIONAL_CASTS>
@@ -19,28 +19,32 @@ public:
 
     constexpr explicit TaggedInteger(const ValueType& value) : internalValue(value) {}
 
-    constexpr inline operator const ValueType&() const noexcept {return internalValue;}
+    constexpr inline operator const ValueType&() const noexcept { return internalValue; }
 
     template<typename T, typename = typename std::enable_if_t<Meta::Contains<T, AdditionalCasts>()>>
-    constexpr inline operator T() const noexcept {return T(internalValue);}
+    constexpr inline operator T() const noexcept {
+        return T(internalValue);
+    }
 
-    constexpr inline const ValueType& value() const noexcept {return internalValue;}
+    constexpr inline const ValueType& value() const noexcept { return internalValue; }
 
     template<typename OtherValueType>
-    static inline Type fromOtherValueType(OtherValueType x) { return Type(static_cast<OtherValueType>(x)); }
+    static inline Type fromOtherValueType(OtherValueType x) {
+        return Type(static_cast<OtherValueType>(x));
+    }
 
-    constexpr static Type Invalid() {return TaggedInteger(InvalidValue);}
+    constexpr static Type Invalid() { return TaggedInteger(InvalidValue); }
 
-    inline bool isValid()  const noexcept {return internalValue != InvalidValue;}
-    inline bool isInvalid() const noexcept {return internalValue == InvalidValue;}
-    inline void invalidate() noexcept {internalValue = InvalidValue;}
+    inline bool isValid() const noexcept { return internalValue != InvalidValue; }
+    inline bool isInvalid() const noexcept { return internalValue == InvalidValue; }
+    inline void invalidate() noexcept { internalValue = InvalidValue; }
 
-    constexpr inline bool operator<(const Type& other)  const noexcept {return internalValue < other.internalValue;}
-    inline bool operator>(const Type& other)  const noexcept {return internalValue > other.internalValue;}
-    inline bool operator<=(const Type& other) const noexcept {return internalValue <= other.internalValue;}
-    inline bool operator>=(const Type& other) const noexcept {return internalValue >= other.internalValue;}
-    inline bool operator==(const Type& other) const noexcept {return internalValue == other.internalValue;}
-    inline bool operator!=(const Type& other) const noexcept {return internalValue != other.internalValue;}
+    constexpr inline bool operator<(const Type& other) const noexcept { return internalValue < other.internalValue; }
+    inline bool operator>(const Type& other) const noexcept { return internalValue > other.internalValue; }
+    inline bool operator<=(const Type& other) const noexcept { return internalValue <= other.internalValue; }
+    inline bool operator>=(const Type& other) const noexcept { return internalValue >= other.internalValue; }
+    inline bool operator==(const Type& other) const noexcept { return internalValue == other.internalValue; }
+    inline bool operator!=(const Type& other) const noexcept { return internalValue != other.internalValue; }
 
     inline Type& operator+=(const Type& other) noexcept {
         assert(isValid());
@@ -48,7 +52,7 @@ public:
         internalValue += other.internalValue;
         return *this;
     }
-    
+
     inline Type& operator+=(const ValueType& other) noexcept {
         assert(isValid());
         internalValue += other;
@@ -120,10 +124,10 @@ public:
         return Type(internalValue / other.internalValue);
     }
 
-    inline Type operator%(const Type& other) const noexcept{
+    inline Type operator%(const Type& other) const noexcept {
         assert(isValid());
         assert(other.isValid());
-    	return Type(internalValue % other.internalValue);
+        return Type(internalValue % other.internalValue);
     }
 
     inline Type& operator++() noexcept {
@@ -137,10 +141,8 @@ public:
         internalValue++;
         return Type(internalValue - 1);
     }
-    
-    inline Type& operator*() noexcept {
-        return *this;
-    }
+
+    inline Type& operator*() noexcept { return *this; }
 
     inline Type& operator--() noexcept {
         assert(isValid());
@@ -181,7 +183,6 @@ public:
 
 private:
     ValueType internalValue;
-
 };
 
 template<int TAG, typename DEPENDENCE>
