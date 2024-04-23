@@ -34,6 +34,12 @@ namespace whfc {
                 sorted_end = nodes.size();
                 return ret;
             }
+            void prepare(bool deterministic) {
+                if (deterministic) {
+                    std::sort(nodes.begin() + sorted_end, nodes.end());
+                }
+                sorted_end = nodes.size();
+            }
         };
 
         NodeBorder(const size_t initialN, const std::vector<HopDistance>& dfc, const int multiplier) :

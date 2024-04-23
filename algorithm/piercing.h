@@ -40,7 +40,7 @@ namespace whfc {
                         }
                         bucket.clear();
                     } else {
-                        // TODO this is where you want to be sorting things to make it deterministic
+                        bucket.prepare(deterministic);
 
                         // the old random, lazy-clear method. except we might do more than one node
                         while (!bucket.empty()) {
@@ -89,7 +89,7 @@ namespace whfc {
                         size_t r = NodeBorder::reachable_bucket_index;
                         for (HopDistance d = border->max_occupied_bucket[r]; d >= border->min_occupied_bucket[r]; --d) {
                             auto& bucket = border->buckets[d][r];
-                            // TODO sort here too
+                            bucket.prepare(deterministic);
 
                             auto new_end = std::remove_if(bucket.begin(), bucket.end(), [&](const Node& u) {
                                 if (cs.isNonTerminal(u)) {
