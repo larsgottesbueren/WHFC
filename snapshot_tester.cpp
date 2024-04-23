@@ -58,7 +58,9 @@ namespace whfc {
         whfc::pinning_observer thread_pinner;
         thread_pinner.observe(true);
 
-        for (int rep = 0; rep < 1; ++rep) {
+        std::vector<int> first_partition;
+
+        for (int rep = 0; rep < 7; ++rep) {
 
             int seed = 0;
             using FlowAlgorithm = ParallelPushRelabel;
@@ -100,11 +102,30 @@ namespace whfc {
             hfc.timer.start();
             bool result = hfc.enumerateCutsUntilBalancedOrFlowBoundExceeded(s, t, on_cut);
             hfc.timer.stop();
+
+            std::vector<int> current_partition;
+            if (result) {
+                // extract
+                current_partition.resize(hg.numNodes());
+                for (Node u : hg.nodeIDs()) {
+                    current_partition[u] = hfc.cs.flow_algo.isSource(u) ? 0 : 1;
+                }
+            }
+            if (rep == 0) {
+                first_partition = std::move(current_partition);
+            } else {
+                if (first_partition != current_partition) {
+                    std::cout << "Unequal :(" << std::endl;
+                }
+            }
+
             /*
              * header
              * graph,algorithm,seed,threads,improved,flow,flowbound,time,mbc_time,time_limit_exceeded,num_cuts,discharge,global relabel,update,source
              * cut,saturate,assimilate,pierce
              */
+
+#if false
             std::cout << base_filename << ",FlowCutter,";
             // std::cout << seed << ",";
             std::cout << rep << ",";
@@ -126,6 +147,7 @@ namespace whfc {
             std::cout << V(result) << " " << V(hfc.cs.flow_algo.flow_value) << std::endl;
             hfc.timer.report(std::cout);
             hfc.timer.clear();
+#endif
         }
     }
 } // namespace whfc
