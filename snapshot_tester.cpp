@@ -52,81 +52,80 @@ namespace whfc {
 
         unpin();
 
-        for (size_t threads = 32; threads <= 32; threads *= 2) {
-            auto gc = tbb::global_control{ tbb::global_control::max_allowed_parallelism, threads };
-            whfc::pinning_observer thread_pinner;
-            thread_pinner.observe(true);
+        // for (size_t threads = 32; threads <= 32; threads *= 2) {
+        size_t threads = max_threads;
+        auto gc = tbb::global_control{ tbb::global_control::max_allowed_parallelism, threads };
+        whfc::pinning_observer thread_pinner;
+        thread_pinner.observe(true);
 
-            for (int rep = 0; rep < 1; ++rep) {
+        for (int rep = 0; rep < 1; ++rep) {
 
-                int seed = 0;
-                using FlowAlgorithm = ParallelPushRelabel;
-                // using FlowAlgorithm = SequentialPushRelabel;
-                HyperFlowCutter<FlowAlgorithm> hfc(hg, seed);
-                hfc.setFlowBound(info.upperFlowBound);
-                hfc.forceSequential(false);
-                hfc.setBulkPiercing(true);
-                for (int i = 0; i < 2; ++i)
-                    hfc.cs.setMaxBlockWeight(i, info.maxBlockWeight[i]);
+            int seed = 0;
+            using FlowAlgorithm = ParallelPushRelabel;
+            // using FlowAlgorithm = SequentialPushRelabel;
+            HyperFlowCutter<FlowAlgorithm> hfc(hg, seed, /*deterministic=*/true);
+            hfc.setFlowBound(info.upperFlowBound);
+            hfc.forceSequential(false);
+            hfc.setBulkPiercing(true);
+            for (int i = 0; i < 2; ++i)
+                hfc.cs.setMaxBlockWeight(i, info.maxBlockWeight[i]);
 
-                WHFC_IO::readRandomGeneratorState(filename, hfc.cs.rng);
+            WHFC_IO::readRandomGeneratorState(filename, hfc.cs.rng);
 
-                bool time_limit_exceeded = false;
-                size_t measure_step = 0;
-                auto start_time = std::chrono::high_resolution_clock::now();
-                int time_limit = 3600; // seconds
-                size_t num_cuts = 0;
-                Flow last_cut = 0;
+            bool time_limit_exceeded = false;
+            size_t measure_step = 0;
+            auto start_time = std::chrono::high_resolution_clock::now();
+            int time_limit = 3600; // seconds
+            size_t num_cuts = 0;
+            Flow last_cut = 0;
 
-                auto on_cut = [&] {
-                    if (hfc.cs.flow_algo.flow_value != last_cut) {
-                        last_cut = hfc.cs.flow_algo.flow_value;
-                        num_cuts++;
+            auto on_cut = [&] {
+                if (hfc.cs.flow_algo.flow_value != last_cut) {
+                    last_cut = hfc.cs.flow_algo.flow_value;
+                    num_cuts++;
+                }
+                if (++measure_step == 50) {
+                    measure_step = 0;
+                    auto now = std::chrono::high_resolution_clock::now();
+                    if (std::chrono::duration_cast<std::chrono::seconds>(now - start_time).count() > time_limit) {
+                        time_limit_exceeded = true;
+                        return false;
                     }
-                    if (++measure_step == 50) {
-                        measure_step = 0;
-                        auto now = std::chrono::high_resolution_clock::now();
-                        if (std::chrono::duration_cast<std::chrono::seconds>(now - start_time).count() > time_limit) {
-                            time_limit_exceeded = true;
-                            return false;
-                        }
-                    }
-                    return true;
-                };
+                }
+                return true;
+            };
 
-                std::string base_filename = filename.substr(filename.find_last_of("/\\") + 1);
+            std::string base_filename = filename.substr(filename.find_last_of("/\\") + 1);
 
-                hfc.timer.start();
-                bool result = hfc.enumerateCutsUntilBalancedOrFlowBoundExceeded(s, t, on_cut);
-                hfc.timer.stop();
-                /*
-                 * header
-                 * graph,algorithm,seed,threads,improved,flow,flowbound,time,mbc_time,time_limit_exceeded,num_cuts,discharge,global relabel,update,source
-                 * cut,saturate,assimilate,pierce
-                 */
-                std::cout << base_filename << ",FlowCutter,";
-                // std::cout << seed << ",";
-                std::cout << rep << ",";
-                std::cout << threads << ",";
-                std::cout << (result ? "yes" : "no") << ",";
-                std::cout << hfc.cs.flow_algo.flow_value << "," << info.upperFlowBound << ",";
-                std::cout << hfc.timer.get("HyperFlowCutter").count() << "," << hfc.timer.get("MBMC").count() << ",";
-                std::cout << (time_limit_exceeded ? "yes" : "no") << ",";
-                std::cout << num_cuts;
-
-                auto& f = hfc.cs.flow_algo;
-                std::cout << "," << f.discharge_time << "," << f.global_relabel_time << "," << f.update_time << "," << f.source_cut_time << ","
-                          << f.saturate_time;
-                std::cout << "," << hfc.assimilate_time << "," << hfc.pierce_time;
-
-                std::cout << std::endl;
-            }
-
+            hfc.timer.start();
+            bool result = hfc.enumerateCutsUntilBalancedOrFlowBoundExceeded(s, t, on_cut);
+            hfc.timer.stop();
             /*
+             * header
+             * graph,algorithm,seed,threads,improved,flow,flowbound,time,mbc_time,time_limit_exceeded,num_cuts,discharge,global relabel,update,source
+             * cut,saturate,assimilate,pierce
+             */
+            std::cout << base_filename << ",FlowCutter,";
+            // std::cout << seed << ",";
+            std::cout << rep << ",";
+            std::cout << threads << ",";
+            std::cout << (result ? "yes" : "no") << ",";
+            std::cout << hfc.cs.flow_algo.flow_value << "," << info.upperFlowBound << ",";
+            std::cout << hfc.timer.get("HyperFlowCutter").count() << "," << hfc.timer.get("MBMC").count() << ",";
+            std::cout << (time_limit_exceeded ? "yes" : "no") << ",";
+            std::cout << num_cuts;
+
+            auto& f = hfc.cs.flow_algo;
+            std::cout << "," << f.discharge_time << "," << f.global_relabel_time << "," << f.update_time << "," << f.source_cut_time << "," << f.saturate_time;
+            std::cout << "," << hfc.assimilate_time << "," << hfc.pierce_time;
+
+            std::cout << std::endl;
+            //}
+
+
             std::cout << V(result) << " " << V(hfc.cs.flow_algo.flow_value) << std::endl;
             hfc.timer.report(std::cout);
             hfc.timer.clear();
-             */
         }
     }
 } // namespace whfc
