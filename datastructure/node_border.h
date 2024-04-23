@@ -7,6 +7,35 @@ namespace whfc {
 
     class NodeBorder {
     public:
+        struct Bucket {
+            std::vector<Node> nodes;
+            using iterator = decltype(nodes.begin());
+            size_t sorted_end = 0;
+            iterator begin() { return nodes.begin(); }
+            iterator end() { return nodes.end(); }
+            void clear() {
+                nodes.clear();
+                sorted_end = 0;
+            }
+            void push_back(Node u) { nodes.push_back(u); }
+            bool empty() const { return nodes.empty(); }
+            size_t size() const { return nodes.size(); }
+            Node get_and_remove(size_t pos) {
+                assert(sorted_end == nodes.size());
+                Node candidate = nodes[pos];
+                nodes[pos] = nodes.back();
+                nodes.pop_back();
+                sorted_end--;
+                return candidate;
+            }
+            iterator erase(iterator first, iterator last) {
+                assert(sorted_end == nodes.size());
+                auto ret = nodes.erase(first, last);
+                sorted_end = nodes.size();
+                return ret;
+            }
+        };
+
         NodeBorder(const size_t initialN, const std::vector<HopDistance>& dfc, const int multiplier) :
             was_added(initialN), buckets(10, { Bucket(), Bucket() }), max_occupied_bucket({ -1, -1 }), min_occupied_bucket({ 0, 0 }),
             backup_max_occupied_bucket({ -1, -1 }), backup_min_occupied_bucket({ 0, 0 }), removed_during_most_balanced_cut_mode({ Bucket(), Bucket() }),
@@ -74,9 +103,6 @@ namespace whfc {
             max_occupied_bucket = backup_max_occupied_bucket;
             min_occupied_bucket = backup_min_occupied_bucket;
         }
-
-        using Bucket = std::vector<Node>;
-
 
         void clearBuckets(const Index i) {
             for (HopDistance d = min_occupied_bucket[i]; d <= max_occupied_bucket[i]; ++d) {

@@ -45,9 +45,7 @@ namespace whfc {
                         // the old random, lazy-clear method. except we might do more than one node
                         while (!bucket.empty()) {
                             size_t pos = cs.rng.randomIndex(0, bucket.size() - 1);
-                            Node candidate = bucket[pos];
-                            bucket[pos] = bucket.back();
-                            bucket.pop_back();
+                            Node candidate = bucket.get_and_remove(pos);
 
                             if (cs.most_balanced_cut_mode) {
                                 // track for reset
