@@ -27,6 +27,7 @@ namespace whfc {
                     NodeBorder::Bucket& bucket = border->buckets[dist][i];
 
                     if (i == NodeBorder::not_reachable_bucket_index && add_all_unreachables) {
+                        // bucket.prepare(deterministic); // Not necessary for equal partitions, but necessary for equal piercing sequences
                         // add all unreachable border nodes to speed up the process (we're going to add all unreachable nodes anyway)
                         for (Node candidate : bucket) {
                             if (cs.isNonTerminal(candidate) && settlingDoesNotExceedMaxWeight(candidate)) {
@@ -40,6 +41,23 @@ namespace whfc {
                         }
                         bucket.clear();
                     } else {
+                        // in deterministic mode we have to filter the list first
+                        // we store candidates that become terminals after we discover them as candidates
+                        // the BFS visit order affects how many of these superfluous candidates we get, so the random number generation below is
+                        // non-deterministic if we have them all in there.
+                        if (deterministic) {
+                            auto new_end = std::remove_if(bucket.begin() + bucket.sorted_end, bucket.end(), [&](Node u) {
+                                if (!cs.isNonTerminal(u)) {
+                                    if (cs.most_balanced_cut_mode) {
+                                        // track for reset
+                                        border->removed_during_most_balanced_cut_mode[i].push_back(u);
+                                    }
+                                    return true;
+                                }
+                                return false;
+                            });
+                            bucket.nodes.erase(new_end, bucket.end());
+                        }
                         bucket.prepare(deterministic);
 
                         // the old random, lazy-clear method. except we might do more than one node
@@ -59,7 +77,6 @@ namespace whfc {
                                         if (use_bulk_piercing && i == 1 && !cs.most_balanced_cut_mode) {
                                             bulk_piercing[cs.side_to_pierce].total_bulk_piercing_nodes += num_piercing_nodes;
                                         }
-                                        LOGGER << V(num_piercing_nodes);
                                         return true;
                                     }
                                     // restrict adding multiple nodes to one distance bucket at a time?
@@ -78,7 +95,6 @@ namespace whfc {
                     if (use_bulk_piercing && i == 1 && !cs.most_balanced_cut_mode) {
                         bulk_piercing[cs.side_to_pierce].total_bulk_piercing_nodes += num_piercing_nodes;
                     }
-                    LOGGER << V(num_piercing_nodes);
                     return true;
                 } else if (i == NodeBorder::not_reachable_bucket_index && !cs.most_balanced_cut_mode) {
                     if (cs.unclaimedNodeWeight() > 0) {
@@ -169,7 +185,6 @@ namespace whfc {
 
         std::array<int, 2> piercing_fallbacks = { 0, 0 };
         static constexpr int piercing_fallback_limit_per_side = 3;
-
 
         size_t estimateMaxNumPiercingNodes() {
             int side = cs.side_to_pierce;

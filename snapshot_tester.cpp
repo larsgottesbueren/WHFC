@@ -40,15 +40,8 @@ namespace whfc {
 
 
     void runSnapshotTester(const std::string& filename, int max_threads) {
+        static constexpr bool log = true;
         pin();
-        FlowHypergraphBuilder hg;
-        HMetisIO::readFlowHypergraphWithBuilder(hg, filename);
-        WHFC_IO::WHFCInformation info = WHFC_IO::readAdditionalInformation(filename);
-        Node s = info.s;
-        Node t = info.t;
-        // std::cout << s << " " << t << " " << info.maxBlockWeight[0] << " " << info.maxBlockWeight[1] << " " << info.upperFlowBound<< std::endl;
-        if (s >= hg.numNodes() || t >= hg.numNodes())
-            throw std::runtime_error("s or t not within node id range");
 
         unpin();
 
@@ -60,7 +53,16 @@ namespace whfc {
 
         std::vector<int> first_partition;
 
-        for (int rep = 0; rep < 7; ++rep) {
+        for (int rep = 0; rep < 6; ++rep) {
+            FlowHypergraphBuilder hg;
+            HMetisIO::readFlowHypergraphWithBuilder(hg, filename);
+            WHFC_IO::WHFCInformation info = WHFC_IO::readAdditionalInformation(filename);
+            Node s = info.s;
+            Node t = info.t;
+            // std::cout << s << " " << t << " " << info.maxBlockWeight[0] << " " << info.maxBlockWeight[1] << " " << info.upperFlowBound<< std::endl;
+            if (s >= hg.numNodes() || t >= hg.numNodes())
+                throw std::runtime_error("s or t not within node id range");
+
 
             int seed = 0;
             using FlowAlgorithm = ParallelPushRelabel;
@@ -68,7 +70,7 @@ namespace whfc {
             HyperFlowCutter<FlowAlgorithm> hfc(hg, seed, /*deterministic=*/true);
             hfc.setFlowBound(info.upperFlowBound);
             hfc.forceSequential(false);
-            hfc.setBulkPiercing(true);
+            hfc.setBulkPiercing(false);
             for (int i = 0; i < 2; ++i)
                 hfc.cs.setMaxBlockWeight(i, info.maxBlockWeight[i]);
 
@@ -80,6 +82,8 @@ namespace whfc {
             int time_limit = 3600; // seconds
             size_t num_cuts = 0;
             Flow last_cut = 0;
+
+            hfc.find_most_balanced = true;
 
             auto on_cut = [&] {
                 if (hfc.cs.flow_algo.flow_value != last_cut) {
@@ -115,7 +119,14 @@ namespace whfc {
                 first_partition = std::move(current_partition);
             } else {
                 if (first_partition != current_partition) {
-                    std::cout << "Unequal :(" << std::endl;
+                    size_t num_diffs = 0;
+                    for (size_t i = 0; i < first_partition.size() && i < current_partition.size(); ++i) {
+                        if (first_partition[i] != current_partition[i]) {
+                            num_diffs++;
+                        }
+                    }
+                    LOGGER << "Partitions differ " << V(num_diffs) << V(hg.numNodes()) << V(rep) << V(filename);
+                    std::exit(0);
                 }
             }
 
