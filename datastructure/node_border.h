@@ -23,7 +23,11 @@ public:
 		return distance[idx];
 	}
 
-	void resize(size_t n) { distance.resize(n, 0); }
+	void resize(size_t n) { 
+		if (n > distance.size()) {
+			distance.resize(n, 0);
+		}
+	}
 
 	int multiplier = -1;
 	std::vector<HopDistance> distance;
@@ -67,7 +71,9 @@ public:
 	
 	void reset(const size_t newN) {
 		mostBalancedCutMode = false;
-		was_added.resize(newN);
+		if (newN > was_added.size()) {
+			was_added.resize(newN);
+		}
 		was_added.reset(0, newN);
 		
 		for (Index i = 0; i < 2; ++i) {
