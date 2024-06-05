@@ -409,7 +409,7 @@ namespace whfc {
             if (set_reachability) {
                 last_target_side_queue_entry = next_active.size();
                 if (deterministic_killswitch) {
-                    std::sort(next_active.begin(), next_active.begin() + last_source_side_queue_entry);
+                    std::sort(next_active.begin(), next_active.begin() + last_target_side_queue_entry);
                 }
             }
             work_since_last_global_relabel = 0;
@@ -511,7 +511,7 @@ namespace whfc {
 
             last_target_side_queue_entry = next_active.size();
             if (deterministic_killswitch) {
-                std::sort(next_active.begin(), next_active.begin() + last_source_side_queue_entry);
+                std::sort(next_active.begin(), next_active.begin() + last_target_side_queue_entry);
             }
             next_active.swap_container(active); // go back
         }
