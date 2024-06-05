@@ -16,6 +16,7 @@ namespace whfc {
     public:
         static constexpr bool log = false;
         static constexpr bool capacitate_incoming_edges_of_in_nodes = true;
+        bool deterministic_killswitch = true;
 
         ParallelPushRelabel(FlowHypergraph& hg) : PushRelabelCommons(hg), next_active(0) {}
 
@@ -407,6 +408,9 @@ namespace whfc {
 
             if (set_reachability) {
                 last_target_side_queue_entry = next_active.size();
+                if (deterministic_killswitch) {
+                    std::sort(next_active.begin(), next_active.begin() + last_source_side_queue_entry);
+                }
             }
             work_since_last_global_relabel = 0;
             distance_labels_broken_from_target_side_piercing = false;
@@ -466,6 +470,9 @@ namespace whfc {
             }
 
             last_source_side_queue_entry = next_active.size();
+            if (deterministic_killswitch) {
+                std::sort(next_active.begin(), next_active.begin() + last_source_side_queue_entry);
+            }
         }
 
         void deriveTargetSideCut() {
@@ -503,6 +510,9 @@ namespace whfc {
 
 
             last_target_side_queue_entry = next_active.size();
+            if (deterministic_killswitch) {
+                std::sort(next_active.begin(), next_active.begin() + last_source_side_queue_entry);
+            }
             next_active.swap_container(active); // go back
         }
 
