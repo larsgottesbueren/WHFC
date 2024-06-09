@@ -36,7 +36,7 @@ namespace whfc {
             return i;
         }
 
-        static void writeAdditionalInformation(std::string& hgpath, WHFCInformation& i, Randomizer& rng) {
+        static void writeAdditionalInformation(const std::string& hgpath, WHFCInformation& i, Randomizer& rng) {
             std::string fileSuffix = ".whfc";
             std::ofstream f(hgpath + fileSuffix);
             f << i.maxBlockWeight[0] << " " << i.maxBlockWeight[1] << " " << i.upperFlowBound << " " << i.s << " " << i.t << std::endl;

@@ -40,6 +40,7 @@ namespace whfc {
 
 
     void runSnapshotTester(const std::string& filename, int max_threads) {
+
         static constexpr bool log = true;
         pin();
 
@@ -53,7 +54,7 @@ namespace whfc {
 
         std::vector<int> first_partition;
 
-        for (int rep = 0; rep < 6; ++rep) {
+        for (int rep = 0; rep < 10000; ++rep) {
             FlowHypergraphBuilder hg;
             HMetisIO::readFlowHypergraphWithBuilder(hg, filename);
             WHFC_IO::WHFCInformation info = WHFC_IO::readAdditionalInformation(filename);
@@ -65,6 +66,7 @@ namespace whfc {
 
 
             int seed = 0;
+            seed = 1369739463;
             using FlowAlgorithm = ParallelPushRelabel;
             // using FlowAlgorithm = SequentialPushRelabel;
             HyperFlowCutter<FlowAlgorithm> hfc(hg, seed, /*deterministic=*/true);
