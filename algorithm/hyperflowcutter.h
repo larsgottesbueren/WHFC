@@ -33,7 +33,9 @@ namespace whfc {
 
         bool pierce() {
             auto t = tbb::tick_count::now();
-            bool res = piercer.findPiercingNode() && (!cs.rejectPiercingIfAugmenting() || !cs.augmenting_path_available_from_piercing);
+            // DO NOT CHANGE THE ORDER OF THESE!
+            const bool reject_if_aug = cs.rejectPiercingIfAugmenting();
+            bool res = piercer.findPiercingNode() && (!reject_if_aug || !cs.augmenting_path_available_from_piercing);
             pierce_time += (tbb::tick_count::now() - t).seconds();
             return res;
         }
