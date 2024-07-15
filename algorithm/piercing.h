@@ -10,7 +10,7 @@ namespace whfc {
     public:
         explicit Piercer(FlowHypergraph& hg, CutterState<FlowAlgorithm>& cs) : hg(hg), cs(cs) {}
 
-        bool findPiercingNode() {
+        bool findPiercingNode(bool reject_piercing_if_augmenting) {
             if (cs.notSettledNodeWeight() == 0)
                 return false;
 
@@ -124,14 +124,14 @@ namespace whfc {
                         if (num_moved > 0) {
                             --i; // go again with i == 0 in the next round
                         }
-                    } else if (cs.rejectPiercingIfAugmenting()) {
+                    } else if (reject_piercing_if_augmenting) {
                         // in mbc mode there can be unreachable nodes in the 2nd bucket
                         return false;
                     }
                 }
             }
 
-            if (cs.rejectPiercingIfAugmenting()) {
+            if (reject_piercing_if_augmenting) {
                 return false;
             }
 
