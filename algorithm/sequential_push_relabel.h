@@ -3,10 +3,6 @@
 #include <queue>
 #include <vector>
 
-#include <tbb/enumerable_thread_specific.h>
-#include <tbb/parallel_for.h>
-#include <tbb/scalable_allocator.h>
-
 #include "../datastructure/buffered_vector.h"
 #include "../datastructure/flow_hypergraph.h"
 #include "push_relabel_commons.h"
