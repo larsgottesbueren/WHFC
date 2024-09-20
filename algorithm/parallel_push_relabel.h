@@ -42,7 +42,7 @@ namespace whfc {
             saturateSourceEdges();
             auto t2 = tbb::tick_count::now();
             saturate_time += (t2 - t).seconds();
-            size_t num_tries = 0, num_iterations_with_same_flow = 0;
+            size_t num_iterations_with_same_flow = 0;
             bool termination_check_triggered = false;
             do {
                 while (!next_active.empty()) {
@@ -52,41 +52,40 @@ namespace whfc {
                     num_active = next_active.size();
                     next_active.swap_container(active);
 
-                    if (distance_labels_broken_from_target_side_piercing || work_since_last_global_relabel > global_relabel_work_threshold) {
-                        globalRelabel<false>();
-                    }
-
-                    Flow old_flow_value = flow_value;
-
-                    auto t3 = tbb::tick_count::now();
-                    dischargeActiveNodes();
-                    auto t4 = tbb::tick_count::now();
-                    discharge_time += (t4 - t3).seconds();
-                    applyUpdates();
-                    auto t5 = tbb::tick_count::now();
-                    update_time += (t5 - t4).seconds();
-
-
-                    if (old_flow_value == flow_value && num_active < 1500 && next_active.size() < 1500) {
-                        num_iterations_with_same_flow++;
-                        if (num_iterations_with_same_flow > 500 && !termination_check_triggered) {
-                            resetRound(); // delete active nodes and their markers --> trigger termination check global relabel
-                            termination_check_triggered = true; // do this only once! if it didn't work the first time, terminate regularly
+                        if (distance_labels_broken_from_target_side_piercing || work_since_last_global_relabel > global_relabel_work_threshold) {
+                            globalRelabel<false>();
                         }
-                    } else {
-                        num_iterations_with_same_flow = 0;
+
+                        Flow old_flow_value = flow_value;
+
+                        auto t3 = tbb::tick_count::now();
+                        dischargeActiveNodes();
+                        auto t4 = tbb::tick_count::now();
+                        discharge_time += (t4 - t3).seconds();
+                        applyUpdates();
+                        auto t5 = tbb::tick_count::now();
+                        update_time += (t5 - t4).seconds();
+
+
+                        if (old_flow_value == flow_value && num_active < 1500 && next_active.size() < 1500) {
+                            num_iterations_with_same_flow++;
+                            if (num_iterations_with_same_flow > 500 && !termination_check_triggered) {
+                                resetRound(); // delete active nodes and their markers --> trigger termination check global relabel
+                                termination_check_triggered = true; // do this only once! if it didn't work the first time, terminate regularly
+                            }
+                        } else {
+                            num_iterations_with_same_flow = 0;
+                        }
                     }
-                }
 
                 // no more nodes with level < n and excess > 0 left.
                 // however labels might be broken from parallelism
                 // --> run global relabeling to check if done.
                 num_active = 0;
-                globalRelabel<true>(); // setting the template parameter to true means the function sets reachability info, since we expect to be finished
+                globalRelabel<true>();	// setting the template parameter to true means the function sets reachability info, since we expect to be finished
                 // plug queue back in (regular loop picks it out again)
                 next_active.swap_container(active);
                 next_active.set_size(num_active);
-                num_tries++;
             } while (!next_active.empty());
             return true;
         }

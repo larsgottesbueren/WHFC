@@ -1,5 +1,11 @@
 #pragma once
 
+#include <array>
+
+#include "../datastructure/border.h"
+#include "../datastructure/flow_hypergraph.h"
+#include "../datastructure/node_border.h"
+
 #include "../datastructure/border.h"
 #include "../datastructure/flow_hypergraph.h"
 #include "../datastructure/node_border.h"

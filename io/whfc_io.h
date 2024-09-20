@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <fstream>
 #include "../definitions.h"
 #include "../util/random.h"

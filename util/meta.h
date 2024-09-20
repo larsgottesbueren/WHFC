@@ -1,10 +1,10 @@
 #pragma once
 
-#include <emmintrin.h>
-#include <iostream>
-#include <type_traits>
-#include <typeinfo>
 #include <utility>
+#include <typeinfo>
+#include <type_traits>
+#include <iostream>
+#include <typeinfo>
 
 #include <cstdlib>
 #include <memory>
