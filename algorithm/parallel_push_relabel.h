@@ -5,6 +5,7 @@
 #include <tbb/parallel_for.h>
 #include <tbb/parallel_invoke.h>
 #include <tbb/parallel_reduce.h>
+#include <tbb/tick_count.h>
 
 #include "../util/sub_range.h"
 
