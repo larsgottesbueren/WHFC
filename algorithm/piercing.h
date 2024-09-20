@@ -221,7 +221,9 @@ namespace whfc {
 
                 bp.initial_terminal_weight = (side == 0 ? cs.source_weight : cs.target_weight);
                 double ratio = static_cast<double>(cs.maxBlockWeight(side)) / static_cast<double>(cs.maxBlockWeight(0) + cs.maxBlockWeight(1));
-                bp.initial_total_weight_goal_to_add = ratio * hg.totalNodeWeight() - bp.initial_terminal_weight;
+                // This can be negative if the initial weight is higher than the perfectly balanced part weight. 
+                // In that case we only want to grow the other side, so this value was never being accessed in the first place, but sanitizers complain rightfully.
+                bp.initial_total_weight_goal_to_add = std::max<double>(0.0, ratio * hg.totalNodeWeight() - bp.initial_terminal_weight);
                 // bp.initial_total_weight_goal_to_add = cs.maxBlockWeight(side) - bp.initial_terminal_weight;
                 bp.current_tier_weight_goal = bp.initial_total_weight_goal_to_add;
             }
