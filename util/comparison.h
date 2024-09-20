@@ -1,5 +1,7 @@
 #pragma once
 
+#include <utility>
+
 namespace Util {
     template<typename T>
     class InvertComparison {
