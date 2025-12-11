@@ -12,6 +12,7 @@ set(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -lm")
 #set(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -fno-omit-frame-pointer")
 
 add_executable(WHFC main.cpp)
+target_link_libraries(WHFC PUBLIC TBB::tbb TBB::tbbmalloc)
 
 add_executable(TESTS run_tests.cpp)
 target_link_libraries(TESTS PUBLIC TBB::tbb TBB::tbbmalloc)
