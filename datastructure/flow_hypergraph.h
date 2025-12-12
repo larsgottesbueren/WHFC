@@ -1,5 +1,7 @@
 #pragma once
 
+#include <numeric>
+
 #include "../definitions.h"
 #include "../util/unused.h"
 
@@ -49,7 +51,7 @@ namespace whfc {
                        std::vector<Node>& _pins) :
             maxHyperedgeCapacity(0),
             nodes(node_weights.size() + 1), hyperedges(hyperedge_weights.size() + 1), pins(_pins.size()), incident_hyperedges(_pins.size()),
-            total_node_weight(boost::accumulate(node_weights, NodeWeight(0))) {
+            total_node_weight(std::accumulate(node_weights.begin(), node_weights.end(), NodeWeight(0))) {
             size_t i = 0;
             for (const Node p : _pins) {
                 pins[i++].pin = p; // copy pins

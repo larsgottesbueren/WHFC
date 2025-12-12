@@ -1,7 +1,5 @@
 #pragma once
 
-#include <boost/range/adaptor/reversed.hpp>
-#include <boost/range/numeric.hpp>
 #include <cstdint>
 
 class IteratorChecks {
