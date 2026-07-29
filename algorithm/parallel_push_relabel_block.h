@@ -1,5 +1,7 @@
 #pragma once
 
+#include <atomic>
+
 #include "push_relabel_commons.h"
 
 #include <tbb/parallel_for.h>
@@ -96,7 +98,7 @@ namespace whfc {
                 if (!isTarget(u)) {
                     level[u] = next_level[u];
                 } else {
-                    __atomic_fetch_add(&flow_value, excess_diff[u], __ATOMIC_RELAXED);
+                    std::atomic_ref<Flow>(flow_value).fetch_add(excess_diff[u], std::memory_order::relaxed);
                 }
                 excess[u] += excess_diff[u];
                 excess_diff[u] = 0;
@@ -106,7 +108,7 @@ namespace whfc {
                 assert(node_state[u] == LevelState::NOT_MODIFIED);
                 excess[u] += excess_diff[u];
                 if (isTarget(u) && excess_diff[u] > 0) {
-                    __atomic_fetch_add(&flow_value, excess_diff[u], __ATOMIC_RELAXED);
+                    std::atomic_ref<Flow>(flow_value).fetch_add(excess_diff[u], std::memory_order::relaxed);
                 }
                 excess_diff[u] = 0;
             });
@@ -139,7 +141,7 @@ namespace whfc {
                         if (excess[e_in] == 0 || updateNodeState(e_in, LevelState::EXPECT_STABLE)) {
                             flow[inNodeIncidenceIndex(i)] += d;
                             my_excess -= d;
-                            __atomic_fetch_add(&excess_diff[e_in], d, __ATOMIC_RELAXED);
+                            std::atomic_ref<Flow>(excess_diff[e_in]).fetch_add(d, std::memory_order::relaxed);
                             push(e_in);
                         } else {
                             skipped = true;
@@ -162,7 +164,7 @@ namespace whfc {
                             assert(flow[outNodeIncidenceIndex(i)] <= hg.capacity(e));
                             flow[outNodeIncidenceIndex(i)] -= d;
                             my_excess -= d;
-                            __atomic_fetch_add(&excess_diff[e_out], d, __ATOMIC_RELAXED);
+                            std::atomic_ref<Flow>(excess_diff[e_out]).fetch_add(d, std::memory_order::relaxed);
                             push(e_out);
                         } else {
                             skipped = true;
@@ -188,8 +190,9 @@ namespace whfc {
             if (my_level < max_level && my_excess > 0) { // go again in the next round if excess left
                 push(u);
             }
-            __atomic_fetch_sub(&excess_diff[u], (excess[u] - my_excess),
-                               __ATOMIC_RELAXED); // excess[u] serves as indicator for other nodes that u is active --> update later
+            std::atomic_ref<Flow>(excess_diff[u])
+                    .fetch_sub((excess[u] - my_excess),
+                               std::memory_order::relaxed); // excess[u] serves as indicator for other nodes that u is active --> update later
             return work;
         }
 
@@ -216,7 +219,7 @@ namespace whfc {
                     if (excess[e_out] == 0 || updateNodeState(e_out, LevelState::EXPECT_STABLE)) {
                         flow[bridgeEdgeIndex(e)] += d;
                         my_excess -= d;
-                        __atomic_fetch_add(&excess_diff[e_out], d, __ATOMIC_RELAXED);
+                        std::atomic_ref<Flow>(excess_diff[e_out]).fetch_add(d, std::memory_order::relaxed);
                         push(e_out);
                     } else {
                         skipped = true;
@@ -239,7 +242,7 @@ namespace whfc {
                             d = std::min(d, my_excess);
                             flow[j] -= d;
                             my_excess -= d;
-                            __atomic_fetch_add(&excess_diff[v], d, __ATOMIC_RELAXED);
+                            std::atomic_ref<Flow>(excess_diff[v]).fetch_add(d, std::memory_order::relaxed);
                             push(v);
                         } else {
                             skipped = true;
@@ -265,8 +268,9 @@ namespace whfc {
             if (my_level < max_level && my_excess > 0) { // go again in the next round if excess left
                 push(e_in);
             }
-            __atomic_fetch_sub(&excess_diff[e_in], (excess[e_in] - my_excess),
-                               __ATOMIC_RELAXED); // excess[u] serves as indicator for other nodes that u is active --> update later
+            std::atomic_ref<Flow>(excess_diff[e_in])
+                    .fetch_sub((excess[e_in] - my_excess),
+                               std::memory_order::relaxed); // excess[u] serves as indicator for other nodes that u is active --> update later
             return work;
         }
 
@@ -300,7 +304,7 @@ namespace whfc {
                             assert(d > 0 && d <= hg.capacity(e) - flow[outNodeIncidenceIndex(p.he_inc_iter)]);
                             flow[outNodeIncidenceIndex(p.he_inc_iter)] += d;
                             my_excess -= d;
-                            __atomic_fetch_add(&excess_diff[v], d, __ATOMIC_RELAXED);
+                            std::atomic_ref<Flow>(excess_diff[v]).fetch_add(d, std::memory_order::relaxed);
                             push(v);
                         } else {
                             skipped = true;
@@ -321,7 +325,7 @@ namespace whfc {
                     if (excess[e_in] == 0 || updateNodeState(e_in, LevelState::EXPECT_STABLE)) {
                         flow[bridgeEdgeIndex(e)] -= d;
                         my_excess -= d;
-                        __atomic_fetch_add(&excess_diff[e_in], d, __ATOMIC_RELAXED);
+                        std::atomic_ref<Flow>(excess_diff[e_in]).fetch_add(d, std::memory_order::relaxed);
                         push(e_in);
                         work++;
                     } else {
@@ -346,8 +350,9 @@ namespace whfc {
             if (my_level < max_level && my_excess > 0) { // go again in the next round if excess left
                 push(e_out);
             }
-            __atomic_fetch_sub(&excess_diff[e_out], (excess[e_out] - my_excess),
-                               __ATOMIC_RELAXED); // excess[u] serves as indicator for other nodes that u is active --> update later
+            std::atomic_ref<Flow>(excess_diff[e_out])
+                    .fetch_sub((excess[e_out] - my_excess),
+                               std::memory_order::relaxed); // excess[u] serves as indicator for other nodes that u is active --> update later
             return work;
         }
 
@@ -362,7 +367,8 @@ namespace whfc {
             auto scan = [&](Node u, int dist) {
                 auto next_layer = next_active.local_buffer();
                 scanBackward(u, [&](const Node v) {
-                    if (!isSource(v) && !isTarget(v) && level[v] == max_level && __atomic_exchange_n(&level[v], dist, __ATOMIC_ACQ_REL) == max_level) {
+                    if (!isSource(v) && !isTarget(v) && level[v] == max_level &&
+                        std::atomic_ref<int>(level[v]).exchange(dist, std::memory_order::acq_rel) == max_level) {
                         next_layer.push_back(v);
                     }
                 });
@@ -442,13 +448,15 @@ namespace whfc {
 
         bool updateNodeState(const Node u, const LevelState desired) {
             LevelState expected = LevelState::NOT_MODIFIED;
-            return node_state[u] == desired ||
-                   __atomic_compare_exchange_n(&node_state[u], &expected, static_cast<uint8_t>(desired), false, __ATOMIC_ACQ_REL, __ATOMIC_RELAXED);
+            return node_state[u] == desired || std::atomic_ref<LevelState>(node_state[u])
+                                                       .compare_exchange_strong(expected, desired, std::memory_order::acq_rel, std::memory_order::relaxed);
         }
 
         vec<uint32_t> last_activated;
         uint32_t round = 0;
-        bool activate(Node u) { return last_activated[u] != round && __atomic_exchange_n(&last_activated[u], round, __ATOMIC_ACQ_REL) != round; }
+        bool activate(Node u) {
+            return last_activated[u] != round && std::atomic_ref<uint32_t>(last_activated[u]).exchange(round, std::memory_order::acq_rel) != round;
+        }
         void resetRound() {
             if (++round == 0) {
                 last_activated.assign(max_level, 0);
