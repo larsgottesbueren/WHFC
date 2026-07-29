@@ -1,7 +1,9 @@
 cmake_minimum_required(VERSION 3.12)
 project(WHFC)
 
-find_package(TBB REQUIRED)
+if(NOT TARGET TBB::tbb)
+    find_package(TBB REQUIRED)
+endif()
 
 set(CMAKE_CXX_STANDARD 20)
 
