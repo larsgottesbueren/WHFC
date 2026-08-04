@@ -27,6 +27,11 @@ public:
         return T(internalValue);
     }
 
+    constexpr inline ValueType& value() noexcept {
+        assert(isValid());
+        return internalValue;
+    }
+
     constexpr inline const ValueType& value() const noexcept { return internalValue; }
 
     template<typename OtherValueType>

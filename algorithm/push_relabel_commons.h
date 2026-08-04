@@ -1,5 +1,7 @@
 #pragma once
 
+#include <atomic>
+
 #include "../datastructure/flow_hypergraph.h"
 #include "../datastructure/queue.h"
 
@@ -122,7 +124,7 @@ namespace whfc {
                 makeTarget(u);
                 target_piercing_nodes.push_back(u);
                 // flow_value += excess[u];	// if source-reachable nodes with excess get pierced
-                __atomic_fetch_add(&flow_value, excess[u], __ATOMIC_RELAXED);
+                std::atomic_ref<Flow>(flow_value).fetch_add(excess[u], std::memory_order::relaxed);
                 distance_labels_broken_from_target_side_piercing = true;
             }
         }
