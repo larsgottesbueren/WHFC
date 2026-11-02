@@ -167,6 +167,7 @@ namespace whfc {
                             skipped = true;
                         } else if (d > 0) {
                             const size_t j = inNodeIncidenceIndex(i);
+                            // winEdge guarantees no other thread writes to flow[j]
                             std::atomic_ref(flow[j]).store(flow[j] + d, std::memory_order::relaxed);
                             my_excess -= d;
                             std::atomic_ref(excess_diff[e_in]).fetch_add(d, std::memory_order::relaxed);
@@ -192,6 +193,7 @@ namespace whfc {
                             if (d > 0) {
                                 const size_t j = outNodeIncidenceIndex(i);
                                 assert(flow[j] <= hg.capacity(e));
+                                // winEdge guarantees no other thread writes to flow[j]
                                 std::atomic_ref(flow[j]).store(flow[j] - d, std::memory_order::relaxed);
                                 my_excess -= d;
                                 std::atomic_ref(excess_diff[e_out]).fetch_add(d, std::memory_order::relaxed);
@@ -245,6 +247,7 @@ namespace whfc {
                         const size_t j = bridgeEdgeIndex(e);
                         const Flow d = std::min(hg.capacity(e) - flow[j], my_excess);
                         if (d > 0) {
+                            // winEdge guarantees no other thread writes to flow[j]
                             std::atomic_ref(flow[j]).store(flow[j] + d, std::memory_order::relaxed);
                             my_excess -= d;
                             std::atomic_ref(excess_diff[e_out]).fetch_add(d, std::memory_order::relaxed);
@@ -269,6 +272,7 @@ namespace whfc {
                             skipped = true;
                         } else if (d > 0) {
                             d = std::min(d, my_excess);
+                            // winEdge guarantees no other thread writes to flow[j]
                             std::atomic_ref(flow[j]).store(flow[j] - d, std::memory_order::relaxed);
                             my_excess -= d;
                             std::atomic_ref(excess_diff[v]).fetch_add(d, std::memory_order::relaxed);
@@ -328,6 +332,7 @@ namespace whfc {
                         } else {
                             const size_t j = outNodeIncidenceIndex(p.he_inc_iter);
                             assert(d > 0 && d <= hg.capacity(e) - flow[j]);
+                            // winEdge guarantees no other thread writes to flow[j]
                             std::atomic_ref(flow[j]).store(flow[j] + d, std::memory_order::relaxed);
                             my_excess -= d;
                             std::atomic_ref(excess_diff[v]).fetch_add(d, std::memory_order::relaxed);
@@ -351,6 +356,7 @@ namespace whfc {
                         const size_t j = bridgeEdgeIndex(e);
                         Flow d = std::min(flow[j], my_excess);
                         if (d > 0) {
+                            // winEdge guarantees no other thread writes to flow[j]
                             std::atomic_ref(flow[j]).store(flow[j] - d, std::memory_order::relaxed);
                             my_excess -= d;
                             std::atomic_ref(excess_diff[e_in]).fetch_add(d, std::memory_order::relaxed);
