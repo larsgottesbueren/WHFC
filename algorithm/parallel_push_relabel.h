@@ -271,9 +271,9 @@ namespace whfc {
                         if (excess[v] > 0 && !winEdge(e_in, v)) {
                             skipped = true;
                         } else if (d > 0) {
+                            const Flow current_flow = d;
                             d = std::min(d, my_excess);
-                            // winEdge guarantees no other thread writes to flow[j]
-                            std::atomic_ref(flow[j]).store(flow[j] - d, std::memory_order::relaxed);
+                            std::atomic_ref(flow[j]).store(current_flow - d, std::memory_order::relaxed);
                             my_excess -= d;
                             std::atomic_ref(excess_diff[v]).fetch_add(d, std::memory_order::relaxed);
                             push(v);
