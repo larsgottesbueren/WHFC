@@ -124,7 +124,7 @@ namespace whfc {
                 if (!isTarget(u)) {
                     level[u] = next_level[u];
                 } else {
-                    std::atomic_ref<Flow>(flow_value).fetch_add(excess_diff[u], std::memory_order::relaxed);
+                    std::atomic_ref(flow_value).fetch_add(excess_diff[u], std::memory_order::relaxed);
                 }
                 excess[u] += excess_diff[u];
                 excess_diff[u] = 0;
@@ -133,7 +133,7 @@ namespace whfc {
                 const Node u = next_active[i];
                 excess[u] += excess_diff[u];
                 if (isTarget(u) && excess_diff[u] > 0) {
-                    std::atomic_ref<Flow>(flow_value).fetch_add(excess_diff[u], std::memory_order::relaxed);
+                    std::atomic_ref(flow_value).fetch_add(excess_diff[u], std::memory_order::relaxed);
                 }
                 excess_diff[u] = 0;
             });
@@ -160,15 +160,17 @@ namespace whfc {
                     Node e_in = edgeToInNode(e);
                     Flow d = my_excess;
                     if constexpr (capacitate_incoming_edges_of_in_nodes) {
-                        d = std::min(d, hg.capacity(e) - flow[inNodeIncidenceIndex(i)]);
+                        d = std::min(d, hg.capacity(e) - std::atomic_ref(flow[inNodeIncidenceIndex(i)]).load(std::memory_order::relaxed));
                     }
                     if (my_level == level[e_in] + 1) {
                         if (excess[e_in] > 0 && !winEdge(u, e_in)) {
                             skipped = true;
                         } else if (d > 0) {
-                            flow[inNodeIncidenceIndex(i)] += d;
+                            const size_t j = inNodeIncidenceIndex(i);
+                            // winEdge guarantees no other thread writes to flow[j]
+                            std::atomic_ref(flow[j]).store(flow[j] + d, std::memory_order::relaxed);
                             my_excess -= d;
-                            std::atomic_ref<Flow>(excess_diff[e_in]).fetch_add(d, std::memory_order::relaxed);
+                            std::atomic_ref(excess_diff[e_in]).fetch_add(d, std::memory_order::relaxed);
                             push(e_in);
                         }
                     } else if (my_level <= level[e_in] && d > 0) {
@@ -189,14 +191,17 @@ namespace whfc {
                         } else {
                             const Flow d = std::min(my_excess, flow[outNodeIncidenceIndex(i)]);
                             if (d > 0) {
-                                assert(flow[outNodeIncidenceIndex(i)] <= hg.capacity(e));
-                                flow[outNodeIncidenceIndex(i)] -= d;
+                                const size_t j = outNodeIncidenceIndex(i);
+                                assert(flow[j] <= hg.capacity(e));
+                                // winEdge guarantees no other thread writes to flow[j]
+                                std::atomic_ref(flow[j]).store(flow[j] - d, std::memory_order::relaxed);
                                 my_excess -= d;
-                                std::atomic_ref<Flow>(excess_diff[e_out]).fetch_add(d, std::memory_order::relaxed);
+                                std::atomic_ref(excess_diff[e_out]).fetch_add(d, std::memory_order::relaxed);
                                 push(e_out);
                             }
                         }
-                    } else if (my_level <= level[e_out] && flow[outNodeIncidenceIndex(i)] > 0) {
+                    } else if (my_level <= level[e_out] &&
+                               std::atomic_ref(flow[outNodeIncidenceIndex(i)]).load(std::memory_order_relaxed) > 0) {
                         new_level = std::min(new_level, level[e_out]);
                     }
                 }
@@ -213,7 +218,7 @@ namespace whfc {
                 push(u);
             }
             // excess[u] serves as indicator for other nodes that u is active --> update later
-            std::atomic_ref<Flow>(excess_diff[u]).fetch_sub((excess[u] - my_excess), std::memory_order::relaxed);
+            std::atomic_ref(excess_diff[u]).fetch_sub((excess[u] - my_excess), std::memory_order::relaxed);
             return work;
         }
 
@@ -239,16 +244,18 @@ namespace whfc {
                     if (excess[e_out] > 0 && !winEdge(e_in, e_out)) {
                         skipped = true;
                     } else {
-                        const Flow d = std::min(hg.capacity(e) - flow[bridgeEdgeIndex(e)], my_excess);
+                        const size_t j = bridgeEdgeIndex(e);
+                        const Flow d = std::min(hg.capacity(e) - flow[j], my_excess);
                         if (d > 0) {
-                            flow[bridgeEdgeIndex(e)] += d;
+                            // winEdge guarantees no other thread writes to flow[j]
+                            std::atomic_ref(flow[j]).store(flow[j] + d, std::memory_order::relaxed);
                             my_excess -= d;
-                            std::atomic_ref<Flow>(excess_diff[e_out]).fetch_add(d, std::memory_order::relaxed);
+                            std::atomic_ref(excess_diff[e_out]).fetch_add(d, std::memory_order::relaxed);
                             push(e_out);
                         }
                     }
                     work++;
-                } else if (my_level <= level[e_out] && flow[bridgeEdgeIndex(e)] < hg.capacity(e)) {
+                } else if (my_level <= level[e_out] && std::atomic_ref(flow[bridgeEdgeIndex(e)]).load(std::memory_order::relaxed) < hg.capacity(e)) {
                     new_level = std::min(new_level, level[e_out]);
                 }
 
@@ -258,16 +265,17 @@ namespace whfc {
                         break;
                     }
                     Node v = p.pin;
-                    size_t j = inNodeIncidenceIndex(p.he_inc_iter);
-                    Flow d = flow[j];
+                    const size_t j = inNodeIncidenceIndex(p.he_inc_iter);
+                    Flow d = std::atomic_ref(flow[j]).load(std::memory_order::relaxed);
                     if (my_level == level[v] + 1) {
                         if (excess[v] > 0 && !winEdge(e_in, v)) {
                             skipped = true;
                         } else if (d > 0) {
+                            const Flow current_flow = d;
                             d = std::min(d, my_excess);
-                            flow[j] -= d;
+                            std::atomic_ref(flow[j]).store(current_flow - d, std::memory_order::relaxed);
                             my_excess -= d;
-                            std::atomic_ref<Flow>(excess_diff[v]).fetch_add(d, std::memory_order::relaxed);
+                            std::atomic_ref(excess_diff[v]).fetch_add(d, std::memory_order::relaxed);
                             push(v);
                         }
                     } else if (d > 0 && my_level <= level[v]) {
@@ -287,7 +295,7 @@ namespace whfc {
                 push(e_in);
             }
             // excess[u] serves as indicator for other nodes that u is active --> update later
-            std::atomic_ref<Flow>(excess_diff[e_in]).fetch_sub((excess[e_in] - my_excess), std::memory_order::relaxed);
+            std::atomic_ref(excess_diff[e_in]).fetch_sub((excess[e_in] - my_excess), std::memory_order::relaxed);
             return work;
         }
 
@@ -322,10 +330,12 @@ namespace whfc {
                         if (excess[v] > 0 && !winEdge(e_out, v)) {
                             skipped = true;
                         } else {
-                            assert(d > 0 && d <= hg.capacity(e) - flow[outNodeIncidenceIndex(p.he_inc_iter)]);
-                            flow[outNodeIncidenceIndex(p.he_inc_iter)] += d;
+                            const size_t j = outNodeIncidenceIndex(p.he_inc_iter);
+                            assert(d > 0 && d <= hg.capacity(e) - flow[j]);
+                            // winEdge guarantees no other thread writes to flow[j]
+                            std::atomic_ref(flow[j]).store(flow[j] + d, std::memory_order::relaxed);
                             my_excess -= d;
-                            std::atomic_ref<Flow>(excess_diff[v]).fetch_add(d, std::memory_order::relaxed);
+                            std::atomic_ref(excess_diff[v]).fetch_add(d, std::memory_order::relaxed);
                             push(v);
                         }
                     } else if (my_level <= level[v]) {
@@ -343,16 +353,19 @@ namespace whfc {
                     if (excess[e_in] > 0 && !winEdge(e_out, e_in)) {
                         skipped = true;
                     } else {
-                        Flow d = std::min(flow[bridgeEdgeIndex(e)], my_excess);
+                        const size_t j = bridgeEdgeIndex(e);
+                        Flow d = std::min(flow[j], my_excess);
                         if (d > 0) {
-                            flow[bridgeEdgeIndex(e)] -= d;
+                            // winEdge guarantees no other thread writes to flow[j]
+                            std::atomic_ref(flow[j]).store(flow[j] - d, std::memory_order::relaxed);
                             my_excess -= d;
-                            std::atomic_ref<Flow>(excess_diff[e_in]).fetch_add(d, std::memory_order::relaxed);
+                            std::atomic_ref(excess_diff[e_in]).fetch_add(d, std::memory_order::relaxed);
                             push(e_in);
                         }
                         work++;
                     }
-                } else if (my_level <= level[e_in] && flow[bridgeEdgeIndex(e)] > 0) {
+                } else if (my_level <= level[e_in] &&
+                           std::atomic_ref(flow[bridgeEdgeIndex(e)]).load(std::memory_order_relaxed) > 0) {
                     new_level = std::min(new_level, level[e_in]);
                 }
 
@@ -367,7 +380,7 @@ namespace whfc {
                 push(e_out);
             }
             // excess[u] serves as indicator for other nodes that u is active --> update later
-            std::atomic_ref<Flow>(excess_diff[e_out]).fetch_sub((excess[e_out] - my_excess), std::memory_order::relaxed);
+            std::atomic_ref(excess_diff[e_out]).fetch_sub((excess[e_out] - my_excess), std::memory_order::relaxed);
             return work;
         }
 
@@ -388,20 +401,21 @@ namespace whfc {
             auto scan = [&](Node u, int dist) {
                 auto next_layer = next_active.local_buffer();
                 scanBackward(u, [&](const Node v) {
-                    if (!isSource(v) && !isTarget(v) && level[v] == max_level &&
-                        std::atomic_ref<int>(level[v]).exchange(dist, std::memory_order::acq_rel) == max_level) {
+                    if (!isSource(v) && !isTarget(v) &&
+                        std::atomic_ref(level[v]).load(std::memory_order_relaxed) == max_level &&
+                        std::atomic_ref(level[v]).exchange(dist, std::memory_order::acq_rel) == max_level) {
                         next_layer.push_back(v);
                     }
                 });
 
                 if (!isTarget(u) && excess[u] > 0 && last_activated[u] != round) { // add previously mis-labeled nodes to active queue, if not already contained
-                    size_t pos = std::atomic_ref<size_t>(num_active).fetch_add(1, std::memory_order::relaxed);
+                    size_t pos = std::atomic_ref(num_active).fetch_add(1, std::memory_order::relaxed);
                     active[pos] = u;
                 }
 
                 if constexpr (set_reachability) {
                     if (!isTarget(u)) {
-                        reach[u] = target_reachable_stamp;
+                        std::atomic_ref(reach[u]).store(target_reachable_stamp, std::memory_order::relaxed);
                     }
                 }
             };
@@ -447,7 +461,7 @@ namespace whfc {
                     scanForward(u, [&](const Node v) {
                         assert(!isTargetReachable(v));
                         if (!isSourceReachable(v) &&
-                            std::atomic_ref<uint32_t>(reach[v]).exchange(source_reachable_stamp, std::memory_order::acq_rel) != source_reachable_stamp) {
+                            std::atomic_ref(reach[v]).exchange(source_reachable_stamp, std::memory_order::acq_rel) != source_reachable_stamp) {
                             assert(flow_changed || excess[v] == 0);
                             next_layer.push_back(v);
                         }
@@ -615,9 +629,12 @@ namespace whfc {
 
         vec<uint32_t> last_activated;
         uint32_t round = 0;
+
         bool activate(Node u) {
-            return last_activated[u] != round && std::atomic_ref<uint32_t>(last_activated[u]).exchange(round, std::memory_order::acq_rel) != round;
+            auto last_activated_ref = std::atomic_ref(last_activated[u]);
+            return last_activated_ref.load(std::memory_order_relaxed) != round && last_activated_ref.exchange(round, std::memory_order::acq_rel) != round;
         }
+
         void resetRound() {
             if (++round == 0) {
                 last_activated.assign(max_level, 0);

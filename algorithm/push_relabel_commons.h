@@ -72,19 +72,30 @@ namespace whfc {
         /** reachability */
         vec<uint32_t> reach;
         uint32_t source_reachable_stamp = 0, target_reachable_stamp = 0, running_timestamp = 0;
-        bool isSource(Node u) const { return reach[u] == 1; }
+
+        uint32_t getReach(Node u) const {
+            // need const_cast since some compilers don't support const atomic_ref
+            return std::atomic_ref(const_cast<uint32_t&>(reach[u])).load(std::memory_order_relaxed);
+        }
+        bool isSource(Node u) const { return getReach(u) == 1; }
         void makeSource(Node u) {
             reach[u] = 1;
             level[u] = max_level;
         }
-        bool isSourceReachable(Node u) const { return isSource(u) || reach[u] == source_reachable_stamp; }
+        bool isSourceReachable(Node u) const {
+            uint32_t val = getReach(u);
+            return val == 1 || val == source_reachable_stamp;
+        }
         void reachFromSource(Node u) { reach[u] = source_reachable_stamp; }
-        bool isTarget(Node u) const { return reach[u] == 2; }
+        bool isTarget(Node u) const { return getReach(u) == 2; }
         void makeTarget(Node u) {
             reach[u] = 2;
             level[u] = 0;
         }
-        bool isTargetReachable(Node u) const { return isTarget(u) || reach[u] == target_reachable_stamp; }
+        bool isTargetReachable(Node u) const {
+            uint32_t val = getReach(u);
+            return val == 2 || val == target_reachable_stamp;
+        }
         void reachFromTarget(Node u) { reach[u] = target_reachable_stamp; }
         void unreach(Node u) { reach[u] = 0; }
         void resetReachability(bool forward) {

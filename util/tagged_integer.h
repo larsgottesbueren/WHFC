@@ -28,11 +28,14 @@ public:
     }
 
     constexpr inline ValueType& value() noexcept {
-        assert(isValid());
+        // don't assert isValid() since the check itself can constitute a race
         return internalValue;
     }
 
-    constexpr inline const ValueType& value() const noexcept { return internalValue; }
+    constexpr inline const ValueType& value() const noexcept {
+        // don't assert isValid() since the check itself can constitute a race
+        return internalValue;
+    }
 
     template<typename OtherValueType>
     static inline Type fromOtherValueType(OtherValueType x) {
